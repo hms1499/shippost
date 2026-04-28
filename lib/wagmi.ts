@@ -1,14 +1,28 @@
 import { createConfig, http } from 'wagmi';
-import { celo, celoAlfajores } from 'wagmi/chains';
+import { celo } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
+import { defineChain } from 'viem';
+
+export const celoSepolia = defineChain({
+  id: 11142220,
+  name: 'Celo Sepolia',
+  nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://forno.celo-sepolia.celo-testnet.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
+  },
+  testnet: true,
+});
 
 export const wagmiConfig = createConfig({
-  chains: [celoAlfajores, celo],
+  chains: [celoSepolia, celo],
   connectors: [
     injected({ shimDisconnect: true }),
   ],
   transports: {
-    [celoAlfajores.id]: http('https://alfajores-forno.celo-testnet.org'),
+    [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
     [celo.id]: http('https://forno.celo.org'),
   },
 });

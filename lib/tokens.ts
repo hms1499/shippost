@@ -1,5 +1,6 @@
-import { celo, celoAlfajores } from 'wagmi/chains';
+import { celo } from 'wagmi/chains';
 import type { Address } from 'viem';
+import { celoSepolia } from './wagmi';
 
 export type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
 
@@ -31,23 +32,23 @@ export const CELO_MAINNET_TOKENS: Record<TokenSymbol, TokenConfig> = {
   },
 };
 
-// Alfajores testnet — MockERC20 addresses filled in after Task 15 deploy.
-export const CELO_ALFAJORES_TOKENS: Record<TokenSymbol, TokenConfig> = {
+// Celo Sepolia testnet — MockERC20 addresses from deployments/celoSepolia.json
+export const CELO_SEPOLIA_TOKENS: Record<TokenSymbol, TokenConfig> = {
   cUSD: {
     symbol: 'cUSD',
-    address: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1',
+    address: '0xde53066fc77565f7258d5d59ccf129a2ba43a3be',
     decimals: 18,
-    displayName: 'Celo Dollar (testnet)',
+    displayName: 'Mock Celo Dollar',
   },
   USDT: {
     symbol: 'USDT',
-    address: '0x0000000000000000000000000000000000000000', // placeholder until Task 15
+    address: '0x174caa3b72fc683de0d62474ed1e24e36a6ab311',
     decimals: 6,
     displayName: 'Mock USDT',
   },
   USDC: {
     symbol: 'USDC',
-    address: '0x0000000000000000000000000000000000000000', // placeholder until Task 15
+    address: '0xfe26e6efa3189cf0eb7b5014b94137493def9107',
     decimals: 6,
     displayName: 'Mock USDC',
   },
@@ -55,7 +56,7 @@ export const CELO_ALFAJORES_TOKENS: Record<TokenSymbol, TokenConfig> = {
 
 export function getTokens(chainId: number): Record<TokenSymbol, TokenConfig> {
   if (chainId === celo.id) return CELO_MAINNET_TOKENS;
-  if (chainId === celoAlfajores.id) return CELO_ALFAJORES_TOKENS;
+  if (chainId === celoSepolia.id) return CELO_SEPOLIA_TOKENS;
   throw new Error(`Unsupported chain: ${chainId}`);
 }
 
