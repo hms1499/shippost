@@ -42,6 +42,12 @@ export default defineConfig({
       accounts: [DEPLOYER_PK],
       chainId: 44787,
     },
+    celoSepolia: {
+      type: 'http',
+      url: 'https://forno.celo-sepolia.celo-testnet.org',
+      accounts: [DEPLOYER_PK],
+      chainId: 11142220,
+    },
     celo: {
       type: 'http',
       url: 'https://forno.celo.org',

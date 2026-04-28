@@ -11,7 +11,7 @@
     "lint": "next lint",
     "test:contracts": "hardhat test",
     "compile": "hardhat compile",
-    "deploy:testnet": "hardhat run scripts/deploy.ts --network alfajores"
+    "deploy:testnet": "hardhat run scripts/deploy.ts --network celoSepolia"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
