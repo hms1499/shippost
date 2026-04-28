@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "description": "Pay-per-post AI thread writer for crypto builders — MiniPay MiniApp",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -26,10 +27,17 @@
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.4",
+    "@nomicfoundation/hardhat-viem": "^3.0.6",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@types/chai": "^5.2.3",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
+    "chai": "^6.2.2",
+    "dotenv": "^17.4.2",
+    "hardhat": "^3.4.2",
     "postcss": "^8.5.12",
     "tailwindcss": "^3.4.19",
     "typescript": "^6.0.3"
