@@ -1,15 +1,27 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAccount, useConnect } from 'wagmi';
+import { useEffect, useState } from 'react';
+import { useAccount, useConnect, useChainId } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 import { WalletStatus } from '@/components/WalletStatus';
+import { ModePicker } from '@/components/ModePicker';
+import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
+import { GeneratingStatus } from '@/components/GeneratingStatus';
+import { usePayForThread } from '@/lib/usePayForThread';
+
+type Screen = 'mode' | 'educational' | 'generating';
 
 export default function Home() {
   const { isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
+  const chainId = useChainId();
+
+  const [screen, setScreen] = useState<Screen>('mode');
+  const [mockOutput, setMockOutput] = useState<string | null>(null);
+  const [topic, setTopic] = useState('');
+  const { pay, status, threadId, txHash, error, reset } = usePayForThread();
 
   useEffect(() => {
     if (isMiniPay && !isConnected && connectors[0]) {
@@ -17,20 +29,87 @@ export default function Home() {
     }
   }, [isMiniPay, isConnected, connect, connectors]);
 
+  // When pay succeeds, trigger mock x402 call (real call in Task 21+)
+  useEffect(() => {
+    if (status === 'success' && threadId && !mockOutput) {
+      (async () => {
+        const res = await fetch('/api/x402/groq', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threadId: threadId.toString(), topic, mode: 0 }),
+        });
+        const json = await res.json();
+        setMockOutput(json.output ?? 'No output');
+      })();
+    }
+  }, [status, threadId, mockOutput, topic]);
+
+  // Celo Sepolia: 11142220, Celo mainnet: 42220
+  const explorerBase =
+    chainId === 42220
+      ? 'https://celoscan.io'
+      : 'https://celo-sepolia.blockscout.com';
+
+  async function handleEducationalSubmit(p: EducationalSubmitPayload) {
+    setTopic(p.topic);
+    setScreen('generating');
+    await pay(p.token, 0);
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-start gap-6 p-6 pt-12">
-      <h1 className="text-4xl font-bold text-primary">ShipPost</h1>
-      {isMiniPay && (
-        <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
-          MiniPay detected
-        </span>
-      )}
-      {isConnected ? (
-        <WalletStatus />
+    <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-primary">ShipPost</h1>
+        {isMiniPay && (
+          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
+            MiniPay
+          </span>
+        )}
+      </div>
+
+      {!isConnected ? (
+        <Button onClick={() => connect({ connector: connectors[0] })}>Connect wallet</Button>
       ) : (
-        <Button onClick={() => connect({ connector: connectors[0] })}>
-          Connect wallet
-        </Button>
+        <>
+          <WalletStatus />
+          {screen === 'mode' && (
+            <ModePicker
+              onSelect={(m) => {
+                if (m === 'educational') setScreen('educational');
+              }}
+            />
+          )}
+          {screen === 'educational' && (
+            <EducationalInput
+              onSubmit={handleEducationalSubmit}
+              disabled={status === 'approving' || status === 'paying'}
+            />
+          )}
+          {screen === 'generating' && (
+            <GeneratingStatus
+              txHash={txHash}
+              threadId={threadId}
+              mockOutput={mockOutput}
+              chainExplorerBase={explorerBase}
+            />
+          )}
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+          {screen === 'generating' && status === 'success' && mockOutput && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                reset();
+                setMockOutput(null);
+                setTopic('');
+                setScreen('mode');
+              }}
+            >
+              Write another
+            </Button>
+          )}
+        </>
       )}
     </main>
   );
