@@ -30,7 +30,7 @@
 - [x] Task 22 — topic/audience/length wired from UI → API
 
 ## Pending tasks
-- [ ] Task 23 — Vercel deploy + MiniPay smoke test (manual: GitHub push, Vercel import, set env vars)
+- [ ] Task 23 — Vercel deploy (env vars đã set, chỉ cần chạy `vercel --prod` để deploy)
 - [ ] Task 24 — Demo video + docs (manual)
 - [ ] Task 25 — Week 1 gate verification
 
@@ -55,8 +55,9 @@
 - Tasks 21+22 gộp: real Groq call + audience/length prompt engineering done together
 
 ## Cần nhớ cho session sau
-- Task 23 là manual: push GitHub → import Vercel → set env vars → deploy
-- Env vars cần set trên Vercel: AGENT_WALLET_PRIVATE_KEY, GROQ_API_KEY, MOCK_SETTLE=true, NEXT_PUBLIC_* contract addresses
-- AgentWallet cần có cUSD testnet để settle x402 (fund thủ công trên Celo Sepolia)
+- Task 23: GitHub repo đã push (github.com/hms1499/shippost), Vercel đã link, env vars đã set xong
+  - Chỉ cần chạy `vercel --prod` để hoàn tất deploy
+- Env vars đã set trên Vercel production: AGENT_WALLET_PRIVATE_KEY, GROQ_API_KEY, MOCK_SETTLE=true, NEXT_PUBLIC_PAYMENT_CONTRACT_TESTNET, NEXT_PUBLIC_AGENT_WALLET_TESTNET
+- AgentWallet cần có cUSD testnet để settle x402 khi MOCK_SETTLE=false (Week 2)
 - `pnpm test:contracts` → 10 passing
 - `pnpm build` → passes (242KB uncompressed, ~90KB gzipped on /)
