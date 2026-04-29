@@ -19,8 +19,8 @@ export default function Home() {
   const chainId = useChainId();
 
   const [screen, setScreen] = useState<Screen>('mode');
-  const [mockOutput, setMockOutput] = useState<string | null>(null);
-  const [topic, setTopic] = useState('');
+  const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
+  const [output, setOutput] = useState<string | null>(null);
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
 
   useEffect(() => {
@@ -29,29 +29,34 @@ export default function Home() {
     }
   }, [isMiniPay, isConnected, connect, connectors]);
 
-  // When pay succeeds, trigger mock x402 call (real call in Task 21+)
+  // When pay succeeds, call the x402 Groq proxy
   useEffect(() => {
-    if (status === 'success' && threadId && !mockOutput) {
+    if (status === 'success' && threadId && submitted && !output) {
       (async () => {
         const res = await fetch('/api/x402/groq', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ threadId: threadId.toString(), topic, mode: 0 }),
+          body: JSON.stringify({
+            threadId: threadId.toString(),
+            topic: submitted.topic,
+            audience: submitted.audience,
+            length: submitted.length,
+            mode: 0,
+            chainId,
+          }),
         });
         const json = await res.json();
-        setMockOutput(json.output ?? 'No output');
+        setOutput(json.output ?? json.error ?? 'No output');
       })();
     }
-  }, [status, threadId, mockOutput, topic]);
+  }, [status, threadId, submitted, output, chainId]);
 
   // Celo Sepolia: 11142220, Celo mainnet: 42220
   const explorerBase =
-    chainId === 42220
-      ? 'https://celoscan.io'
-      : 'https://celo-sepolia.blockscout.com';
+    chainId === 42220 ? 'https://celoscan.io' : 'https://celo-sepolia.blockscout.com';
 
   async function handleEducationalSubmit(p: EducationalSubmitPayload) {
-    setTopic(p.topic);
+    setSubmitted(p);
     setScreen('generating');
     await pay(p.token, 0);
   }
@@ -89,20 +94,18 @@ export default function Home() {
             <GeneratingStatus
               txHash={txHash}
               threadId={threadId}
-              mockOutput={mockOutput}
+              mockOutput={output}
               chainExplorerBase={explorerBase}
             />
           )}
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
-          {screen === 'generating' && status === 'success' && mockOutput && (
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {screen === 'generating' && status === 'success' && output && (
             <Button
               variant="outline"
               onClick={() => {
                 reset();
-                setMockOutput(null);
-                setTopic('');
+                setOutput(null);
+                setSubmitted(null);
                 setScreen('mode');
               }}
             >
