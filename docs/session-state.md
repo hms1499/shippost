@@ -1,9 +1,9 @@
 # Session State
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-04-29
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week1-foundation.md`
-**Current task:** Task 18 — ModePicker + EducationalInput UI
-**Last completed step:** Task 17 done — `lib/usePayForThread.ts` (approve + payForThread + threadId extract)
+**Current task:** Task 23 — Vercel deploy + MiniPay smoke test
+**Last completed step:** Tasks 18-22 done in one session
 
 ## Completed tasks (Week 1)
 - [x] Task 1 — Initialize project repo
@@ -23,15 +23,15 @@
 - [x] Task 15 — Deploy to Celo Sepolia + `scripts/deploy.ts`
 - [x] Task 16 — `lib/contracts.ts` (addresses + ABIs)
 - [x] Task 17 — `lib/usePayForThread.ts`
+- [x] Task 18 — `components/ModePicker.tsx` + `components/EducationalInput.tsx` + `components/TokenSelector.tsx`
+- [x] Task 19 — `components/GeneratingStatus.tsx` + `app/page.tsx` (full flow wired)
+- [x] Task 20 — `app/api/x402/groq/route.ts` (mock Groq proxy)
+- [x] Task 21 — Real Groq call + `lib/orchestrator.ts` (on-chain x402 settlement)
+- [x] Task 22 — topic/audience/length wired from UI → API
 
 ## Pending tasks
-- [ ] Task 18 — ModePicker + EducationalInput UI
-- [ ] Task 19 — Wire UI to pay flow + GeneratingStatus
-- [ ] Task 20 — x402 mock Groq proxy (MOCK_SETTLE toggle)
-- [ ] Task 21 — x402 real Groq + on-chain settlement
-- [ ] Task 22 — Wire topic from UI to backend
-- [ ] Task 23 — Vercel deploy + MiniPay smoke test
-- [ ] Task 24 — Demo video + docs
+- [ ] Task 23 — Vercel deploy + MiniPay smoke test (manual: GitHub push, Vercel import, set env vars)
+- [ ] Task 24 — Demo video + docs (manual)
 - [ ] Task 25 — Week 1 gate verification
 
 ## Deployed addresses (Celo Sepolia — chainId 11142220)
@@ -50,10 +50,13 @@
 - Alfajores deprecated → switched to Celo Sepolia (chainId 11142220)
 - celoSepolia not in viem yet — defined manually with `defineChain` in `lib/wagmi.ts`
 - `MOCK_SETTLE=true` in Week 1 (skip on-chain settle), flip to `false` in Week 2
-- All x402 work mocked in Week 1 via MOCK_SETTLE env flag
+- `orchestrator.ts` uses `AGENT_WALLET_PRIVATE_KEY` (not `ORCHESTRATOR_PRIVATE_KEY`) — matches CLAUDE.md
+- Explorer for Celo Sepolia: `https://celo-sepolia.blockscout.com` (not celoscan)
+- Tasks 21+22 gộp: real Groq call + audience/length prompt engineering done together
 
 ## Cần nhớ cho session sau
-- Resume từ Task 18: ModePicker + EducationalInput UI (shadcn components)
-- Có thể cần `pnpm dlx shadcn add card badge` trước khi viết components
+- Task 23 là manual: push GitHub → import Vercel → set env vars → deploy
+- Env vars cần set trên Vercel: AGENT_WALLET_PRIVATE_KEY, GROQ_API_KEY, MOCK_SETTLE=true, NEXT_PUBLIC_* contract addresses
+- AgentWallet cần có cUSD testnet để settle x402 (fund thủ công trên Celo Sepolia)
 - `pnpm test:contracts` → 10 passing
-- `pnpm build` → passes (160KB first load JS trên /)
+- `pnpm build` → passes (242KB uncompressed, ~90KB gzipped on /)
