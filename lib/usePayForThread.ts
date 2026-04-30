@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAccount, useChainId, useWalletClient, usePublicClient } from 'wagmi';
-import { erc20Abi, decodeEventLog, type Address } from 'viem';
+import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
+import { erc20Abi, decodeEventLog } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
 
@@ -26,7 +26,7 @@ export interface PayResult {
 export function usePayForThread(): PayResult {
   const { address } = useAccount();
   const chainId = useChainId();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient, refetch: refetchWalletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const [status, setStatus] = useState<PayStatus>('idle');
   const [threadId, setThreadId] = useState<bigint | null>(null);
@@ -42,7 +42,13 @@ export function usePayForThread(): PayResult {
 
   const pay = useCallback(
     async (token: TokenConfig, mode: 0 | 1) => {
-      if (!walletClient || !publicClient || !address || !chainId) {
+      if (!publicClient || !address || !chainId) {
+        setError('Wallet not connected');
+        setStatus('error');
+        return;
+      }
+      let wc = walletClient ?? (await refetchWalletClient()).data;
+      if (!wc) {
         setError('Wallet not connected');
         setStatus('error');
         return;
@@ -63,7 +69,7 @@ export function usePayForThread(): PayResult {
 
         if (allowance < amount) {
           setStatus('approving');
-          const approveHash = await walletClient.writeContract({
+          const approveHash = await wc.writeContract({
             address: token.address,
             abi: erc20Abi,
             functionName: 'approve',
@@ -73,7 +79,7 @@ export function usePayForThread(): PayResult {
         }
 
         setStatus('paying');
-        const payHash = await walletClient.writeContract({
+        const payHash = await wc.writeContract({
           address: paymentAddr,
           abi: shipPostPaymentAbi as any,
           functionName: 'payForThread',
@@ -107,7 +113,7 @@ export function usePayForThread(): PayResult {
         setStatus('error');
       }
     },
-    [walletClient, publicClient, address, chainId]
+    [walletClient, refetchWalletClient, publicClient, address, chainId]
   );
 
   return { status, threadId, txHash, error, pay, reset };
