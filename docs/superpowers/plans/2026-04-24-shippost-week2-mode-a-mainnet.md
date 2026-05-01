@@ -176,7 +176,7 @@ git commit -m "feat: Mode A prompt templates"
 - Create: `/Users/vanhuy/shippost/lib/threadParser.ts`
 - Create: `/Users/vanhuy/shippost/lib/threadParser.test.ts`
 
-- [ ] **Step 1: Install test runner if not present**
+- [x] **Step 1: Install test runner if not present**
 
 Week 1 did not add a JS test runner (Hardhat tests live in `test/*.t.ts`). Add Vitest for lib-level tests:
 
@@ -190,7 +190,7 @@ Add to `package.json` scripts:
 "test:lib": "vitest run lib"
 ```
 
-- [ ] **Step 2: Write the failing parser test**
+- [x] **Step 2: Write the failing parser test**
 
 Create `lib/threadParser.test.ts`:
 
@@ -248,7 +248,7 @@ still line one.
 });
 ```
 
-- [ ] **Step 3: Run the test to see it fail**
+- [x] **Step 3: Run the test to see it fail**
 
 ```bash
 pnpm test:lib
@@ -256,7 +256,7 @@ pnpm test:lib
 
 Expected: fails with "Cannot find module './threadParser'".
 
-- [ ] **Step 4: Implement parser**
+- [x] **Step 4: Implement parser**
 
 Create `lib/threadParser.ts`:
 
@@ -279,7 +279,7 @@ export function parseThread(raw: string): string[] {
 }
 ```
 
-- [ ] **Step 5: Run the test to see it pass**
+- [x] **Step 5: Run the test to see it pass**
 
 ```bash
 pnpm test:lib
@@ -287,7 +287,7 @@ pnpm test:lib
 
 Expected: 5/5 passing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/threadParser.ts lib/threadParser.test.ts package.json pnpm-lock.yaml
