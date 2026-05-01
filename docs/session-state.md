@@ -7,7 +7,7 @@
 
 ## Production
 - URL: https://shippost-kappa.vercel.app  (alias)
-- Latest deployment id: dpl_5XTZwE2fnY8JgsJV5fLm1DDGrycz
+- Latest deployment id: dpl_HahFZHw3EvBcZ82xZUrqiL7Rt9Dw  (built against new Pausable contracts)
 - Smoke: HTTP 200, ~5KB shell
 
 ## Completed tasks (Week 1)
