@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
-**Current task:** Week 2 Task 11 done — ShareToX renders below ThreadPreview on the preview screen with X intent link + copy-all. Next = **Task 12 (PostShareScreen — adds cost transparency, payment + agent-spend breakdown around ShareToX)**. Task 10 was scrapped 2026-05-01.
-**Last completed step:** Week 2 Task 11 (`components/ShareToX.tsx` wired into HomeClient preview screen; clipboard call try/catch with fallback message).
+**Current task:** Week 2 Tasks 12 + 13 done — `PostShareScreen` with 50/40/10 cost breakdown wired as a `'post-share'` screen behind the preview "I posted it →" button. Mode A frontend flow is now complete (mode → educational → generating → preview → post-share). Next = **Task 14 (Supabase project + threads schema)**.
+**Last completed step:** Week 2 Tasks 12 + 13 (`components/PostShareScreen.tsx` + HomeClient wire-in). Build pass.
 
 ## Known dead code
 - `MOCK_SETTLE` env var is set in `.env` but `lib/orchestrator.ts` does not check it — settle is always on-chain. Cleanup later (either remove env var or wire it).

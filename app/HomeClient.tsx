@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
+import { formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 import { WalletStatus } from '@/components/WalletStatus';
@@ -11,13 +12,15 @@ import { EducationalInput, type EducationalSubmitPayload } from '@/components/Ed
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { ThreadPreview } from '@/components/ThreadPreview';
 import { ShareToX } from '@/components/ShareToX';
+import { PostShareScreen } from '@/components/PostShareScreen';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
+import { computeTokenAmount } from '@/lib/tokens';
 import { celoSepolia } from '@/lib/wagmi';
 
-type Screen = 'mode' | 'educational' | 'generating' | 'preview';
+type Screen = 'mode' | 'educational' | 'generating' | 'preview' | 'post-share';
 
 export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
@@ -174,7 +177,27 @@ export default function HomeClient() {
               <h2 className="text-lg font-semibold">Your thread is ready</h2>
               <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
               <ShareToX tweets={draftTweets} />
+              <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
             </div>
+          )}
+          {screen === 'post-share' && submitted && (
+            <PostShareScreen
+              paidAmountUsd={Number(
+                formatUnits(computeTokenAmount(submitted.token), submitted.token.decimals),
+              ).toFixed(3)}
+              agentSpentUsd={gen.totalCostUsd ?? '0.001'}
+              tokenSymbol={submitted.token.symbol}
+              payTxHash={txHash}
+              agentWalletAddress={getContracts(chainId).AgentWallet}
+              explorerBase={explorerBase(chainId)}
+              onWriteAnother={() => {
+                reset();
+                resetGen();
+                setDraftTweets(null);
+                setSubmitted(null);
+                setScreen('mode');
+              }}
+            />
           )}
           {error && (
             <div className="flex flex-col items-center gap-2">
@@ -195,7 +218,7 @@ export default function HomeClient() {
               )}
             </div>
           )}
-          {(screen === 'preview' || (screen === 'generating' && gen.fatal)) && (
+          {screen === 'generating' && gen.fatal && (
             <Button
               variant="outline"
               onClick={() => {

@@ -1549,7 +1549,7 @@ git commit -m "feat(week2/task-11): ShareToX X-intent link + copy-all"
 **Files:**
 - Create: `/Users/vanhuy/shippost/components/PostShareScreen.tsx`
 
-- [ ] **Step 1: Create PostShareScreen**
+- [x] **Step 1: Create PostShareScreen**
 
 Create `components/PostShareScreen.tsx`:
 
@@ -1643,12 +1643,7 @@ export function PostShareScreen({
 }
 ```
 
-- [ ] **Step 2: Commit**
-
-```bash
-git add components/PostShareScreen.tsx
-git commit -m "feat: PostShareScreen with 50/40/10 cost breakdown"
-```
+- [x] **Step 2: Commit** (combined with Task 13 — `feat(week2/task-12+13)`)
 
 ---
 
@@ -1657,7 +1652,9 @@ git commit -m "feat: PostShareScreen with 50/40/10 cost breakdown"
 **Files:**
 - Modify: `/Users/vanhuy/shippost/app/page.tsx`
 
-- [ ] **Step 1: Extend Screen type + add preview/shared states**
+- [x] **Step 1: Extend Screen type + add preview/shared states**
+
+Implementation note (2026-05-01): the page lives in `app/HomeClient.tsx`. Changes were minimal — added `'post-share'` to the Screen union, an "I posted it →" button on preview, a post-share branch with `<PostShareScreen>`, computed `paidAmountUsd` via `formatUnits(computeTokenAmount(submitted.token), submitted.token.decimals)`. Dropped `ThumbnailCard` / `editedImageUrl` per scope change. Default `agentSpentUsd` = `'0.001'` (single Groq step). Plan template kept below for historical reference.
 
 In `app/page.tsx`, update the top imports and add preview/shared state. Replace the file body with:
 
@@ -1840,25 +1837,9 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 2: End-to-end smoke on Alfajores**
+- [x] **Step 2: ~~End-to-end smoke on Alfajores~~** — deferred to Task 22 (real MiniPay smoke test on Android). Build + typecheck verified.
 
-```bash
-pnpm dev
-```
-
-Run through the full flow:
-1. Connect → Educational → real topic → pay
-2. Progress theatre runs (Groq + Flux with checkmarks and tx links)
-3. Preview screen shows thumbnail, editable tweet cards, Share to X
-4. Click "I posted it" → see cost transparency
-5. Click "Write another" → back to mode picker
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/page.tsx
-git commit -m "feat: wire preview + share + post-share screens"
-```
+- [x] **Step 3: Commit** (combined with Task 12 — `feat(week2/task-12+13)`)
 
 ---
 
