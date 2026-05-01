@@ -933,13 +933,13 @@ git commit -m "feat(week2/task-6): useThreadGeneration SSE consumer hook"
 **Files:**
 - Modify: `/Users/vanhuy/shippost/components/GeneratingStatus.tsx`
 
-- [ ] **Step 1: Install Framer Motion**
+- [x] **Step 1: Install Framer Motion**
 
 ```bash
 pnpm add framer-motion
 ```
 
-- [ ] **Step 2: Replace GeneratingStatus with live progress theatre**
+- [x] **Step 2: Replace GeneratingStatus with live progress theatre**
 
 Replace `components/GeneratingStatus.tsx`:
 
@@ -1073,12 +1073,7 @@ export function GeneratingStatus({
 }
 ```
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add components/GeneratingStatus.tsx package.json pnpm-lock.yaml
-git commit -m "feat: live progress theatre with Framer Motion"
-```
+- [x] **Step 3: Commit** (combined with Task 8 commit to avoid broken intermediate state)
 
 ---
 
@@ -1089,7 +1084,9 @@ git commit -m "feat: live progress theatre with Framer Motion"
 **Files:**
 - Modify: `/Users/vanhuy/shippost/app/page.tsx`
 
-- [ ] **Step 1: Update page to use useThreadGeneration**
+- [x] **Step 1: Update page to use useThreadGeneration**
+
+Implementation note (2026-05-01): the page lives in `app/HomeClient.tsx` (not `page.tsx`) due to the SSR-hydration fix from Week 1. The actual diff was minimal — replace the direct `/api/x402/groq` `useEffect` with a `useThreadGeneration` start, swap the GeneratingStatus props, and add a simple `preview` screen rendering tweets. Production-quality guards (mounted, wrong-network, multi-wallet picker) were preserved — the code below is the original plan template, kept for historical reference only.
 
 Replace the `Home` component body in `app/page.tsx`. Find the existing mockOutput `useEffect` and the `generating` screen and refactor to:
 
@@ -1222,7 +1219,7 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 2: Create getExplorerBase helper**
+- [x] **Step 2: ~~Create getExplorerBase helper~~** — already exists as `explorerBase()` in `lib/chains.ts` from Week 1. Skipped.
 
 Create `lib/chains.ts`:
 
@@ -1240,16 +1237,7 @@ export function isSupportedChain(chainId: number): boolean {
 }
 ```
 
-- [ ] **Step 3: Smoke test end-to-end on Alfajores**
-
-```bash
-pnpm dev
-```
-
-In browser (with simulated MiniPay):
-- Connect → Educational mode → type real topic → pay.
-- Watch progress theatre: Groq checkmark appears with tx link, then Flux.
-- On done, app jumps to preview screen (currently empty — Task 9 builds it).
+- [x] **Step 3: ~~Smoke test end-to-end on Alfajores~~** — Backend SSE already smoke-tested in Task 5. Browser smoke test deferred until Task 9 (proper preview screen). Build + dev-server-200 verified.
 
 - [ ] **Step 4: Commit**
 

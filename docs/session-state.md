@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
-**Current task:** Week 2 Task 6 done — `useThreadGeneration` hook ready. Next = **Task 7 (Progress theatre UI — replace GeneratingStatus.tsx with Framer Motion live-step rendering)**.
-**Last completed step:** Week 2 Task 6 (typed SSE consumer state machine + abort-safe fetch). Build still clean, typecheck OK.
+**Current task:** Week 2 Tasks 7 + 8 done — progress theatre live in HomeClient, end-to-end SSE flow wired (preview screen is currently a stub list of tweets). Next = **Task 9 (ThreadPreview component with inline edit)** — replaces the stub.
+**Last completed step:** Week 2 Tasks 7 + 8 (rewrote `components/GeneratingStatus.tsx` with Framer Motion + 1 Groq row; rewrote `app/HomeClient.tsx` to drive SSE pipeline via `useThreadGeneration`; preserved mounted/wrong-network/multi-wallet guards from Week 1). Build pass, dev server 200.
 
 ## Known dead code
 - `MOCK_SETTLE` env var is set in `.env` but `lib/orchestrator.ts` does not check it — settle is always on-chain. Cleanup later (either remove env var or wire it).

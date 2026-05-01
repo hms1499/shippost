@@ -10,10 +10,12 @@ import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { usePayForThread } from '@/lib/usePayForThread';
+import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
+import { getContracts } from '@/lib/contracts';
 import { celoSepolia } from '@/lib/wagmi';
 
-type Screen = 'mode' | 'educational' | 'generating';
+type Screen = 'mode' | 'educational' | 'generating' | 'preview';
 
 export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
@@ -30,8 +32,8 @@ export default function HomeClient() {
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
-  const [output, setOutput] = useState<string | null>(null);
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
+  const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
   const autoConnectAttempted = useRef(false);
   useEffect(() => {
@@ -48,25 +50,29 @@ export default function HomeClient() {
   }, [mounted, isMiniPay, isConnected, connect, connectors]);
 
   useEffect(() => {
-    if (status === 'success' && threadId && submitted && !output) {
-      (async () => {
-        const res = await fetch('/api/x402/groq', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            threadId: threadId.toString(),
-            topic: submitted.topic,
-            audience: submitted.audience,
-            length: submitted.length,
-            mode: 0,
-            chainId,
-          }),
-        });
-        const json = await res.json();
-        setOutput(json.output ?? json.error ?? 'No output');
-      })();
+    if (
+      status === 'success' &&
+      threadId &&
+      submitted &&
+      !gen.hasStarted &&
+      !gen.isDone &&
+      !gen.fatal
+    ) {
+      void startGen({
+        threadId,
+        topic: submitted.topic,
+        audience: submitted.audience,
+        length: submitted.length,
+        chainId,
+      });
     }
-  }, [status, threadId, submitted, output, chainId]);
+  }, [status, threadId, submitted, gen.hasStarted, gen.isDone, gen.fatal, chainId, startGen]);
+
+  useEffect(() => {
+    if (gen.isDone && gen.tweets && !gen.fatal) {
+      setScreen('preview');
+    }
+  }, [gen.isDone, gen.tweets, gen.fatal]);
 
   return (
     <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
@@ -152,11 +158,27 @@ export default function HomeClient() {
           )}
           {screen === 'generating' && (
             <GeneratingStatus
-              txHash={txHash}
+              gen={gen}
+              payTxHash={txHash}
               threadId={threadId}
-              mockOutput={output}
               chainExplorerBase={explorerBase(chainId)}
+              agentWalletAddress={getContracts(chainId).AgentWallet}
             />
+          )}
+          {screen === 'preview' && gen.tweets && (
+            <div className="w-full max-w-md flex flex-col gap-3">
+              <h2 className="text-lg font-semibold">Your thread is ready</h2>
+              <ol className="flex flex-col gap-2 text-sm">
+                {gen.tweets.map((t, i) => (
+                  <li key={i} className="rounded-md border border-border p-3 whitespace-pre-wrap">
+                    {t}
+                  </li>
+                ))}
+              </ol>
+              <p className="text-xs text-muted-foreground">
+                Preview-only for now. Inline edit + Share to X coming in Task 9 / Task 11.
+              </p>
+            </div>
           )}
           {error && (
             <div className="flex flex-col items-center gap-2">
@@ -166,7 +188,7 @@ export default function HomeClient() {
                   variant="outline"
                   onClick={() => {
                     reset();
-                    setOutput(null);
+                    resetGen();
                     setSubmitted(null);
                     setScreen(submitted ? 'educational' : 'mode');
                   }}
@@ -176,12 +198,12 @@ export default function HomeClient() {
               )}
             </div>
           )}
-          {screen === 'generating' && status === 'success' && output && (
+          {(screen === 'preview' || (screen === 'generating' && gen.fatal)) && (
             <Button
               variant="outline"
               onClick={() => {
                 reset();
-                setOutput(null);
+                resetGen();
                 setSubmitted(null);
                 setScreen('mode');
               }}
