@@ -303,7 +303,7 @@ git commit -m "feat: thread parser with vitest coverage"
 - Create: `/Users/vanhuy/shippost/lib/pipeline/groqStep.ts`
 - Modify: `/Users/vanhuy/shippost/app/api/x402/groq/route.ts`
 
-- [ ] **Step 1: Define pipeline event types**
+- [x] **Step 1: Define pipeline event types**
 
 Create `lib/pipeline/types.ts`:
 
@@ -336,7 +336,7 @@ export interface PipelineContext {
 }
 ```
 
-- [ ] **Step 2: Create reusable Groq step**
+- [x] **Step 2: Create reusable Groq step**
 
 Create `lib/pipeline/groqStep.ts`:
 
@@ -414,7 +414,7 @@ export async function runGroqStep(
 }
 ```
 
-- [ ] **Step 3: Update /api/x402/groq to accept structured input**
+- [x] **Step 3: Update /api/x402/groq to accept structured input**
 
 Replace `app/api/x402/groq/route.ts`:
 
@@ -460,7 +460,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 4: Smoke test manually**
+- [x] **Step 4: Smoke test manually**
 
 Start dev server, then:
 
@@ -472,7 +472,7 @@ curl -X POST http://localhost:3000/api/x402/groq \
 
 Expected: JSON with `tweets: ["1/ …", "2/ …", …]` array of length ~5, plus an `events` array containing `step_started`, `step_output`, and `step_settled` entries.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/pipeline/types.ts lib/pipeline/groqStep.ts app/api/x402/groq/route.ts
