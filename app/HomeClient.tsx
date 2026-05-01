@@ -82,14 +82,32 @@ export default function HomeClient() {
       {!mounted ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : !isConnected ? (
-        <Button
-          onClick={() => {
-            if (connectors[0]) connect({ connector: connectors[0] });
-          }}
-          disabled={!connectors[0]}
-        >
-          Connect wallet
-        </Button>
+        <div className="flex flex-col items-center gap-2 max-w-sm w-full">
+          <p className="text-sm text-muted-foreground">Choose a wallet</p>
+          {connectors.length === 0 ? (
+            <p className="text-sm text-destructive">No wallet detected. Install MetaMask, Coinbase, Rainbow…</p>
+          ) : (
+            (() => {
+              const seen = new Set<string>();
+              const unique = connectors.filter((c) => {
+                const key = c.name.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              return unique.map((c) => (
+                <Button
+                  key={c.uid}
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => connect({ connector: c })}
+                >
+                  {c.name}
+                </Button>
+              ));
+            })()
+          )}
+        </div>
       ) : !onSupportedChain ? (
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <p className="text-sm text-destructive">
