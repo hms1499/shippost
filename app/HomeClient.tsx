@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAccount, useConnect, useChainId } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
@@ -9,10 +9,16 @@ import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { usePayForThread } from '@/lib/usePayForThread';
+import { explorerBase } from '@/lib/chains';
 
 type Screen = 'mode' | 'educational' | 'generating';
 
 export default function HomeClient() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
@@ -23,11 +29,19 @@ export default function HomeClient() {
   const [output, setOutput] = useState<string | null>(null);
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
 
+  const autoConnectAttempted = useRef(false);
   useEffect(() => {
+    if (!mounted) return;
+    if (autoConnectAttempted.current) return;
     if (isMiniPay && !isConnected && connectors[0]) {
-      connect({ connector: connectors[0] });
+      autoConnectAttempted.current = true;
+      try {
+        connect({ connector: connectors[0] });
+      } catch {
+        autoConnectAttempted.current = false;
+      }
     }
-  }, [isMiniPay, isConnected, connect, connectors]);
+  }, [mounted, isMiniPay, isConnected, connect, connectors]);
 
   useEffect(() => {
     if (status === 'success' && threadId && submitted && !output) {
@@ -50,28 +64,28 @@ export default function HomeClient() {
     }
   }, [status, threadId, submitted, output, chainId]);
 
-  const explorerBase =
-    chainId === 42220 ? 'https://celoscan.io' : 'https://celo-sepolia.blockscout.com';
-
-  async function handleEducationalSubmit(p: EducationalSubmitPayload) {
-    setSubmitted(p);
-    setScreen('generating');
-    await pay(p.token, 0);
-  }
-
   return (
     <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
       <div className="flex items-center gap-3">
         <h1 className="text-3xl font-bold text-primary">ShipPost</h1>
-        {isMiniPay && (
+        {mounted && isMiniPay && (
           <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
             MiniPay
           </span>
         )}
       </div>
 
-      {!isConnected ? (
-        <Button onClick={() => connect({ connector: connectors[0] })}>Connect wallet</Button>
+      {!mounted ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : !isConnected ? (
+        <Button
+          onClick={() => {
+            if (connectors[0]) connect({ connector: connectors[0] });
+          }}
+          disabled={!connectors[0]}
+        >
+          Connect wallet
+        </Button>
       ) : (
         <>
           <WalletStatus />
@@ -84,7 +98,11 @@ export default function HomeClient() {
           )}
           {screen === 'educational' && (
             <EducationalInput
-              onSubmit={handleEducationalSubmit}
+              onSubmit={async (p) => {
+                setSubmitted(p);
+                setScreen('generating');
+                await pay(p.token, 0);
+              }}
               disabled={status === 'approving' || status === 'paying'}
             />
           )}
@@ -93,10 +111,27 @@ export default function HomeClient() {
               txHash={txHash}
               threadId={threadId}
               mockOutput={output}
-              chainExplorerBase={explorerBase}
+              chainExplorerBase={explorerBase(chainId)}
             />
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm text-destructive">{error}</p>
+              {screen === 'generating' && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    reset();
+                    setOutput(null);
+                    setSubmitted(null);
+                    setScreen(submitted ? 'educational' : 'mode');
+                  }}
+                >
+                  Try again
+                </Button>
+              )}
+            </div>
+          )}
           {screen === 'generating' && status === 'success' && output && (
             <Button
               variant="outline"
