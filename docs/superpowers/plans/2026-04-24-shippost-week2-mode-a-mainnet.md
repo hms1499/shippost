@@ -100,7 +100,7 @@ shippost/
 - Create: `/Users/vanhuy/shippost/lib/prompts/system.ts`
 - Create: `/Users/vanhuy/shippost/lib/prompts/modeA.ts`
 
-- [ ] **Step 1: Create the shared system prompt**
+- [x] **Step 1: Create the shared system prompt**
 
 Create `lib/prompts/system.ts`:
 
@@ -117,7 +117,7 @@ Rules:
 - Do not write a title or preamble — only the numbered tweets, separated by one blank line.`;
 ```
 
-- [ ] **Step 2: Create Mode A prompt builder**
+- [x] **Step 2: Create Mode A prompt builder**
 
 Create `lib/prompts/modeA.ts`:
 
@@ -161,7 +161,7 @@ export function buildThumbnailPrompt(topic: string): string {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add lib/prompts/system.ts lib/prompts/modeA.ts
