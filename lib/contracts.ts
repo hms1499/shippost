@@ -73,8 +73,8 @@ export interface ContractAddresses {
 
 export const CONTRACTS: Record<number, ContractAddresses> = {
   [celoSepolia.id]: {
-    ShipPostPayment: (process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_TESTNET ?? '0x12da5404e73fbdb21908f598eebbd552f6172a65') as Address,
-    AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_TESTNET ?? '0xe5adff43dd082cbd15759e6a21a4880a33cc48a5') as Address,
+    ShipPostPayment: (process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_TESTNET ?? '0x277e140933d600cafcad38e2f1018e4fbd5476b2') as Address,
+    AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_TESTNET ?? '0x7538627c5eef2193fa4960f03157f482eca333be') as Address,
   },
   [celo.id]: {
     // Filled in Week 2 mainnet deploy
