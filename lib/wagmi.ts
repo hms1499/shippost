@@ -25,8 +25,7 @@ export const wagmiConfig = createConfig({
     [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
     [celo.id]: http('https://forno.celo.org'),
   },
-  ssr: false,
-  multiInjectedProviderDiscovery: false,
+  ssr: true,
 });
 
 declare module 'wagmi' {
