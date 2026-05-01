@@ -2,8 +2,11 @@
 
 **Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
-**Current task:** Week 2 Task 4 SCRAPPED (Flux thumbnail removed); next = **Task 5 (Mode A pipeline runner + SSE endpoint)**, single-step pipeline.
-**Last completed step:** Week 2 Task 3 (Mode A prompts + structured Groq pipeline step), then thumbnail-removal cleanup.
+**Current task:** Week 2 Task 5 done — SSE pipeline streams Groq output end-to-end on Celo Sepolia. Next = **Task 6 (useThreadGeneration hook — typed SSE consumer state machine)**.
+**Last completed step:** Week 2 Task 5 (runModeA + /api/generate/stream). Smoke test confirmed real on-chain settlement (tx 0x3e9cb7eff671... on Celo Sepolia).
+
+## Known dead code
+- `MOCK_SETTLE` env var is set in `.env` but `lib/orchestrator.ts` does not check it — settle is always on-chain. Cleanup later (either remove env var or wire it).
 
 ## 🟡 SCOPE CHANGE 2026-05-01 — Flux/thumbnail removed
 - Mode A = Groq only (1 step, ~$0.001 cost)

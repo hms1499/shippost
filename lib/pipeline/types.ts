@@ -9,6 +9,7 @@ export interface StepMeta {
 }
 
 export type PipelineEvent =
+  | { type: 'started' }
   | { type: 'step_started'; step: StepId }
   | { type: 'step_settled'; step: StepId; txHash: Hex; costAmount: string; tokenSymbol: 'cUSD' | 'USDT' | 'USDC' }
   | { type: 'step_output'; step: StepId; output: unknown }

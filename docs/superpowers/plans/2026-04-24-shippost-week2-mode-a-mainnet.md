@@ -638,7 +638,7 @@ git commit -m "feat: fal.ai Flux x402 proxy step"
 - Create: `/Users/vanhuy/shippost/lib/pipeline/runModeA.ts`
 - Create: `/Users/vanhuy/shippost/app/api/generate/stream/route.ts`
 
-- [ ] **Step 1: Create the orchestrating runner**
+- [x] **Step 1: Create the orchestrating runner**
 
 Create `lib/pipeline/runModeA.ts`:
 
@@ -660,7 +660,7 @@ export async function runModeA(
 }
 ```
 
-- [ ] **Step 2: Create SSE streaming endpoint**
+- [x] **Step 2: Create SSE streaming endpoint**
 
 Create `app/api/generate/stream/route.ts`:
 
@@ -740,7 +740,7 @@ export async function POST(req: Request) {
 }
 ```
 
-- [ ] **Step 3: Smoke test SSE stream**
+- [x] **Step 3: Smoke test SSE stream**
 
 ```bash
 curl -N -X POST http://localhost:3000/api/generate/stream \
@@ -750,11 +750,11 @@ curl -N -X POST http://localhost:3000/api/generate/stream \
 
 Expected: a sequence of `data: {"type":"step_started",...}` lines, then `step_settled`, `step_output`, and finally `done`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add lib/pipeline/runModeA.ts app/api/generate/stream/route.ts
-git commit -m "feat: Mode A pipeline runner with SSE streaming"
+git commit -m "feat(week2/task-5): Mode A pipeline runner + SSE endpoint"
 ```
 
 ---
