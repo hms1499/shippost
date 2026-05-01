@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**ShipPost** — pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread. An ERC-8004 agent wallet makes 3-5 x402 micro-payments to AI services (Groq, fal.ai, Serper) to generate a ready-to-post X thread.
+**ShipPost** — pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread. An ERC-8004 agent wallet makes 1–4 x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread. (Flux thumbnail step was scrapped 2026-05-01 — content-only.)
 
 Competition: Proof of Ship — MiniPay MiniApp (AI Agents) category.
 
@@ -36,19 +36,19 @@ Two contracts, both deployed on Celo Sepolia testnet (Week 1) and Celo mainnet (
 
 ### x402 Proxy (app/api/x402/)
 
-Custom Next.js API routes — Groq, fal.ai, Serper, CoinGecko don't support x402 natively. Each route:
+Custom Next.js API routes — Groq, Serper, CoinGecko don't support x402 natively. Each route:
 1. Verifies `X-Payment` header (EIP-712 signed payment intent from agent wallet)
 2. Forwards to the real AI API using our backend API keys
 3. Settles by pulling stablecoin from AgentWallet
 
-Routes: `/api/x402/groq`, `/api/x402/flux`, `/api/x402/serper`, `/api/x402/coingecko`, `/api/x402/fact-check`
+Routes: `/api/x402/groq`, `/api/x402/serper`, `/api/x402/coingecko`, `/api/x402/fact-check`
 
 ### Pipeline (lib/pipeline/)
 
 Step abstraction used by the SSE endpoint `/api/generate/stream`. Each step is a function returning a `PipelineStep` that fires an x402 call and emits a `PipelineEvent` with `{ step, status, cost }`.
 
-- **Mode A (Educational):** `groqStep` → `fluxStep`
-- **Mode B (Hot Take):** `serperStep` → `coingeckoStep` → `groqStep` → `factCheckStep` → `fluxStep`
+- **Mode A (Educational):** `groqStep`
+- **Mode B (Hot Take):** `serperStep` → `coingeckoStep` → `groqStep` → `factCheckStep`
 
 `runModeA.ts` / `runModeB.ts` compose steps and stream SSE events to the `useThreadGeneration` hook on the client.
 
@@ -62,7 +62,7 @@ Key flow:
 3. `lib/usePayForThread.ts` — sends `payForThread` tx via wagmi
 4. `hooks/useThreadGeneration.ts` — SSE consumer, typed state machine driving the UI
 5. `components/GeneratingStatus.tsx` — progress theatre with live x402 cost per step + Celoscan link
-6. `components/ThreadPreview.tsx` — tweet cards with inline edit, thumbnail
+6. `components/ThreadPreview.tsx` — tweet cards with inline edit
 7. `components/ShareToX.tsx` — `twitter://post` deep link, web fallback
 
 ### Data (Supabase)
@@ -80,7 +80,7 @@ Server-side only. Schema in `supabase/migrations/0001_threads.sql`. Stores walle
 
 See `.env.example`. Key vars:
 - `AGENT_WALLET_PRIVATE_KEY` — orchestrator EOA, stored encrypted in Vercel
-- `GROQ_API_KEY`, `FAL_KEY`, `SERPER_API_KEY`
+- `GROQ_API_KEY`, `SERPER_API_KEY`
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE`
 - `NEXT_PUBLIC_*_MAINNET` — contract addresses exposed to client
 

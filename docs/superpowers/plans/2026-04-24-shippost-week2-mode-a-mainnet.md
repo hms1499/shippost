@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the Week 1 Alfajores demo into a production-grade Celo mainnet MiniApp running Mode A (Educational threads) end-to-end, with real Groq generation + Flux thumbnails, a live "progress theatre" UI, tweet-level preview/edit, Share-to-X deep link, and ≥10 real paid threads from ≥5 unique wallets.
+**Goal:** Turn the Week 1 Alfajores demo into a production-grade Celo mainnet MiniApp running Mode A (Educational threads) end-to-end, with real Groq generation, a live "progress theatre" UI, tweet-level preview/edit, Share-to-X deep link, and ≥10 real paid threads from ≥5 unique wallets.
 
-**Architecture:** Keep the Week 1 monorepo (Next.js + viem/wagmi + Hardhat). Add a pipeline abstraction in `lib/pipeline/` that runs a sequence of x402-backed steps (`groq-generate` → `flux-thumbnail`) and streams progress events via SSE from `/api/generate/stream` to the client. Add Supabase (free tier) for thread persistence. Deploy the same contracts (unchanged from Week 1) to Celo mainnet (chainId 42220) and wire the frontend's chain/token/contract maps to support both chains simultaneously.
+> **SCOPE CHANGE 2026-05-01:** Flux thumbnail generation has been **dropped** from the project. Mode A is now content-only (Groq → tweets). Tasks 4 and 9 below are marked SCRAPPED. Tasks 5, 7, 8 simplified to one pipeline step.
 
-**Tech Stack (additions on top of Week 1):** Server-Sent Events (native Next.js `ReadableStream`), `@fal-ai/client` SDK, `@supabase/supabase-js`, Framer Motion for progress theatre animation, mainnet Celo RPC (Forno `https://forno.celo.org`).
+**Architecture:** Keep the Week 1 monorepo (Next.js + viem/wagmi + Hardhat). Add a pipeline abstraction in `lib/pipeline/` that runs a single x402-backed step (`groq-generate`) and streams progress events via SSE from `/api/generate/stream` to the client. Add Supabase (free tier) for thread persistence. Deploy the same contracts (unchanged from Week 1) to Celo mainnet (chainId 42220) and wire the frontend's chain/token/contract maps to support both chains simultaneously.
+
+**Tech Stack (additions on top of Week 1):** Server-Sent Events (native Next.js `ReadableStream`), `@supabase/supabase-js`, Framer Motion for progress theatre animation, mainnet Celo RPC (Forno `https://forno.celo.org`).
 
 **Spec reference:** `/Users/vanhuy/shippost/docs/superpowers/specs/2026-04-24-shippost-minipay-design.md`
 **Prior plan:** `/Users/vanhuy/shippost/docs/superpowers/plans/2026-04-24-shippost-week1-foundation.md` (assumes all 25 Week 1 tasks complete and `week1-complete` git tag exists)
@@ -16,8 +18,8 @@
 - Vercel production URL works inside real MiniPay browser on an Android phone
 - ≥10 real threads generated on mainnet by ≥5 unique wallets
 - ≥$0.50 on-chain volume (≥10 × $0.05)
-- Both Groq generation **and** Flux thumbnail x402 payments visible on Celoscan mainnet
-- Progress theatre shows live step checkmarks + per-step cost + agent wallet Celoscan link
+- Groq generation x402 payment visible on Celoscan mainnet
+- Progress theatre shows live step checkmark + per-step cost + agent wallet Celoscan link
 - Share-to-X deep link opens a composable thread in the X app
 
 ---
@@ -28,7 +30,7 @@ New / modified files in Week 2:
 
 ```
 shippost/
-├── .env.example                              # + FAL_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE, NEXT_PUBLIC_*_MAINNET
+├── .env.example                              # + SUPABASE_URL, SUPABASE_SERVICE_ROLE, NEXT_PUBLIC_*_MAINNET
 ├── hardhat.config.ts                         # mainnet network added
 ├── package.json                              # new deps
 │
@@ -47,7 +49,6 @@ shippost/
 │   ├── pipeline/
 │   │   ├── types.ts                          # NEW — PipelineStep, PipelineEvent
 │   │   ├── groqStep.ts                       # NEW — generation step + x402 settle
-│   │   ├── fluxStep.ts                       # NEW — thumbnail step + x402 settle
 │   │   └── runModeA.ts                       # NEW — orchestrates steps + streams events
 │   └── prompts/
 │       ├── modeA.ts                          # NEW — prompt templates by audience × length
@@ -56,8 +57,7 @@ shippost/
 ├── app/
 │   ├── api/
 │   │   ├── x402/
-│   │   │   ├── groq/route.ts                 # MODIFIED — takes {topic,audience,length}
-│   │   │   └── flux/route.ts                 # NEW
+│   │   │   └── groq/route.ts                 # MODIFIED — takes {topic,audience,length}
 │   │   └── generate/
 │   │       └── stream/route.ts               # NEW — SSE pipeline runner
 │   └── page.tsx                              # MODIFIED — uses useThreadGeneration, new screens
@@ -65,7 +65,6 @@ shippost/
 ├── components/
 │   ├── GeneratingStatus.tsx                  # REPLACED — live progress theatre
 │   ├── ThreadPreview.tsx                     # NEW — tweet cards with inline edit
-│   ├── ThumbnailCard.tsx                     # NEW — image + regenerate
 │   ├── ShareToX.tsx                          # NEW — deep link + copy-all
 │   ├── PostShareScreen.tsx                   # NEW — cost transparency + "write another"
 │   └── ModePicker.tsx                        # MODIFIED — hot-take stays disabled
@@ -88,7 +87,6 @@ shippost/
   - ≥0.5 CELO for gas (buy on Coinbase / Minswap / bridge)
   - ≥$15 cUSD for agent-wallet funding + self-testing threads
 - A free Supabase account (https://supabase.com/dashboard) — create a new project named `shippost`
-- A fal.ai account with the $5 signup credit (https://fal.ai) and a generated API key
 - 1 Android phone with MiniPay installed for real MiniPay smoke tests (day-13 bug bash)
 - 5 tester wallets you can share with (Discord / Twitter DMs): each needs ≥$0.25 cUSD
 
@@ -156,9 +154,7 @@ export function buildModeAPrompt(input: ModeAInput): string {
   ].join('\n\n');
 }
 
-export function buildThumbnailPrompt(topic: string): string {
-  return `Minimal high-contrast dark-mode illustration representing "${topic}". Thin line art, electric blue accents on near-black background, no text, no human faces, 16:9 aspect ratio, crypto/developer aesthetic.`;
-}
+// SCRAPPED 2026-05-01: buildThumbnailPrompt removed with Flux step. Kept here as historical reference only.
 ```
 
 - [x] **Step 3: Commit**
@@ -481,11 +477,13 @@ git commit -m "feat: Mode A prompts + structured Groq pipeline step"
 
 ---
 
-## Task 4: fal.ai Flux step + x402 proxy endpoint
+## Task 4: ~~fal.ai Flux step + x402 proxy endpoint~~ [SCRAPPED 2026-05-01]
 
-**Files:**
-- Create: `/Users/vanhuy/shippost/lib/pipeline/fluxStep.ts`
-- Create: `/Users/vanhuy/shippost/app/api/x402/flux/route.ts`
+> **SCRAPPED.** Thumbnail generation removed from project scope. Code below is historical only; do **not** execute. Steps were partially executed (fluxStep.ts + flux/route.ts created, then deleted) before the scope change. `@fal-ai/client` and `FAL_KEY` no longer in the project.
+
+**Files (deleted):**
+- ~~`/Users/vanhuy/shippost/lib/pipeline/fluxStep.ts`~~
+- ~~`/Users/vanhuy/shippost/app/api/x402/flux/route.ts`~~
 
 - [ ] **Step 1: Install fal client + update env**
 
@@ -634,6 +632,8 @@ git commit -m "feat: fal.ai Flux x402 proxy step"
 
 ## Task 5: Mode A pipeline runner + SSE endpoint
 
+> **SCOPE NOTE 2026-05-01:** Flux step removed. Pipeline is now single-step (Groq only). Use the simplified runner below — ignore any historical references to `runFluxStep` or `imageUrl`.
+
 **Files:**
 - Create: `/Users/vanhuy/shippost/lib/pipeline/runModeA.ts`
 - Create: `/Users/vanhuy/shippost/app/api/generate/stream/route.ts`
@@ -644,34 +644,19 @@ Create `lib/pipeline/runModeA.ts`:
 
 ```typescript
 import { runGroqStep } from './groqStep';
-import { runFluxStep } from './fluxStep';
 import type { PipelineContext, PipelineEvent } from './types';
 
 export interface ModeAOutput {
   tweets: string[];
-  imageUrl: string | null;
 }
 
 export async function runModeA(
   ctx: PipelineContext,
   emit: (e: PipelineEvent) => void,
 ): Promise<ModeAOutput> {
-  // Step 1: generate tweets (hard-fail if this fails — user gets refund upstream)
   const { tweets } = await runGroqStep(ctx, emit);
-
-  // Step 2: thumbnail (soft-fail — thread still shippable without an image)
-  let imageUrl: string | null = null;
-  try {
-    const res = await runFluxStep(ctx, emit);
-    imageUrl = res.imageUrl;
-  } catch (e) {
-    console.error('Flux step failed, continuing without image', e);
-  }
-
-  const totalCostUsd = imageUrl ? '0.004' : '0.001';
-  emit({ type: 'done', totalCostUsd });
-
-  return { tweets, imageUrl };
+  emit({ type: 'done', totalCostUsd: '0.001' });
+  return { tweets };
 }
 ```
 
@@ -734,7 +719,7 @@ export async function POST(req: Request) {
         emit({
           type: 'step_output',
           step: 'groq',
-          output: { final: true, tweets: output.tweets, imageUrl: output.imageUrl },
+          output: { final: true, tweets: output.tweets },
         });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'pipeline failed';
@@ -760,7 +745,7 @@ export async function POST(req: Request) {
 ```bash
 curl -N -X POST http://localhost:3000/api/generate/stream \
   -H "Content-Type: application/json" \
-  -d '{"threadId":"1","topic":"EIP-7702","audience":"beginner","length":5,"chainId":44787}'
+  -d '{"threadId":"1","topic":"EIP-7702","audience":"beginner","length":5,"chainId":11142220}'
 ```
 
 Expected: a sequence of `data: {"type":"step_started",...}` lines, then `step_settled`, `step_output`, and finally `done`.
@@ -943,6 +928,8 @@ git commit -m "feat: useThreadGeneration SSE consumer hook"
 
 ## Task 7: Progress theatre UI (replaces GeneratingStatus)
 
+> **SCOPE NOTE 2026-05-01:** Pipeline is single-step (Groq only). Progress theatre should render **one** step row, not two. Drop any "flux" / "thumbnail" / "image" rows from the step list and ignore `imageUrl` references in the state shape.
+
 **Files:**
 - Modify: `/Users/vanhuy/shippost/components/GeneratingStatus.tsx`
 
@@ -1096,6 +1083,8 @@ git commit -m "feat: live progress theatre with Framer Motion"
 ---
 
 ## Task 8: Wire progress theatre into page.tsx
+
+> **SCOPE NOTE 2026-05-01:** Pipeline is single-step. Skip any `imageUrl` plumbing through state. The `output` from the SSE final event contains only `tweets` now.
 
 **Files:**
 - Modify: `/Users/vanhuy/shippost/app/page.tsx`
@@ -1273,6 +1262,8 @@ git commit -m "feat: wire pay → SSE pipeline → progress theatre"
 
 ## Task 9: ThreadPreview component with inline edit
 
+> **SCOPE NOTE 2026-05-01:** Thumbnail removed from project. Drop any `imageUrl` / `<Image>` / thumbnail-card rendering from this component. Keep only the tweet cards + inline edit.
+
 **Files:**
 - Create: `/Users/vanhuy/shippost/components/ThreadPreview.tsx`
 
@@ -1394,10 +1385,12 @@ git commit -m "feat: ThreadPreview with inline tweet edit + length meter"
 
 ---
 
-## Task 10: ThumbnailCard with regenerate button
+## Task 10: ~~ThumbnailCard with regenerate button~~ [SCRAPPED 2026-05-01]
 
-**Files:**
-- Create: `/Users/vanhuy/shippost/components/ThumbnailCard.tsx`
+> **SCRAPPED.** Thumbnail generation removed from project scope (see Task 4). Do **not** execute. Code below is historical only.
+
+**Files (not created):**
+- ~~`/Users/vanhuy/shippost/components/ThumbnailCard.tsx`~~
 
 - [ ] **Step 1: Create ThumbnailCard**
 
@@ -2087,7 +2080,7 @@ export async function POST(req: Request) {
         emit({
           type: 'step_output',
           step: 'groq',
-          output: { final: true, tweets: output.tweets, imageUrl: output.imageUrl },
+          output: { final: true, tweets: output.tweets },
         });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'pipeline failed';

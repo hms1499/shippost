@@ -5,11 +5,13 @@
 **Target**: Proof of Ship competition, MiniPay MiniApp category (AI Agents)
 **Timeline**: 4 weeks
 
+> **AMENDMENT 2026-05-01 — Flux thumbnail removed.** The design originally bundled a fal.ai Flux Schnell thumbnail step into both modes. Project now scoped to **content-only**: Mode A = Groq, Mode B = Serper → CoinGecko → Groq → Fact-check. Treat any reference below to "thumbnail", "fal.ai", "Flux", `🎨 Creating thumbnail`, `imageUrl`, `ThumbnailCard`, "1,600 images" budget, etc. as **historical** — they are not in the current build.
+
 ---
 
 ## 1. Executive Summary
 
-**ShipPost** is a pay-per-use AI thread writer that runs as a MiniApp inside Opera's MiniPay wallet. Users pay **$0.05 cUSD/USDT/USDC per thread**. Behind the scenes, an ERC-8004 compatible agent wallet orchestrates **3-5 x402 micro-payments** to AI services (Groq, fal.ai, Serper) to research, generate, fact-check and illustrate a ready-to-post X thread in under 30 seconds.
+**ShipPost** is a pay-per-use AI thread writer that runs as a MiniApp inside Opera's MiniPay wallet. Users pay **$0.05 cUSD/USDT/USDC per thread**. Behind the scenes, an ERC-8004 compatible agent wallet orchestrates **1–4 x402 micro-payments** to AI services (Groq, Serper, CoinGecko) to research, generate, and fact-check a ready-to-post X thread in under 30 seconds.
 
 **One-liner**: *"The pay-per-post AI thread writer for crypto builders. $0.05/thread. No subscription. Powered by MiniPay."*
 

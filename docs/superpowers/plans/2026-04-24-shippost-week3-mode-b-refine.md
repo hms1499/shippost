@@ -4,7 +4,9 @@
 
 **Goal:** Ship Mode B (Hot Take) end-to-end with Serper search + CoinGecko market data + Groq fact-check as additional x402 steps, add a thread History screen and a public Analytics page, harden error/refund paths, polish mobile UX, and drive a second user-testing round to ≥30 total mainnet threads and ≥3 repeat users.
 
-**Architecture:** Reuse the Week 2 pipeline abstraction (`lib/pipeline/*`). Add three new steps (`serperStep`, `coingeckoStep`, `factCheckStep`). Add `lib/pipeline/runModeB.ts` that composes them into Research → Generate → Fact-check → Thumbnail. The SSE endpoint dispatches on the new `mode` field. Refunds are handled by a Pausable-protected `refundLastThread` admin script that uses the Reserve pool share (10%). History + Analytics pages read directly from Supabase via an edge-runtime API so the main app bundle stays small.
+> **SCOPE CHANGE 2026-05-01 — Flux thumbnail removed from project.** Throughout this plan, every reference to `runFluxStep`, `fluxStep`, `flux_tx_hash`, `ThumbnailCard`, `imageUrl`, `'flux'` in `StepId`, fal.ai remote-image config, `'Creating thumbnail'` progress row, the `🎨` icon, etc. should be **omitted** when implementing. Mode B pipeline is: `serper → coingecko → groq → factCheck` (4 steps, total ≈ 0.003 cUSD/thread). Code samples below were not rewritten — treat them as templates and drop the flux pieces as you go.
+
+**Architecture:** Reuse the Week 2 pipeline abstraction (`lib/pipeline/*`). Add three new steps (`serperStep`, `coingeckoStep`, `factCheckStep`). Add `lib/pipeline/runModeB.ts` that composes them into Research → Generate → Fact-check (no Thumbnail). The SSE endpoint dispatches on the new `mode` field. Refunds are handled by a Pausable-protected `refundLastThread` admin script that uses the Reserve pool share (10%). History + Analytics pages read directly from Supabase via an edge-runtime API so the main app bundle stays small.
 
 **Tech Stack (additions on top of Week 2):** `open-graph-scraper` for URL parsing, `swr` for history-page data fetching with caching, `@next/bundle-analyzer` for bundle audit.
 
@@ -143,7 +145,7 @@ git commit -m "chore: install Week 3 deps"
 In `lib/pipeline/types.ts`, replace the `StepId` line and add:
 
 ```typescript
-export type StepId = 'groq' | 'flux' | 'serper' | 'coingecko' | 'factCheck';
+export type StepId = 'groq' | 'serper' | 'coingecko' | 'factCheck';
 ```
 
 - [ ] **Step 2: Create Serper step**

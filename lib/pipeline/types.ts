@@ -1,6 +1,6 @@
 import type { Address, Hex } from 'viem';
 
-export type StepId = 'groq' | 'flux';
+export type StepId = 'groq';
 
 export interface StepMeta {
   id: StepId;

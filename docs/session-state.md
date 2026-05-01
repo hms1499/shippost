@@ -1,9 +1,18 @@
 # Session State
 
 **Last updated:** 2026-05-01
-**Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week1-foundation.md`
-**Current task:** Task 23 done (Vercel deploy live); next = MiniPay smoke test (manual) + AgentWallet redeploy with Pausable
-**Last completed step:** Quality fix-pass (4 commits) + `vercel --prod`
+**Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
+**Current task:** Week 2 Task 4 SCRAPPED (Flux thumbnail removed); next = **Task 5 (Mode A pipeline runner + SSE endpoint)**, single-step pipeline.
+**Last completed step:** Week 2 Task 3 (Mode A prompts + structured Groq pipeline step), then thumbnail-removal cleanup.
+
+## 🟡 SCOPE CHANGE 2026-05-01 — Flux/thumbnail removed
+- Mode A = Groq only (1 step, ~$0.001 cost)
+- Mode B = serper → coingecko → groq → factCheck (4 steps, ~$0.003 cost) — no flux
+- Deleted: `lib/pipeline/fluxStep.ts`, `app/api/x402/flux/route.ts`
+- Uninstalled: `@fal-ai/client`; removed `FAL_KEY` from `.env`/`.env.example`
+- Plan files (week2 + week3) marked Tasks 4 & 10 as SCRAPPED with banners
+- Design spec banner-amended at top
+- `StepId = 'groq'` in `lib/pipeline/types.ts` (week 3 will widen to add serper/coingecko/factCheck)
 
 ## Production
 - URL: https://shippost-kappa.vercel.app  (alias)
