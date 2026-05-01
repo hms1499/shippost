@@ -3,15 +3,15 @@
   "chainId": 11142220,
   "deployer": "0xcfab15c950093391fa1ca3b9810880839b05bcbc",
   "contracts": {
-    "ShipPostPayment": "0x12da5404e73fbdb21908f598eebbd552f6172a65",
-    "AgentWallet": "0xe5adff43dd082cbd15759e6a21a4880a33cc48a5",
-    "MockCUSD": "0xde53066fc77565f7258d5d59ccf129a2ba43a3be",
-    "MockUSDT": "0x174caa3b72fc683de0d62474ed1e24e36a6ab311",
-    "MockUSDC": "0xfe26e6efa3189cf0eb7b5014b94137493def9107"
+    "ShipPostPayment": "0x277e140933d600cafcad38e2f1018e4fbd5476b2",
+    "AgentWallet": "0x7538627c5eef2193fa4960f03157f482eca333be",
+    "MockCUSD": "0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5",
+    "MockUSDT": "0xd589cc6f20103401c1e168b9d2b3075e8b5fabca",
+    "MockUSDC": "0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1"
   },
   "tokens": {
-    "cUSD": "0xde53066fc77565f7258d5d59ccf129a2ba43a3be",
-    "USDT": "0x174caa3b72fc683de0d62474ed1e24e36a6ab311",
-    "USDC": "0xfe26e6efa3189cf0eb7b5014b94137493def9107"
+    "cUSD": "0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5",
+    "USDT": "0xd589cc6f20103401c1e168b9d2b3075e8b5fabca",
+    "USDC": "0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1"
   }
 }

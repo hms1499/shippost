@@ -36,19 +36,19 @@ export const CELO_MAINNET_TOKENS: Record<TokenSymbol, TokenConfig> = {
 export const CELO_SEPOLIA_TOKENS: Record<TokenSymbol, TokenConfig> = {
   cUSD: {
     symbol: 'cUSD',
-    address: '0xde53066fc77565f7258d5d59ccf129a2ba43a3be',
+    address: '0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5',
     decimals: 18,
     displayName: 'Mock Celo Dollar',
   },
   USDT: {
     symbol: 'USDT',
-    address: '0x174caa3b72fc683de0d62474ed1e24e36a6ab311',
+    address: '0xd589cc6f20103401c1e168b9d2b3075e8b5fabca',
     decimals: 6,
     displayName: 'Mock USDT',
   },
   USDC: {
     symbol: 'USDC',
-    address: '0xfe26e6efa3189cf0eb7b5014b94137493def9107',
+    address: '0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1',
     decimals: 6,
     displayName: 'Mock USDC',
   },

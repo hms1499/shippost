@@ -1,9 +1,14 @@
 # Session State
 
-**Last updated:** 2026-04-29
+**Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week1-foundation.md`
-**Current task:** Task 23 — Vercel deploy + MiniPay smoke test
-**Last completed step:** Tasks 18-22 done in one session
+**Current task:** Task 23 done (Vercel deploy live); next = MiniPay smoke test (manual) + AgentWallet redeploy with Pausable
+**Last completed step:** Quality fix-pass (4 commits) + `vercel --prod`
+
+## Production
+- URL: https://shippost-kappa.vercel.app  (alias)
+- Latest deployment id: dpl_5XTZwE2fnY8JgsJV5fLm1DDGrycz
+- Smoke: HTTP 200, ~5KB shell
 
 ## Completed tasks (Week 1)
 - [x] Task 1 — Initialize project repo
@@ -30,17 +35,23 @@
 - [x] Task 22 — topic/audience/length wired from UI → API
 
 ## Pending tasks
-- [ ] Task 23 — Vercel deploy (env vars đã set, chỉ cần chạy `vercel --prod` để deploy)
+- [x] Task 23 — Vercel deploy (live: https://shippost-kappa.vercel.app); MiniPay smoke test on phone is manual
+- [ ] Redeploy AgentWallet (Pausable) on Celo Sepolia + update lib/contracts.ts + Vercel env
 - [ ] Task 24 — Demo video + docs (manual)
 - [ ] Task 25 — Week 1 gate verification
 
-## Deployed addresses (Celo Sepolia — chainId 11142220)
+## Deployed addresses (Celo Sepolia — chainId 11142220, redeployed 2026-05-01 with Pausable)
+- ShipPostPayment: 0x277e140933d600cafcad38e2f1018e4fbd5476b2
+- AgentWallet: 0x7538627c5eef2193fa4960f03157f482eca333be (Pausable kill-switch live)
+- MockCUSD: 0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5
+- MockUSDT: 0xd589cc6f20103401c1e168b9d2b3075e8b5fabca
+- MockUSDC: 0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1
+- Explorer: https://celo-sepolia.blockscout.com
+
+### Old (defunct) Sepolia addresses — kept for reference only
 - ShipPostPayment: 0x12da5404e73fbdb21908f598eebbd552f6172a65
 - AgentWallet: 0xe5adff43dd082cbd15759e6a21a4880a33cc48a5
-- MockCUSD: 0xde53066fc77565f7258d5d59ccf129a2ba43a3be
-- MockUSDT: 0x174caa3b72fc683de0d62474ed1e24e36a6ab311
-- MockUSDC: 0xfe26e6efa3189cf0eb7b5014b94137493def9107
-- Explorer: https://celo-sepolia.blockscout.com
+  These were superseded after AgentWallet got the Pausable kill-switch.
 
 ## Key decisions made
 - `"type": "module"` in package.json (Hardhat 3 ESM requirement)
