@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
-**Current task:** Week 2 Task 5 done — SSE pipeline streams Groq output end-to-end on Celo Sepolia. Next = **Task 6 (useThreadGeneration hook — typed SSE consumer state machine)**.
-**Last completed step:** Week 2 Task 5 (runModeA + /api/generate/stream). Smoke test confirmed real on-chain settlement (tx 0x3e9cb7eff671... on Celo Sepolia).
+**Current task:** Week 2 Task 6 done — `useThreadGeneration` hook ready. Next = **Task 7 (Progress theatre UI — replace GeneratingStatus.tsx with Framer Motion live-step rendering)**.
+**Last completed step:** Week 2 Task 6 (typed SSE consumer state machine + abort-safe fetch). Build still clean, typecheck OK.
 
 ## Known dead code
 - `MOCK_SETTLE` env var is set in `.env` but `lib/orchestrator.ts` does not check it — settle is always on-chain. Cleanup later (either remove env var or wire it).

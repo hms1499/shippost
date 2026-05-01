@@ -764,7 +764,7 @@ git commit -m "feat(week2/task-5): Mode A pipeline runner + SSE endpoint"
 **Files:**
 - Create: `/Users/vanhuy/shippost/hooks/useThreadGeneration.ts`
 
-- [ ] **Step 1: Create hook with typed state machine**
+- [x] **Step 1: Create hook with typed state machine**
 
 Create `hooks/useThreadGeneration.ts`:
 
@@ -917,11 +917,11 @@ export function useThreadGeneration() {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add hooks/useThreadGeneration.ts
-git commit -m "feat: useThreadGeneration SSE consumer hook"
+git commit -m "feat(week2/task-6): useThreadGeneration SSE consumer hook"
 ```
 
 ---
