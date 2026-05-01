@@ -1462,7 +1462,9 @@ git commit -m "feat: ThumbnailCard with regenerate button"
 **Files:**
 - Create: `/Users/vanhuy/shippost/components/ShareToX.tsx`
 
-- [ ] **Step 1: Create ShareToX**
+- [x] **Step 1: Create ShareToX**
+
+Implementation note: also wired into `app/HomeClient.tsx` preview screen, and clipboard call wrapped in try/catch with a user-visible error fallback for browsers that block `navigator.clipboard`.
 
 Create `components/ShareToX.tsx`:
 
@@ -1533,11 +1535,11 @@ export function ShareToX({ tweets }: Props) {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
-git add components/ShareToX.tsx
-git commit -m "feat: ShareToX deep link + copy-all"
+git add components/ShareToX.tsx app/HomeClient.tsx
+git commit -m "feat(week2/task-11): ShareToX X-intent link + copy-all"
 ```
 
 ---

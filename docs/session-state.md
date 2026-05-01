@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-05-01
 **Current plan:** `docs/superpowers/plans/2026-04-24-shippost-week2-mode-a-mainnet.md`
-**Current task:** Week 2 Task 9 done — ThreadPreview renders editable tweet cards on the preview screen. Next = **Task 11 (ShareToX with twitter:// deep link + copy-all)**. Task 10 (ThumbnailCard) was scrapped 2026-05-01.
-**Last completed step:** Week 2 Task 9 (`components/ThreadPreview.tsx` + `components/ui/textarea.tsx` + `components/ui/badge.tsx`; HomeClient now keeps a `draftTweets` state initialized from `gen.tweets` so user edits survive re-renders).
+**Current task:** Week 2 Task 11 done — ShareToX renders below ThreadPreview on the preview screen with X intent link + copy-all. Next = **Task 12 (PostShareScreen — adds cost transparency, payment + agent-spend breakdown around ShareToX)**. Task 10 was scrapped 2026-05-01.
+**Last completed step:** Week 2 Task 11 (`components/ShareToX.tsx` wired into HomeClient preview screen; clipboard call try/catch with fallback message).
 
 ## Known dead code
 - `MOCK_SETTLE` env var is set in `.env` but `lib/orchestrator.ts` does not check it — settle is always on-chain. Cleanup later (either remove env var or wire it).

@@ -10,6 +10,7 @@ import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { ThreadPreview } from '@/components/ThreadPreview';
+import { ShareToX } from '@/components/ShareToX';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
@@ -172,9 +173,7 @@ export default function HomeClient() {
             <div className="w-full max-w-md flex flex-col gap-3">
               <h2 className="text-lg font-semibold">Your thread is ready</h2>
               <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
-              <p className="text-xs text-muted-foreground">
-                Tap a tweet to edit. Share to X coming in Task 11.
-              </p>
+              <ShareToX tweets={draftTweets} />
             </div>
           )}
           {error && (
