@@ -9,6 +9,7 @@ import { WalletStatus } from '@/components/WalletStatus';
 import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
+import { ThreadPreview } from '@/components/ThreadPreview';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
@@ -32,6 +33,7 @@ export default function HomeClient() {
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
+  const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
@@ -70,9 +72,10 @@ export default function HomeClient() {
 
   useEffect(() => {
     if (gen.isDone && gen.tweets && !gen.fatal) {
+      if (draftTweets === null) setDraftTweets(gen.tweets);
       setScreen('preview');
     }
-  }, [gen.isDone, gen.tweets, gen.fatal]);
+  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets]);
 
   return (
     <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
@@ -165,18 +168,12 @@ export default function HomeClient() {
               agentWalletAddress={getContracts(chainId).AgentWallet}
             />
           )}
-          {screen === 'preview' && gen.tweets && (
+          {screen === 'preview' && draftTweets && (
             <div className="w-full max-w-md flex flex-col gap-3">
               <h2 className="text-lg font-semibold">Your thread is ready</h2>
-              <ol className="flex flex-col gap-2 text-sm">
-                {gen.tweets.map((t, i) => (
-                  <li key={i} className="rounded-md border border-border p-3 whitespace-pre-wrap">
-                    {t}
-                  </li>
-                ))}
-              </ol>
+              <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
               <p className="text-xs text-muted-foreground">
-                Preview-only for now. Inline edit + Share to X coming in Task 9 / Task 11.
+                Tap a tweet to edit. Share to X coming in Task 11.
               </p>
             </div>
           )}
@@ -189,6 +186,7 @@ export default function HomeClient() {
                   onClick={() => {
                     reset();
                     resetGen();
+                    setDraftTweets(null);
                     setSubmitted(null);
                     setScreen(submitted ? 'educational' : 'mode');
                   }}
@@ -204,6 +202,7 @@ export default function HomeClient() {
               onClick={() => {
                 reset();
                 resetGen();
+                setDraftTweets(null);
                 setSubmitted(null);
                 setScreen('mode');
               }}

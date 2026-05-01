@@ -1255,13 +1255,13 @@ git commit -m "feat: wire pay → SSE pipeline → progress theatre"
 **Files:**
 - Create: `/Users/vanhuy/shippost/components/ThreadPreview.tsx`
 
-- [ ] **Step 1: Install textarea shadcn component if missing**
+- [x] **Step 1: Install textarea shadcn component if missing**
 
 ```bash
 pnpm dlx shadcn@latest add textarea badge
 ```
 
-- [ ] **Step 2: Create ThreadPreview**
+- [x] **Step 2: Create ThreadPreview**
 
 Create `components/ThreadPreview.tsx`:
 
@@ -1364,11 +1364,13 @@ export function ThreadPreview({ tweets, onChange }: Props) {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
+
+Implementation note: also wired into `app/HomeClient.tsx` (added `draftTweets` state, replaced the Task 8 stub `<ol>`).
 
 ```bash
-git add components/ThreadPreview.tsx
-git commit -m "feat: ThreadPreview with inline tweet edit + length meter"
+git add components/ThreadPreview.tsx components/ui/textarea.tsx components/ui/badge.tsx app/HomeClient.tsx
+git commit -m "feat(week2/task-9): ThreadPreview with inline edit + char counter"
 ```
 
 ---
