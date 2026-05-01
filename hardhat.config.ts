@@ -4,7 +4,16 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const DEPLOYER_PK = process.env.DEPLOYER_PRIVATE_KEY || '0x' + '0'.repeat(64);
+function requireDeployerPk(): string {
+  const pk = process.env.DEPLOYER_PRIVATE_KEY;
+  if (!pk) return '0x' + '0'.repeat(64);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) {
+    throw new Error('DEPLOYER_PRIVATE_KEY must be a 0x-prefixed 32-byte hex string');
+  }
+  return pk;
+}
+
+const DEPLOYER_PK = requireDeployerPk();
 const FORK_URL = process.env.CELO_FORK_URL || 'https://forno.celo.org';
 const FORK_BLOCK = process.env.CELO_FORK_BLOCK ? parseInt(process.env.CELO_FORK_BLOCK) : undefined;
 
@@ -36,12 +45,6 @@ export default defineConfig({
         },
       }),
     } as any,
-    alfajores: {
-      type: 'http',
-      url: 'https://alfajores-forno.celo-testnet.org',
-      accounts: [DEPLOYER_PK],
-      chainId: 44787,
-    },
     celoSepolia: {
       type: 'http',
       url: 'https://forno.celo-sepolia.celo-testnet.org',

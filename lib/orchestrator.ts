@@ -1,15 +1,8 @@
 import { createWalletClient, createPublicClient, http, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { celo } from 'wagmi/chains';
-import { celoSepolia } from './wagmi';
+import { getChain } from './chains';
 import { agentWalletAbi, getContracts } from './contracts';
 import { getTokens, type TokenSymbol } from './tokens';
-
-function getChain(chainId: number) {
-  if (chainId === celoSepolia.id) return celoSepolia;
-  if (chainId === celo.id) return celo;
-  throw new Error(`Unsupported chain ${chainId}`);
-}
 
 export async function settleX402Call(params: {
   chainId: number;

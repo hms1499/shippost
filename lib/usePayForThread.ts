@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
-import { erc20Abi, decodeEventLog } from 'viem';
+import { erc20Abi, decodeEventLog, type Hex } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
+import { isSupportedChain } from './chains';
 
 export type PayStatus =
   | 'idle'
@@ -17,10 +18,28 @@ export type PayStatus =
 export interface PayResult {
   status: PayStatus;
   threadId: bigint | null;
-  txHash: string | null;
+  txHash: Hex | null;
   error: string | null;
   pay: (token: TokenConfig, mode: 0 | 1) => Promise<void>;
   reset: () => void;
+}
+
+function extractThreadId(logs: readonly { data: Hex; topics: readonly Hex[] }[]): bigint | null {
+  for (const log of logs) {
+    try {
+      const decoded = decodeEventLog({
+        abi: shipPostPaymentAbi,
+        data: log.data,
+        topics: log.topics as [Hex, ...Hex[]],
+      });
+      if (decoded.eventName === 'ThreadRequested') {
+        return decoded.args.threadId;
+      }
+    } catch {
+      // not our event — continue
+    }
+  }
+  return null;
 }
 
 export function usePayForThread(): PayResult {
@@ -30,7 +49,7 @@ export function usePayForThread(): PayResult {
   const publicClient = usePublicClient();
   const [status, setStatus] = useState<PayStatus>('idle');
   const [threadId, setThreadId] = useState<bigint | null>(null);
-  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<Hex | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reset = useCallback(() => {
@@ -42,12 +61,17 @@ export function usePayForThread(): PayResult {
 
   const pay = useCallback(
     async (token: TokenConfig, mode: 0 | 1) => {
-      if (!publicClient || !address || !chainId) {
+      if (!publicClient || !address) {
         setError('Wallet not connected');
         setStatus('error');
         return;
       }
-      let wc = walletClient ?? (await refetchWalletClient()).data;
+      if (!isSupportedChain(chainId)) {
+        setError(`Unsupported network (chainId ${chainId}). Switch to Celo or Celo Sepolia.`);
+        setStatus('error');
+        return;
+      }
+      const wc = walletClient ?? (await refetchWalletClient()).data;
       if (!wc) {
         setError('Wallet not connected');
         setStatus('error');
@@ -59,13 +83,12 @@ export function usePayForThread(): PayResult {
         const paymentAddr = contracts.ShipPostPayment;
         const amount = computeTokenAmount(token);
 
-        // Check current allowance
-        const allowance = (await publicClient.readContract({
+        const allowance = await publicClient.readContract({
           address: token.address,
           abi: erc20Abi,
           functionName: 'allowance',
           args: [address, paymentAddr],
-        })) as bigint;
+        });
 
         if (allowance < amount) {
           setStatus('approving');
@@ -81,7 +104,7 @@ export function usePayForThread(): PayResult {
         setStatus('paying');
         const payHash = await wc.writeContract({
           address: paymentAddr,
-          abi: shipPostPaymentAbi as any,
+          abi: shipPostPaymentAbi,
           functionName: 'payForThread',
           args: [token.address, mode],
         });
@@ -90,26 +113,22 @@ export function usePayForThread(): PayResult {
         setStatus('waiting-confirmation');
         const receipt = await publicClient.waitForTransactionReceipt({ hash: payHash });
 
-        // Find ThreadRequested event to extract threadId
-        for (const log of receipt.logs) {
-          try {
-            const decoded = decodeEventLog({
-              abi: shipPostPaymentAbi as any,
-              data: log.data,
-              topics: log.topics,
-            }) as any;
-            if (decoded.eventName === 'ThreadRequested') {
-              setThreadId((decoded.args as any).threadId as bigint);
-              break;
-            }
-          } catch {
-            // not our event
-          }
+        if (receipt.status !== 'success') {
+          throw new Error('Payment transaction reverted');
         }
 
+        const id = extractThreadId(receipt.logs);
+        if (id === null) {
+          throw new Error('Payment confirmed but ThreadRequested event not found in receipt');
+        }
+
+        setThreadId(id);
         setStatus('success');
-      } catch (e: any) {
-        setError(e.shortMessage ?? e.message ?? 'Payment failed');
+      } catch (e) {
+        const msg =
+          (e as { shortMessage?: string }).shortMessage ??
+          (e instanceof Error ? e.message : 'Payment failed');
+        setError(msg);
         setStatus('error');
       }
     },
