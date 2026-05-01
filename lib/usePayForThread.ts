@@ -2,10 +2,18 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
-import { erc20Abi, decodeEventLog, type Hex } from 'viem';
+import {
+  erc20Abi,
+  decodeEventLog,
+  createWalletClient,
+  custom,
+  type Hex,
+  type WalletClient,
+  type EIP1193Provider,
+} from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
-import { isSupportedChain } from './chains';
+import { isSupportedChain, getChain } from './chains';
 
 export type PayStatus =
   | 'idle'
@@ -43,7 +51,7 @@ function extractThreadId(logs: readonly { data: Hex; topics: readonly Hex[] }[])
 }
 
 export function usePayForThread(): PayResult {
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const chainId = useChainId();
   const { data: walletClient, refetch: refetchWalletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -76,9 +84,35 @@ export function usePayForThread(): PayResult {
         setStatus('error');
         return;
       }
-      const wc = walletClient ?? (await refetchWalletClient()).data;
+      let wc: WalletClient | undefined = walletClient ?? undefined;
       if (!wc) {
-        setError('Wallet client not ready — try reconnecting');
+        for (let i = 0; i < 10 && !wc; i++) {
+          const refetched = (await refetchWalletClient()).data;
+          if (refetched) {
+            wc = refetched;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+      if (!wc && connector) {
+        try {
+          const provider = (await connector.getProvider()) as EIP1193Provider | undefined;
+          if (provider) {
+            wc = createWalletClient({
+              account: address,
+              chain: getChain(chainId),
+              transport: custom(provider),
+            });
+          }
+        } catch (e) {
+          console.error('connector.getProvider() failed', e);
+        }
+      }
+      if (!wc) {
+        setError(
+          `Wallet client not ready (connector=${connector?.name ?? 'none'}). Try Disconnect → reconnect.`,
+        );
         setStatus('error');
         return;
       }
@@ -87,6 +121,7 @@ export function usePayForThread(): PayResult {
         const contracts = getContracts(chainId);
         const paymentAddr = contracts.ShipPostPayment;
         const amount = computeTokenAmount(token);
+        const chain = getChain(chainId);
 
         const allowance = await publicClient.readContract({
           address: token.address,
@@ -102,6 +137,8 @@ export function usePayForThread(): PayResult {
             abi: erc20Abi,
             functionName: 'approve',
             args: [paymentAddr, amount],
+            account: address,
+            chain,
           });
           await publicClient.waitForTransactionReceipt({ hash: approveHash });
         }
@@ -112,6 +149,8 @@ export function usePayForThread(): PayResult {
           abi: shipPostPaymentAbi,
           functionName: 'payForThread',
           args: [token.address, mode],
+          account: address,
+          chain,
         });
         setTxHash(payHash);
 
@@ -137,7 +176,7 @@ export function usePayForThread(): PayResult {
         setStatus('error');
       }
     },
-    [walletClient, refetchWalletClient, publicClient, address, chainId]
+    [walletClient, refetchWalletClient, publicClient, address, chainId, connector]
   );
 
   return { status, threadId, txHash, error, pay, reset };
