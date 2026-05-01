@@ -4,17 +4,20 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title AgentWallet — ERC-8004-style wallet for autonomous agents.
-/// Holds stablecoins; spend cap per token per 24h window.
-contract AgentWallet is Ownable, ReentrancyGuard {
-    // Per-token daily spend cap (in token smallest unit).
+/// Holds stablecoins; spend cap per token per 24h UTC window.
+/// `Pausable` is the kill-switch for compromised orchestrator keys —
+/// pausing freezes `executeX402Call` and `approveFacilitator` so funds
+/// can be recovered via `emergencyWithdraw` (which deliberately remains
+/// callable while paused so the owner can drain).
+contract AgentWallet is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256) public dailySpendCap;
 
-    // Day number => token => amount spent that day.
     mapping(uint256 => mapping(address => uint256)) public spentOnDay;
 
-    address public x402Facilitator; // address allowed to pull approved funds for x402 settlement
+    address public x402Facilitator;
 
     event X402PaymentMade(
         address indexed service,
@@ -38,6 +41,14 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         emit FacilitatorUpdated(facilitator);
     }
 
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     function currentDay() public view returns (uint256) {
         return block.timestamp / 1 days;
     }
@@ -48,7 +59,7 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         address token,
         uint256 amount,
         uint256 threadId
-    ) external onlyOwner nonReentrant {
+    ) external onlyOwner nonReentrant whenNotPaused {
         uint256 day = currentDay();
         require(spentOnDay[day][token] + amount <= dailySpendCap[token], "CAP_EXCEEDED");
         spentOnDay[day][token] += amount;
@@ -58,14 +69,15 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         emit X402PaymentMade(service, token, amount, threadId);
     }
 
-    /// @notice Owner can withdraw tokens in emergency (e.g., rebalancing or recovery).
-    function emergencyWithdraw(address token, uint256 amount, address to) external onlyOwner {
+    /// @notice Owner can withdraw tokens in emergency. Intentionally callable
+    /// while paused — the kill-switch must not lock funds inside the wallet.
+    function emergencyWithdraw(address token, uint256 amount, address to) external onlyOwner nonReentrant {
         require(IERC20(token).transfer(to, amount), "WITHDRAW_FAIL");
         emit EmergencyWithdraw(token, amount, to);
     }
 
-    /// @notice Approve facilitator to pull up to amount. Used if the facilitator settles via pull pattern.
-    function approveFacilitator(address token, uint256 amount) external onlyOwner {
+    /// @notice Approve facilitator to pull up to `amount`. Disabled while paused.
+    function approveFacilitator(address token, uint256 amount) external onlyOwner whenNotPaused {
         require(x402Facilitator != address(0), "NO_FACILITATOR");
         require(IERC20(token).approve(x402Facilitator, amount), "APPROVE_FAIL");
     }
