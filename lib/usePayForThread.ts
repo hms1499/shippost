@@ -123,6 +123,29 @@ export function usePayForThread(): PayResult {
         const amount = computeTokenAmount(token);
         const chain = getChain(chainId);
 
+        let walletChainId = await wc.getChainId();
+        if (walletChainId !== chainId) {
+          try {
+            await wc.switchChain({ id: chainId });
+          } catch (e) {
+            const m = (e as { shortMessage?: string; message?: string });
+            setError(
+              `Wallet is on chainId ${walletChainId}; switch to ${chainId} (Celo Sepolia) in your wallet. ${m.shortMessage ?? m.message ?? ''}`,
+            );
+            setStatus('error');
+            return;
+          }
+          for (let i = 0; i < 15 && walletChainId !== chainId; i++) {
+            await new Promise((r) => setTimeout(r, 200));
+            walletChainId = await wc.getChainId();
+          }
+          if (walletChainId !== chainId) {
+            setError(`Wallet is still on chainId ${walletChainId}; please switch to ${chainId} manually and retry.`);
+            setStatus('error');
+            return;
+          }
+        }
+
         const allowance = await publicClient.readContract({
           address: token.address,
           abi: erc20Abi,
