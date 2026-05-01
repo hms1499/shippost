@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useAccount, useConnect, useChainId } from 'wagmi';
+import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
+import { celo } from 'wagmi/chains';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 import { WalletStatus } from '@/components/WalletStatus';
@@ -9,7 +10,8 @@ import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { usePayForThread } from '@/lib/usePayForThread';
-import { explorerBase } from '@/lib/chains';
+import { explorerBase, isSupportedChain } from '@/lib/chains';
+import { celoSepolia } from '@/lib/wagmi';
 
 type Screen = 'mode' | 'educational' | 'generating';
 
@@ -23,6 +25,8 @@ export default function HomeClient() {
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
   const chainId = useChainId();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
+  const onSupportedChain = isSupportedChain(chainId);
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
@@ -86,6 +90,28 @@ export default function HomeClient() {
         >
           Connect wallet
         </Button>
+      ) : !onSupportedChain ? (
+        <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+          <p className="text-sm text-destructive">
+            Wrong network (chainId {chainId}). ShipPost runs on Celo Sepolia (testnet) or Celo (mainnet).
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={isSwitching}
+              onClick={() => switchChain({ chainId: celoSepolia.id })}
+            >
+              Switch to Celo Sepolia
+            </Button>
+            <Button
+              variant="outline"
+              disabled={isSwitching}
+              onClick={() => switchChain({ chainId: celo.id })}
+            >
+              Switch to Celo
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
           <WalletStatus />

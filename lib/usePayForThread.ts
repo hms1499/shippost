@@ -61,19 +61,24 @@ export function usePayForThread(): PayResult {
 
   const pay = useCallback(
     async (token: TokenConfig, mode: 0 | 1) => {
-      if (!publicClient || !address) {
+      if (!address) {
         setError('Wallet not connected');
         setStatus('error');
         return;
       }
       if (!isSupportedChain(chainId)) {
-        setError(`Unsupported network (chainId ${chainId}). Switch to Celo or Celo Sepolia.`);
+        setError(`Wrong network (chainId ${chainId}). Switch your wallet to Celo Sepolia (11142220) or Celo (42220).`);
+        setStatus('error');
+        return;
+      }
+      if (!publicClient) {
+        setError(`No RPC for chainId ${chainId}. Switch network in your wallet.`);
         setStatus('error');
         return;
       }
       const wc = walletClient ?? (await refetchWalletClient()).data;
       if (!wc) {
-        setError('Wallet not connected');
+        setError('Wallet client not ready — try reconnecting');
         setStatus('error');
         return;
       }
