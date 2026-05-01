@@ -1,9 +1,10 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
+import type { Hex } from 'viem';
 
 interface Props {
-  txHash: string | null;
+  txHash: Hex | null;
   threadId: bigint | null;
   mockOutput: string | null;
   chainExplorerBase: string;

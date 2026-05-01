@@ -16,7 +16,7 @@ pnpm build                                          # production build
 pnpm lint                                           # ESLint via next lint
 pnpm test:contracts                                 # Hardhat tests
 pnpm compile                                        # compile Solidity
-pnpm deploy:testnet                                 # deploy to Alfajores (chainId 44787)
+pnpm deploy:testnet                                 # deploy to Celo Sepolia (chainId 11142220)
 hardhat run scripts/deploy.ts --network celo        # deploy to Celo mainnet (chainId 42220)
 ```
 
@@ -29,7 +29,7 @@ npx hardhat test test/ShipPostPayment.t.ts
 
 ### On-chain (contracts/)
 
-Two contracts, both deployed on Alfajores testnet (Week 1) and Celo mainnet (Week 2+):
+Two contracts, both deployed on Celo Sepolia testnet (Week 1) and Celo mainnet (Week 2+). Note: Alfajores has been deprecated by Celo — use Celo Sepolia (chainId 11142220) for testnet.
 
 - **`ShipPostPayment.sol`** — payment splitter. `payForThread(address token, uint8 mode)` pulls 0.05 stablecoin from user, splits 50% → AgentWallet / 40% → treasury / 10% → reserve, emits `ThreadRequested`. Token whitelist only (cUSD/USDT/USDC). Decimal handling: `IERC20Metadata(token).decimals()` — cUSD=18, USDT=6, USDC=6.
 - **`AgentWallet.sol`** — ERC-8004 compatible. Holds stablecoins for x402 spending. Single owner (orchestrator backend EOA), daily spend cap per token (cUSD=$50, USDT/USDC=$50 equiv). `executeX402Call` enforces the cap and emits `X402PaymentMade`.
@@ -71,8 +71,8 @@ Server-side only. Schema in `supabase/migrations/0001_threads.sql`. Stores walle
 
 ### Chain config (lib/)
 
-- `lib/chains.ts` — `getChain(chainId)`, `explorerBase(chainId)` for Celoscan links
-- `lib/wagmi.ts` — Celo mainnet (42220) + Alfajores testnet (44787) connectors
+- `lib/chains.ts` — `getChain(chainId)`, `explorerBase(chainId)`, `isSupportedChain(chainId)` for Celoscan / Blockscout links
+- `lib/wagmi.ts` — Celo mainnet (42220) + Celo Sepolia testnet (11142220) connectors
 - `lib/tokens.ts` — token addresses + decimals for both chains
 - `lib/contracts.ts` — ShipPostPayment + AgentWallet addresses for both chains
 
@@ -88,7 +88,7 @@ See `.env.example`. Key vars:
 
 Implementation plans are in `docs/superpowers/plans/`. Always use `superpowers:executing-plans` or `superpowers:subagent-driven-development` skill when working from a plan file.
 
-- Week 1: foundation + Alfajores testnet end-to-end
+- Week 1: foundation + Celo Sepolia testnet end-to-end
 - Week 2: Celo mainnet + Mode A + Supabase + progress theatre
 - Week 3: Mode B (Hot Take) + history + analytics + error/refund flows
 
