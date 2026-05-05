@@ -37,6 +37,11 @@ interface StartParams {
   audience: 'beginner' | 'intermediate' | 'advanced';
   length: 5 | 8 | 12;
   chainId: number;
+  walletAddress: string;
+  tokenSymbol: 'cUSD' | 'USDT' | 'USDC';
+  tokenAddress: string;
+  amountPaidRaw: string;
+  payTxHash: string;
 }
 
 export function useThreadGeneration() {
@@ -106,6 +111,11 @@ export function useThreadGeneration() {
             audience: params.audience,
             length: params.length,
             chainId: params.chainId,
+            walletAddress: params.walletAddress,
+            tokenSymbol: params.tokenSymbol,
+            tokenAddress: params.tokenAddress,
+            amountPaidRaw: params.amountPaidRaw,
+            payTxHash: params.payTxHash,
           }),
           signal: abortRef.current.signal,
         });

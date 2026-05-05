@@ -28,7 +28,7 @@ export default function HomeClient() {
     setMounted(true);
   }, []);
 
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
   const chainId = useChainId();
@@ -59,6 +59,8 @@ export default function HomeClient() {
     if (
       status === 'success' &&
       threadId &&
+      txHash &&
+      address &&
       submitted &&
       !gen.hasStarted &&
       !gen.isDone &&
@@ -70,9 +72,25 @@ export default function HomeClient() {
         audience: submitted.audience,
         length: submitted.length,
         chainId,
+        walletAddress: address,
+        tokenSymbol: submitted.token.symbol,
+        tokenAddress: submitted.token.address,
+        amountPaidRaw: computeTokenAmount(submitted.token).toString(),
+        payTxHash: txHash,
       });
     }
-  }, [status, threadId, submitted, gen.hasStarted, gen.isDone, gen.fatal, chainId, startGen]);
+  }, [
+    status,
+    threadId,
+    txHash,
+    address,
+    submitted,
+    gen.hasStarted,
+    gen.isDone,
+    gen.fatal,
+    chainId,
+    startGen,
+  ]);
 
   useEffect(() => {
     if (gen.isDone && gen.tweets && !gen.fatal) {
