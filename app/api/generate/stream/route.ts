@@ -53,9 +53,17 @@ export async function POST(req: Request) {
       const encoder = new TextEncoder();
       const supabase = getSupabaseSafe();
       let groqTx: string | null = null;
+      let capturedTweets: string[] | null = null;
 
       const emit = (e: PipelineEvent) => {
         if (e.type === 'step_settled' && e.step === 'groq') groqTx = e.txHash;
+        if (
+          e.type === 'step_output' &&
+          e.step === 'groq' &&
+          Array.isArray(e.output)
+        ) {
+          capturedTweets = e.output as string[];
+        }
         controller.enqueue(encoder.encode(sseLine(e)));
       };
 
@@ -120,9 +128,11 @@ export async function POST(req: Request) {
         const msg = e instanceof Error ? e.message : 'pipeline failed';
 
         if (supabase) {
+          // Persist tweets even on failure so admin can recover/refund the user.
           const { error } = await supabase
             .from('threads')
             .update({
+              tweets: capturedTweets,
               status: 'failed',
               error_message: msg,
               groq_tx_hash: groqTx,

@@ -62,8 +62,10 @@ export async function runGroqStep(
       costAmount: '0.001',
       tokenSymbol: 'cUSD',
     });
-  } catch (e) {
-    console.error('groq x402 settle failed', e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'x402 settle failed';
+    emit({ type: 'step_failed', step: 'groq', error: `x402 settle: ${msg}` });
+    throw new Error(`x402 settle failed: ${msg}`);
   }
 
   return { tweets };
