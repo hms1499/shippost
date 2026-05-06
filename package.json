@@ -13,7 +13,8 @@
     "test:lib": "vitest run lib",
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network celoSepolia",
-    "refund": "tsx scripts/refund.ts"
+    "refund": "tsx scripts/refund.ts",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
@@ -8,19 +9,40 @@ import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 import { WalletStatus } from '@/components/WalletStatus';
 import { ModePicker } from '@/components/ModePicker';
-import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
-import { HotTakeInput, type HotTakeSubmitPayload } from '@/components/HotTakeInput';
-import { GeneratingStatus } from '@/components/GeneratingStatus';
-import { ThreadPreview } from '@/components/ThreadPreview';
-import { ShareToX } from '@/components/ShareToX';
-import { PostShareScreen } from '@/components/PostShareScreen';
 import { ErrorSurface } from '@/components/ErrorSurface';
+import type { EducationalSubmitPayload } from '@/components/EducationalInput';
+import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
 import { celoSepolia } from '@/lib/wagmi';
+
+const EducationalInput = dynamic(
+  () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
+  { ssr: false },
+);
+const HotTakeInput = dynamic(
+  () => import('@/components/HotTakeInput').then((m) => m.HotTakeInput),
+  { ssr: false },
+);
+const GeneratingStatus = dynamic(
+  () => import('@/components/GeneratingStatus').then((m) => m.GeneratingStatus),
+  { ssr: false },
+);
+const ThreadPreview = dynamic(
+  () => import('@/components/ThreadPreview').then((m) => m.ThreadPreview),
+  { ssr: false },
+);
+const ShareToX = dynamic(
+  () => import('@/components/ShareToX').then((m) => m.ShareToX),
+  { ssr: false },
+);
+const PostShareScreen = dynamic(
+  () => import('@/components/PostShareScreen').then((m) => m.PostShareScreen),
+  { ssr: false },
+);
 
 type Screen = 'mode' | 'educational' | 'hot-take' | 'generating' | 'preview' | 'post-share';
 
