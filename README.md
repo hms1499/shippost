@@ -6,7 +6,16 @@ Proof of Ship competition submission — April 2026.
 
 ## Status
 
-🚧 Week 1 of 4 — Foundation
+🛠 **Week 3 of 4 — Both modes live, analytics public**
+
+- ✅ Mode A (Educational) — Groq draft on Celo Sepolia + mainnet
+- ✅ Mode B (Hot Take) — Serper + CoinGecko + Groq draft + fact-check
+- ✅ Personal `/history` + public `/stats` pages (Supabase, 30s revalidate)
+- ✅ ErrorSurface covers 8 spec error states (insufficient / approve-rejected / pay-failed / partial / full-fail / cap-hit / slow / agent-paused)
+- ✅ Admin refund flow — `pnpm refund` CLI + `/api/refund` gated by `REFUND_ADMIN_KEY`
+- ✅ Pause kill switch script — `pnpm hardhat run scripts/pause.ts`
+- ✅ Bundle audited, mid-flow components lazy-loaded
+- ⏭️ Week 4: judge analytics, demo video, pitch deck, submission
 
 ## Quick start
 
