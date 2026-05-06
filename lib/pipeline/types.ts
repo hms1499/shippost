@@ -1,6 +1,6 @@
 import type { Address, Hex } from 'viem';
 
-export type StepId = 'groq';
+export type StepId = 'groq' | 'serper' | 'coingecko' | 'factCheck';
 
 export interface StepMeta {
   id: StepId;
@@ -22,6 +22,5 @@ export interface PipelineContext {
   threadId: bigint;
   topic: string;
   audience: 'beginner' | 'intermediate' | 'advanced';
-  length: 5 | 8 | 12;
   agentWallet: Address;
 }

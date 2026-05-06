@@ -6,10 +6,13 @@ import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
 const STEP_META: Record<StepId, { label: string; icon: string; budget: string }> = {
+  serper: { label: 'Searching news', icon: '🔍', budget: '$0.001' },
+  coingecko: { label: 'Fetching market data', icon: '📊', budget: '$0.000' },
   groq: { label: 'Writing thread', icon: '✍️', budget: '$0.001' },
+  factCheck: { label: 'Fact-checking', icon: '✅', budget: '$0.001' },
 };
 
-const ORDER: StepId[] = ['groq'];
+const ORDER: StepId[] = ['serper', 'coingecko', 'groq', 'factCheck'];
 
 interface Props {
   gen: ThreadGenerationState;
@@ -48,6 +51,7 @@ export function GeneratingStatus({
         {ORDER.map((id) => {
           const meta = STEP_META[id];
           const step = gen.steps[id];
+          if (step.status === 'pending') return null;
           return (
             <motion.li
               key={id}
@@ -90,6 +94,16 @@ export function GeneratingStatus({
             View pay tx →
           </a>
         )}
+        {gen.steps.serper.txHash && (
+          <a
+            className="text-primary underline"
+            href={`${chainExplorerBase}/tx/${gen.steps.serper.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View Serper x402 settlement →
+          </a>
+        )}
         {groqStep.txHash && (
           <a
             className="text-primary underline"
@@ -98,6 +112,16 @@ export function GeneratingStatus({
             rel="noopener noreferrer"
           >
             View Groq x402 settlement →
+          </a>
+        )}
+        {gen.steps.factCheck.txHash && (
+          <a
+            className="text-primary underline"
+            href={`${chainExplorerBase}/tx/${gen.steps.factCheck.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View fact-check x402 settlement →
           </a>
         )}
         <a

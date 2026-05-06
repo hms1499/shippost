@@ -22,7 +22,10 @@ export interface ThreadGenerationState {
 
 const initial: ThreadGenerationState = {
   steps: {
+    serper: { status: 'pending' },
+    coingecko: { status: 'pending' },
     groq: { status: 'pending' },
+    factCheck: { status: 'pending' },
   },
   tweets: null,
   fatal: null,
@@ -35,7 +38,6 @@ interface StartParams {
   threadId: bigint;
   topic: string;
   audience: 'beginner' | 'intermediate' | 'advanced';
-  length: 5 | 8 | 12;
   chainId: number;
   walletAddress: string;
   tokenSymbol: 'cUSD' | 'USDT' | 'USDC';
@@ -109,7 +111,6 @@ export function useThreadGeneration() {
             threadId: params.threadId.toString(),
             topic: params.topic,
             audience: params.audience,
-            length: params.length,
             chainId: params.chainId,
             walletAddress: params.walletAddress,
             tokenSymbol: params.tokenSymbol,
