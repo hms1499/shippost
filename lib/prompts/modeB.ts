@@ -11,48 +11,50 @@ interface ModeBInput {
 
 const ANGLE_BRIEF: Record<Angle, string> = {
   bullish:
-    'You are bullish. Lead with the most important positive implication that the consensus is missing or underweighting. Back it with a specific fact or number from the provided context. Acknowledge the strongest bear argument in one line, then explain why it does not change the picture.',
+    'Closing tweet rule (T(n)): one short verdict line in the form "net bullish on <event> because <signal>." Pick the single signal already on the table that, on net, supports a long-side position. No hedging, no DYOR, no "but". One sentence.',
   bearish:
-    'You are bearish. Lead with the most important risk or flaw that is being downplayed. Back it with a specific fact or number from the provided context. Acknowledge what bulls get right in one line, then explain why it does not change the picture.',
+    'Closing tweet rule (T(n)): one short verdict line in the form "net bearish on <event> because <signal>." Pick the single signal already on the table that, on net, supports a short-side position. No hedging, no DYOR, no "but". One sentence.',
   skeptical:
-    'You are skeptical. Do not pick a side. Frame what is actually known vs assumed, ask the questions a professional investor would ask before getting excited, and end with the specific evidence that would move you off the fence.',
+    'Closing tweet rule (T(n)): one evidence-test line in the form "what would change my mind: <observable signal>." The signal must be concrete, falsifiable, and specific — a number above/below a threshold, a named protocol shipping by a named date, a contract reaching a TVL level. No verdict, no fence-sitting prose, no "we will see". One sentence.',
 };
 
-const STRUCTURE = `Structure (ONE event, ONE angle — narrative, not bullet list):
-- Tweet 1: hook framing the event in plain terms. No question opener. No "in this thread". No preamble.
-- Tweet 2: anchor with a specific verifiable fact or number drawn directly from the provided context. This is the foundation; everything later must be consistent with it.
-- Middle tweets: develop the angle step-by-step. Each tweet picks up where the previous left off, builds the argument, and stays grounded in the context. One idea per tweet.
-- Second-last tweet: a falsifiable prediction with a caveat ("if X, then Y"), OR for the skeptical angle, the specific evidence that would change your mind.
-- Last tweet: a single closing observation. No CTA, no DYOR, no "follow for more", no question to drive replies.
+const STRUCTURE = `Structure (signal-extraction body, angle only at the close):
+- T1: hook framing the event in plain terms. No question opener. No "in this thread". No angle adjectives.
+- T2: anchor signal — the single most verifiable fact about this event, drawn directly from the user description, search context, or market data.
+- T3 ... T(n-1): additional signals. Each tweet does ONE of:
+    (a) present a hard fact (named entity, number, date, contract, EIP, protocol)
+    (b) draw a single light implication from a signal already on the table ("3 client teams committed → adoption pressure on the rest")
+  No directional adjectives. Body must read as a neutral exposition of what is known, not a take.
+- T(n): the only angle-specific tweet. Follow the closing rule for the chosen angle (see ANGLE).
 
 Constraints:
-- Only use facts that appear in the provided search/market context, or that are universally known. Never invent prices, dates, names, contracts, or numbers.
-- Do not introduce a new sub-event mid-thread. Stay on the single event the user named.`;
+- Only use facts that appear in the provided description, search context, or market context, or that are universally known. Never invent prices, dates, names, contracts, or numbers.
+- Stay on the single event the user named. Do not drift into adjacent stories.
+- Body tweets do not declare a side. Save the verdict / evidence-test for T(n).`;
 
-const LENGTH_GUIDANCE = `Length: use as many tweets as the event needs to be argued well. Typical range is 5–9 tweets. Never fewer than 4. Never more than 10. Stop the moment the angle is fully expressed; do not pad.`;
+const LENGTH_GUIDANCE = `Length: use as many tweets as the event needs to be argued well. Typical range is 5–9 tweets. Never fewer than 4. Never more than 10. Stop the moment the closing rule is satisfied; do not pad.`;
 
-const FEW_SHOT_EXAMPLE = `Reference for voice and quality bar (different event and angle — match the style, do NOT copy content):
+const FEW_SHOT_EXAMPLE = `Reference for voice and shape (different event — match the structure, do NOT copy content):
 
+Sample event: Dencun upgrade activated on Ethereum mainnet, March 13 2024.
 Sample search context:
-- Dencun upgrade activated on Ethereum mainnet on March 13, 2024.
-- The upgrade introduced EIP-4844 "blob-carrying transactions" for L2 data availability.
-- L2 user fees on Arbitrum, Optimism, and Base dropped roughly 10x in the days following activation.
-- Blob fee market is independent of execution gas; target is 3 blobs/block, max 6.
-
-Sample market data: (none — pre-token-event posts often have no market snippet)
-
+- Dencun activated on Ethereum mainnet on March 13, 2024.
+- EIP-4844 introduced "blob-carrying transactions" with a separate fee market.
+- L2 user fees on Arbitrum, Optimism, and Base fell roughly 10x post-activation.
+- Blob fee target is 3 blobs/block, max 6.
+Sample market data: (none)
 Sample angle: skeptical
 
 <example_thread>
-1/ Dencun made L2 fees cheap. Whether that translates to ETH revenue or an L2 free lunch depends on numbers nobody is publishing yet.
+1/ Dencun activated on Ethereum mainnet on March 13, 2024 and changed how L2s post data to L1.
 
-2/ Before Dencun, L2s posted calldata to L1 at gas-market rates. After March 2024 they post blobs in a separate fee market. L2 user fees fell roughly 10x.
+2/ Pre-Dencun, L2s settled calldata at the same gas market as everyone else. EIP-4844 introduced a separate blob fee market, target 3 blobs per block, max 6.
 
-3/ The bull thesis: more L2 throughput leads to more blob demand, which burns more ETH. The skeptic question: blob base fees have hovered near zero because supply (3 target, 6 max per block) outruns demand.
+3/ In the days after activation, L2 user fees on Arbitrum, Optimism, and Base fell roughly 10x. Throughput limits on those L2s now scale with blob supply, not L1 calldata gas.
 
-4/ Dencun is clearly a UX win for L2 users. Whether it becomes a revenue win for L1 holders is an open data question, not a settled thesis.
+4/ Blob base fees have hovered near zero since launch — supply has run ahead of demand. The cost L2s pay for L1 data is currently not a meaningful ETH burn input.
 
-5/ The check I want before getting bullish: a sustained stretch where blob base fees stay non-zero and L2 throughput keeps climbing. Until then, Dencun is the cheap call option neither side has paid for.
+5/ What would change my mind: a sustained stretch of more than two weeks where blob base fees stay non-zero and L2 throughput keeps climbing.
 </example_thread>`;
 
 export function buildModeBPrompt(input: ModeBInput): string {
@@ -64,7 +66,9 @@ export function buildModeBPrompt(input: ModeBInput): string {
   ];
 
   if (input.searchSummary) {
-    blocks.push(`Search context (use as ground truth — facts you cite must come from here):\n${input.searchSummary}`);
+    blocks.push(
+      `Search context (use as ground truth — facts you cite must come from here):\n${input.searchSummary}`,
+    );
   } else {
     blocks.push(`Search context: (none returned — keep claims general; do not invent specifics)`);
   }
