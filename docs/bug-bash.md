@@ -23,3 +23,21 @@ auto-connect for MiniPay. Mid-flow components now hydrate on demand:
 - `ThreadPreview`, `ShareToX`, `PostShareScreen` — load post-generation
 
 `pnpm analyze` opens the full client/server treemap.
+
+## Mobile polish (Task 18 — 2026-05-06)
+
+Code-level audit (no real-device testing yet):
+
+- ✅ Tap targets: bumped Button `default` to `h-11` (44 px) and `lg` to `h-12` (48 px). Meets iOS HIG / Android Material recommendations.
+- ✅ Viewport: `app/layout.tsx` allows pinch-zoom (no `maximumScale` lock).
+- ✅ Theme: dark mode default already set on `<html>`.
+- ✅ Bundle on `/` is 217 kB raw / ~70-80 kB gzipped — well under the 200 kB gzipped budget.
+
+### Items needing real-device verification
+
+- Textarea (`HotTakeInput`) keyboard occlusion on Android.
+- Progress theatre layout shift while step rows animate in.
+- Scroll restoration on screen transitions.
+
+To do on next round of mainnet testing — log results below as they come in.
+
