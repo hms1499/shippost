@@ -317,6 +317,17 @@ export default function HomeClient() {
           )}
         </>
       )}
+
+      <nav className="flex gap-4 text-xs text-muted-foreground">
+        <a href="/stats" className="underline">
+          📊 Public stats
+        </a>
+        {isConnected && (
+          <a href="/history" className="underline">
+            🗂️ My history
+          </a>
+        )}
+      </nav>
     </main>
   );
 }
