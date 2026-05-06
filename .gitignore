@@ -28,3 +28,12 @@ typechain-types/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Vercel CLI (contains .env.preview.local with secrets)
+.vercel/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Playwright MCP debug snapshots
+.playwright-mcp/
