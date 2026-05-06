@@ -70,7 +70,6 @@ export default function HomeClient() {
         threadId,
         topic: submitted.topic,
         audience: submitted.audience,
-        length: submitted.length,
         chainId,
         walletAddress: address,
         tokenSymbol: submitted.token.symbol,

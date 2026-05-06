@@ -1,20 +1,29 @@
 import { runModeA, MODE_A_TOTAL_COST_USD } from '@/lib/pipeline/runModeA';
+import { runModeB } from '@/lib/pipeline/runModeB';
 import { getContracts } from '@/lib/contracts';
 import { getSupabaseServer } from '@/lib/supabase';
 import type { PipelineEvent } from '@/lib/pipeline/types';
+import type { Angle } from '@/lib/prompts/modeB';
 
 interface StreamRequest {
   threadId: string;
-  topic: string;
-  audience: 'beginner' | 'intermediate' | 'advanced';
-  length: 5 | 8 | 12;
   chainId: number;
   walletAddress: string;
   tokenSymbol: 'cUSD' | 'USDT' | 'USDC';
   tokenAddress: string;
   amountPaidRaw: string;
   payTxHash: string;
+  mode: 0 | 1;
+  // Mode A
+  topic?: string;
+  audience?: 'beginner' | 'intermediate' | 'advanced';
+  // Mode B
+  eventDescription?: string;
+  angle?: Angle;
 }
+
+const VALID_AUDIENCES = ['beginner', 'intermediate', 'advanced'] as const;
+const VALID_ANGLES: Angle[] = ['bullish', 'bearish', 'skeptical'];
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,6 +40,26 @@ function getSupabaseSafe() {
   }
 }
 
+function validate(b: Partial<StreamRequest>): string | null {
+  if (!b.threadId) return 'threadId required';
+  if (!b.chainId) return 'chainId required';
+  if (!b.walletAddress) return 'walletAddress required';
+  if (!b.tokenSymbol) return 'tokenSymbol required';
+  if (!b.tokenAddress) return 'tokenAddress required';
+  if (!b.amountPaidRaw) return 'amountPaidRaw required';
+  if (!b.payTxHash) return 'payTxHash required';
+  if (b.mode !== 0 && b.mode !== 1) return 'mode must be 0 or 1';
+
+  if (b.mode === 0) {
+    if (!b.topic?.trim()) return 'topic required for Mode A';
+    if (b.audience && !VALID_AUDIENCES.includes(b.audience)) return 'invalid audience';
+  } else {
+    if (!b.eventDescription?.trim()) return 'eventDescription required for Mode B';
+    if (b.angle && !VALID_ANGLES.includes(b.angle)) return 'invalid angle';
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   let body: StreamRequest;
   try {
@@ -39,24 +68,23 @@ export async function POST(req: Request) {
     return new Response('invalid json body', { status: 400 });
   }
 
-  if (!body.topic?.trim()) return new Response('topic required', { status: 400 });
-  if (!body.threadId) return new Response('threadId required', { status: 400 });
-  if (!body.chainId) return new Response('chainId required', { status: 400 });
-  if (!body.walletAddress) return new Response('walletAddress required', { status: 400 });
-  if (!body.tokenSymbol) return new Response('tokenSymbol required', { status: 400 });
-  if (!body.tokenAddress) return new Response('tokenAddress required', { status: 400 });
-  if (!body.amountPaidRaw) return new Response('amountPaidRaw required', { status: 400 });
-  if (!body.payTxHash) return new Response('payTxHash required', { status: 400 });
+  const err = validate(body);
+  if (err) return new Response(err, { status: 400 });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
       const supabase = getSupabaseSafe();
-      let groqTx: string | null = null;
+
+      const txByStep: Partial<Record<'groq' | 'serper' | 'factCheck', string>> = {};
       let capturedTweets: string[] | null = null;
 
       const emit = (e: PipelineEvent) => {
-        if (e.type === 'step_settled' && e.step === 'groq') groqTx = e.txHash;
+        if (e.type === 'step_settled' && e.step !== 'coingecko' && e.txHash !== '0x0') {
+          if (e.step === 'groq' || e.step === 'serper' || e.step === 'factCheck') {
+            txByStep[e.step] = e.txHash;
+          }
+        }
         if (
           e.type === 'step_output' &&
           e.step === 'groq' &&
@@ -73,44 +101,68 @@ export async function POST(req: Request) {
           chain_id: body.chainId,
           onchain_thread_id: body.threadId,
           wallet_address: body.walletAddress.toLowerCase(),
-          mode: 0,
+          mode: body.mode,
           token_symbol: body.tokenSymbol,
           token_address: body.tokenAddress.toLowerCase(),
           amount_paid_raw: body.amountPaidRaw,
           pay_tx_hash: body.payTxHash.toLowerCase(),
-          topic: body.topic,
-          audience: body.audience,
-          length: body.length,
+          topic: body.topic ?? body.eventDescription ?? null,
+          audience: body.audience ?? null,
+          angle: body.angle ?? null,
           status: 'pending',
         });
         if (error) console.error('[supabase] insert pending failed:', error.message);
       }
 
       // Flush an initial byte so Vercel's 25s first-byte timeout doesn't
-      // kill the connection while Groq is still thinking.
+      // kill the connection while the first AI call is still running.
       emit({ type: 'started' });
 
       try {
         const contracts = getContracts(body.chainId);
-        const output = await runModeA(
-          {
-            chainId: body.chainId,
-            threadId: BigInt(body.threadId),
-            topic: body.topic,
-            audience: body.audience,
-            length: body.length,
-            agentWallet: contracts.AgentWallet,
-          },
-          emit,
-        );
+        const baseCtx = {
+          chainId: body.chainId,
+          threadId: BigInt(body.threadId),
+          topic: body.topic ?? body.eventDescription ?? '',
+          audience: body.audience ?? 'beginner',
+          agentWallet: contracts.AgentWallet,
+        } as const;
+
+        let tweets: string[];
+        let totalCostUsd: string;
+        let searchSummary: string | null = null;
+        let marketSnippet: string | null = null;
+
+        if (body.mode === 0) {
+          const out = await runModeA(baseCtx, emit);
+          tweets = out.tweets;
+          totalCostUsd = MODE_A_TOTAL_COST_USD;
+        } else {
+          const out = await runModeB(
+            {
+              ...baseCtx,
+              angle: body.angle ?? 'skeptical',
+              eventDescription: body.eventDescription ?? '',
+            },
+            emit,
+          );
+          tweets = out.tweets;
+          totalCostUsd = out.totalCostUsd;
+          searchSummary = out.searchSummary;
+          marketSnippet = out.marketSnippet;
+        }
 
         if (supabase) {
           const { error } = await supabase
             .from('threads')
             .update({
-              tweets: output.tweets,
-              total_cost_usd: MODE_A_TOTAL_COST_USD,
-              groq_tx_hash: groqTx,
+              tweets,
+              total_cost_usd: totalCostUsd,
+              groq_tx_hash: txByStep.groq ?? null,
+              serper_tx_hash: txByStep.serper ?? null,
+              fact_check_tx_hash: txByStep.factCheck ?? null,
+              search_summary: searchSummary,
+              market_snippet: marketSnippet,
               status: 'completed',
             })
             .eq('chain_id', body.chainId)
@@ -121,21 +173,23 @@ export async function POST(req: Request) {
         emit({
           type: 'step_output',
           step: 'groq',
-          output: { final: true, tweets: output.tweets },
+          output: { final: true, tweets },
         });
-        emit({ type: 'done', totalCostUsd: MODE_A_TOTAL_COST_USD });
+        emit({ type: 'done', totalCostUsd });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'pipeline failed';
 
         if (supabase) {
-          // Persist tweets even on failure so admin can recover/refund the user.
+          // Persist partial state on failure so admin can recover/refund the user.
           const { error } = await supabase
             .from('threads')
             .update({
               tweets: capturedTweets,
               status: 'failed',
               error_message: msg,
-              groq_tx_hash: groqTx,
+              groq_tx_hash: txByStep.groq ?? null,
+              serper_tx_hash: txByStep.serper ?? null,
+              fact_check_tx_hash: txByStep.factCheck ?? null,
             })
             .eq('chain_id', body.chainId)
             .eq('onchain_thread_id', body.threadId);

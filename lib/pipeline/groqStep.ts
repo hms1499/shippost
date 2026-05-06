@@ -22,7 +22,6 @@ export async function runGroqStep(
   const userPrompt = buildModeAPrompt({
     topic: ctx.topic,
     audience: ctx.audience,
-    length: ctx.length,
   });
 
   let raw: string;

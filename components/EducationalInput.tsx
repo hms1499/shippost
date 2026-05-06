@@ -14,7 +14,6 @@ import { formatUnits } from 'viem';
 export interface EducationalSubmitPayload {
   topic: string;
   audience: 'beginner' | 'intermediate' | 'advanced';
-  length: 5 | 8 | 12;
   token: TokenBalance;
 }
 
@@ -27,7 +26,6 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
   const { balances, isLoading } = useBalances();
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
-  const [length, setLength] = useState<5 | 8 | 12>(8);
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
@@ -80,28 +78,6 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
         </RadioGroup>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label>Length</Label>
-        <RadioGroup
-          value={String(length)}
-          onValueChange={(v) => setLength(Number(v) as 5 | 8 | 12)}
-          className="flex gap-4"
-        >
-          <label className="flex items-center gap-1.5">
-            <RadioGroupItem value="5" />
-            <span className="text-sm">5 tweets</span>
-          </label>
-          <label className="flex items-center gap-1.5">
-            <RadioGroupItem value="8" />
-            <span className="text-sm">8 tweets</span>
-          </label>
-          <label className="flex items-center gap-1.5">
-            <RadioGroupItem value="12" />
-            <span className="text-sm">12 tweets</span>
-          </label>
-        </RadioGroup>
-      </div>
-
       {isLoading ? (
         <p className="text-xs text-muted-foreground">Loading balances…</p>
       ) : (
@@ -116,7 +92,7 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
         disabled={!canSubmit}
         onClick={() => {
           if (canSubmit && effectiveToken) {
-            onSubmit({ topic, audience, length, token: effectiveToken });
+            onSubmit({ topic, audience, token: effectiveToken });
           }
         }}
       >

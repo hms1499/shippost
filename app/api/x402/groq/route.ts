@@ -13,11 +13,9 @@ interface GroqRequest {
   mode: 0 | 1;
   chainId: number;
   audience?: 'beginner' | 'intermediate' | 'advanced';
-  length?: 5 | 8 | 12;
 }
 
 const MAX_TOPIC_LEN = 280;
-const ALLOWED_LENGTHS = [5, 8, 12] as const;
 const ALLOWED_AUDIENCES = ['beginner', 'intermediate', 'advanced'] as const;
 
 function validate(input: unknown): { ok: true; body: GroqRequest } | { ok: false; error: string } {
@@ -42,9 +40,6 @@ function validate(input: unknown): { ok: true; body: GroqRequest } | { ok: false
   if (b.audience !== undefined && !ALLOWED_AUDIENCES.includes(b.audience as never)) {
     return { ok: false, error: 'invalid audience' };
   }
-  if (b.length !== undefined && !ALLOWED_LENGTHS.includes(b.length as never)) {
-    return { ok: false, error: 'invalid length' };
-  }
 
   return {
     ok: true,
@@ -54,7 +49,6 @@ function validate(input: unknown): { ok: true; body: GroqRequest } | { ok: false
       mode: b.mode,
       chainId: b.chainId,
       audience: b.audience as GroqRequest['audience'],
-      length: b.length as GroqRequest['length'],
     },
   };
 }
@@ -83,7 +77,6 @@ export async function POST(req: Request) {
         threadId: BigInt(body.threadId),
         topic: body.topic,
         audience: body.audience ?? 'beginner',
-        length: body.length ?? 5,
         agentWallet: contracts.AgentWallet,
       },
       (e) => events.push(e),
