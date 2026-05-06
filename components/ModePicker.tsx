@@ -20,7 +20,7 @@ export function ModePicker({ onSelect }: Props) {
           <div>
             <h3 className="font-semibold">Educational Thread</h3>
             <p className="text-sm text-muted-foreground">
-              Explain a concept. e.g. &quot;How ZK rollups work&quot;
+              Explain one concept, end-to-end. e.g. &quot;How EIP-712 typed signatures work&quot;
             </p>
           </div>
         </div>
@@ -28,17 +28,14 @@ export function ModePicker({ onSelect }: Props) {
 
       <Card
         onClick={() => onSelect('hot-take')}
-        className="p-4 cursor-pointer hover:border-primary transition-colors opacity-60"
+        className="p-4 cursor-pointer hover:border-primary transition-colors"
       >
         <div className="flex items-start gap-3">
           <span className="text-2xl">🔥</span>
           <div>
-            <h3 className="font-semibold">
-              Hot Take{' '}
-              <span className="text-xs text-muted-foreground">(Week 3)</span>
-            </h3>
+            <h3 className="font-semibold">Hot Take</h3>
             <p className="text-sm text-muted-foreground">
-              React to news with data. Not yet available.
+              React to news or a tweet with data. e.g. paste a Vitalik post or describe an event.
             </p>
           </div>
         </div>

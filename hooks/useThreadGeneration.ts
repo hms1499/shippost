@@ -36,14 +36,19 @@ const initial: ThreadGenerationState = {
 
 interface StartParams {
   threadId: bigint;
-  topic: string;
-  audience: 'beginner' | 'intermediate' | 'advanced';
   chainId: number;
   walletAddress: string;
   tokenSymbol: 'cUSD' | 'USDT' | 'USDC';
   tokenAddress: string;
   amountPaidRaw: string;
   payTxHash: string;
+  mode: 0 | 1;
+  // Mode A
+  topic?: string;
+  audience?: 'beginner' | 'intermediate' | 'advanced';
+  // Mode B
+  eventDescription?: string;
+  angle?: 'bullish' | 'bearish' | 'skeptical';
 }
 
 export function useThreadGeneration() {
@@ -109,14 +114,17 @@ export function useThreadGeneration() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             threadId: params.threadId.toString(),
-            topic: params.topic,
-            audience: params.audience,
             chainId: params.chainId,
             walletAddress: params.walletAddress,
             tokenSymbol: params.tokenSymbol,
             tokenAddress: params.tokenAddress,
             amountPaidRaw: params.amountPaidRaw,
             payTxHash: params.payTxHash,
+            mode: params.mode,
+            topic: params.topic,
+            audience: params.audience,
+            eventDescription: params.eventDescription,
+            angle: params.angle,
           }),
           signal: abortRef.current.signal,
         });

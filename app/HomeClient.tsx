@@ -9,6 +9,7 @@ import { useIsMiniPay } from '@/lib/minipay';
 import { WalletStatus } from '@/components/WalletStatus';
 import { ModePicker } from '@/components/ModePicker';
 import { EducationalInput, type EducationalSubmitPayload } from '@/components/EducationalInput';
+import { HotTakeInput, type HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { ThreadPreview } from '@/components/ThreadPreview';
 import { ShareToX } from '@/components/ShareToX';
@@ -20,7 +21,7 @@ import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
 import { celoSepolia } from '@/lib/wagmi';
 
-type Screen = 'mode' | 'educational' | 'generating' | 'preview' | 'post-share';
+type Screen = 'mode' | 'educational' | 'hot-take' | 'generating' | 'preview' | 'post-share';
 
 export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
@@ -37,7 +38,10 @@ export default function HomeClient() {
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
+  const [hotTake, setHotTake] = useState<HotTakeSubmitPayload | null>(null);
   const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
+
+  const activeToken = submitted?.token ?? hotTake?.token ?? null;
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
@@ -57,25 +61,41 @@ export default function HomeClient() {
 
   useEffect(() => {
     if (
-      status === 'success' &&
-      threadId &&
-      txHash &&
-      address &&
-      submitted &&
-      !gen.hasStarted &&
-      !gen.isDone &&
-      !gen.fatal
+      status !== 'success' ||
+      !threadId ||
+      !txHash ||
+      !address ||
+      gen.hasStarted ||
+      gen.isDone ||
+      gen.fatal
     ) {
+      return;
+    }
+    if (submitted) {
       void startGen({
         threadId,
-        topic: submitted.topic,
-        audience: submitted.audience,
         chainId,
         walletAddress: address,
         tokenSymbol: submitted.token.symbol,
         tokenAddress: submitted.token.address,
         amountPaidRaw: computeTokenAmount(submitted.token).toString(),
         payTxHash: txHash,
+        mode: 0,
+        topic: submitted.topic,
+        audience: submitted.audience,
+      });
+    } else if (hotTake) {
+      void startGen({
+        threadId,
+        chainId,
+        walletAddress: address,
+        tokenSymbol: hotTake.token.symbol,
+        tokenAddress: hotTake.token.address,
+        amountPaidRaw: computeTokenAmount(hotTake.token).toString(),
+        payTxHash: txHash,
+        mode: 1,
+        eventDescription: hotTake.eventDescription,
+        angle: hotTake.angle,
       });
     }
   }, [
@@ -84,6 +104,7 @@ export default function HomeClient() {
     txHash,
     address,
     submitted,
+    hotTake,
     gen.hasStarted,
     gen.isDone,
     gen.fatal,
@@ -167,6 +188,7 @@ export default function HomeClient() {
             <ModePicker
               onSelect={(m) => {
                 if (m === 'educational') setScreen('educational');
+                if (m === 'hot-take') setScreen('hot-take');
               }}
             />
           )}
@@ -174,8 +196,20 @@ export default function HomeClient() {
             <EducationalInput
               onSubmit={async (p) => {
                 setSubmitted(p);
+                setHotTake(null);
                 setScreen('generating');
                 await pay(p.token, 0);
+              }}
+              disabled={status === 'approving' || status === 'paying'}
+            />
+          )}
+          {screen === 'hot-take' && (
+            <HotTakeInput
+              onSubmit={async (p) => {
+                setHotTake(p);
+                setSubmitted(null);
+                setScreen('generating');
+                await pay(p.token, 1);
               }}
               disabled={status === 'approving' || status === 'paying'}
             />
@@ -197,13 +231,13 @@ export default function HomeClient() {
               <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
             </div>
           )}
-          {screen === 'post-share' && submitted && (
+          {screen === 'post-share' && activeToken && (
             <PostShareScreen
               paidAmountUsd={Number(
-                formatUnits(computeTokenAmount(submitted.token), submitted.token.decimals),
+                formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
               ).toFixed(3)}
               agentSpentUsd={gen.totalCostUsd ?? '0.001'}
-              tokenSymbol={submitted.token.symbol}
+              tokenSymbol={activeToken.symbol}
               payTxHash={txHash}
               agentWalletAddress={getContracts(chainId).AgentWallet}
               explorerBase={explorerBase(chainId)}
@@ -212,6 +246,7 @@ export default function HomeClient() {
                 resetGen();
                 setDraftTweets(null);
                 setSubmitted(null);
+                setHotTake(null);
                 setScreen('mode');
               }}
             />
@@ -223,11 +258,13 @@ export default function HomeClient() {
                 <Button
                   variant="outline"
                   onClick={() => {
+                    const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
                     reset();
                     resetGen();
                     setDraftTweets(null);
                     setSubmitted(null);
-                    setScreen(submitted ? 'educational' : 'mode');
+                    setHotTake(null);
+                    setScreen(back);
                   }}
                 >
                   Try again
@@ -243,6 +280,7 @@ export default function HomeClient() {
                 resetGen();
                 setDraftTweets(null);
                 setSubmitted(null);
+                setHotTake(null);
                 setScreen('mode');
               }}
             >
