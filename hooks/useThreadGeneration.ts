@@ -51,9 +51,19 @@ interface StartParams {
   angle?: 'bullish' | 'bearish' | 'skeptical';
 }
 
+const SLOW_WATCHDOG_MS = 60_000;
+
 export function useThreadGeneration() {
   const [state, setState] = useState<ThreadGenerationState>(initial);
   const abortRef = useRef<AbortController | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSlowTimer = useCallback(() => {
+    if (slowTimerRef.current) {
+      clearTimeout(slowTimerRef.current);
+      slowTimerRef.current = null;
+    }
+  }, []);
 
   const apply = useCallback((e: PipelineEvent) => {
     setState((prev) => {
@@ -99,13 +109,23 @@ export function useThreadGeneration() {
           return { ...prev, fatal: e.error, isDone: true };
       }
     });
-  }, []);
+    if (e.type === 'done' || e.type === 'fatal') {
+      clearSlowTimer();
+    }
+  }, [clearSlowTimer]);
 
   const start = useCallback(
     async (params: StartParams) => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+      clearSlowTimer();
       setState(initial);
+
+      slowTimerRef.current = setTimeout(() => {
+        setState((s) =>
+          s.isDone || s.fatal ? s : { ...s, fatal: 'slow' },
+        );
+      }, SLOW_WATCHDOG_MS);
 
       let res: Response;
       try {
@@ -129,6 +149,7 @@ export function useThreadGeneration() {
           signal: abortRef.current.signal,
         });
       } catch (err: unknown) {
+        clearSlowTimer();
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const msg = err instanceof Error ? err.message : 'network error';
         setState((s) => ({ ...s, fatal: msg, isDone: true }));
@@ -136,6 +157,7 @@ export function useThreadGeneration() {
       }
 
       if (!res.ok || !res.body) {
+        clearSlowTimer();
         setState((s) => ({ ...s, fatal: `HTTP ${res.status}`, isDone: true }));
         return;
       }
@@ -161,19 +183,21 @@ export function useThreadGeneration() {
           }
         }
       } catch (err: unknown) {
+        clearSlowTimer();
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const msg = err instanceof Error ? err.message : 'stream interrupted';
         setState((s) => ({ ...s, fatal: msg, isDone: true }));
       }
     },
-    [apply],
+    [apply, clearSlowTimer],
   );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    clearSlowTimer();
     setState(initial);
-  }, []);
+  }, [clearSlowTimer]);
 
   return { state, start, reset };
 }

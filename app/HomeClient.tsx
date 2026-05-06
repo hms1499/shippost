@@ -14,6 +14,7 @@ import { GeneratingStatus } from '@/components/GeneratingStatus';
 import { ThreadPreview } from '@/components/ThreadPreview';
 import { ShareToX } from '@/components/ShareToX';
 import { PostShareScreen } from '@/components/PostShareScreen';
+import { ErrorSurface } from '@/components/ErrorSurface';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
@@ -251,28 +252,55 @@ export default function HomeClient() {
               }}
             />
           )}
-          {error && (
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-sm text-destructive">{error}</p>
-              {screen === 'generating' && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
-                    reset();
-                    resetGen();
-                    setDraftTweets(null);
-                    setSubmitted(null);
-                    setHotTake(null);
-                    setScreen(back);
-                  }}
-                >
-                  Try again
-                </Button>
-              )}
-            </div>
+          {error && /approve/i.test(error) && (
+            <ErrorSurface
+              kind="approve-rejected"
+              onRetry={() => {
+                const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
+                reset();
+                resetGen();
+                setDraftTweets(null);
+                setSubmitted(null);
+                setHotTake(null);
+                setScreen(back);
+              }}
+            />
           )}
-          {screen === 'generating' && gen.fatal && (
+          {error && !/approve/i.test(error) && /revert|reject|fail/i.test(error) && (
+            <ErrorSurface
+              kind="pay-failed"
+              onRetry={() => {
+                const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
+                reset();
+                resetGen();
+                setDraftTweets(null);
+                setSubmitted(null);
+                setHotTake(null);
+                setScreen(back);
+              }}
+            />
+          )}
+          {screen === 'generating' && gen.fatal === 'slow' && !gen.isDone && (
+            <ErrorSurface
+              kind="slow"
+              onRefundRequest={() => {
+                alert('Cancel + 50% refund requested. Operator will process within 24h.');
+              }}
+            />
+          )}
+          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
+            <ErrorSurface
+              kind="full-fail"
+              onRefundRequest={() => alert('Refund request received. Check Celoscan within 24h.')}
+            />
+          )}
+          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
+            <ErrorSurface
+              kind="partial"
+              onRefundRequest={() => alert('Partial refund requested.')}
+            />
+          )}
+          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && (
             <Button
               variant="outline"
               onClick={() => {
