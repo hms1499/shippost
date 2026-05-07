@@ -8,7 +8,6 @@ import { formatUnits } from 'viem';
 import { BarChart3, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
-import { Logo } from '@/components/Logo';
 import { FolioMark } from '@/components/FolioMark';
 import { InkDivider } from '@/components/InkDivider';
 import { MirrorScript } from '@/components/MirrorScript';
@@ -179,21 +178,18 @@ export default function HomeClient() {
 
       <header className="w-full max-w-md flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 text-primary">
-            <Logo size={56} className="shrink-0" />
-            <div className="flex flex-col leading-none">
-              <h1 className="font-display italic text-[3rem] text-foreground leading-[0.95]">
+          <div className="flex flex-col leading-none">
+            <h1 className="font-display italic text-[3.4rem] text-foreground leading-[0.9]">
+              ShipPost
+            </h1>
+            <span className="heading-sub text-[10px] mt-2 flex items-center gap-2">
+              Codex of Threads · Folio MMXXVI
+              <MirrorScript className="font-display italic text-[12px] opacity-50 normal-case tracking-normal text-[hsl(var(--ink-faded))]">
                 ShipPost
-              </h1>
-              <span className="heading-sub text-[10px] mt-2 flex items-center gap-2">
-                Codex of Threads · Folio MMXXVI
-                <MirrorScript className="font-display italic text-[12px] opacity-50 normal-case tracking-normal text-[hsl(var(--ink-faded))]">
-                  ShipPost
-                </MirrorScript>
-              </span>
-            </div>
+              </MirrorScript>
+            </span>
           </div>
-          <div className="flex flex-col items-end gap-2 pt-1">
+          <div className="flex flex-col items-end gap-2 pt-2 shrink-0">
             {mounted && !isMiniPay && (
               <ConnectButton
                 chainStatus="icon"
