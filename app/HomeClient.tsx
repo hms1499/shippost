@@ -11,6 +11,9 @@ import { useIsMiniPay } from '@/lib/minipay';
 import { Logo } from '@/components/Logo';
 import { FolioMark } from '@/components/FolioMark';
 import { InkDivider } from '@/components/InkDivider';
+import { MirrorScript } from '@/components/MirrorScript';
+import { Marginalia } from '@/components/Marginalia';
+import { InkBlot } from '@/components/InkBlot';
 
 const ConnectButton = dynamic(
   () => import('@rainbow-me/rainbowkit').then((m) => m.ConnectButton),
@@ -160,17 +163,33 @@ export default function HomeClient() {
   }, [gen.isDone, gen.tweets, gen.fatal, draftTweets]);
 
   return (
-    <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
+    <main className="relative min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
+      {/* Decorative ink stains, light theme only — pulled to edges so they
+          don't sit on top of content. dark:hidden keeps MiniPay clean. */}
+      <InkBlot
+        variant={1}
+        size={42}
+        className="pointer-events-none absolute top-32 left-3 text-[hsl(var(--ink-deep))] opacity-[0.06] dark:hidden -rotate-12"
+      />
+      <InkBlot
+        variant={2}
+        size={32}
+        className="pointer-events-none absolute top-[60vh] right-4 text-[hsl(var(--ink-deep))] opacity-[0.05] dark:hidden rotate-[18deg]"
+      />
+
       <header className="w-full max-w-md flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 text-primary">
-            <Logo size={48} className="shrink-0" />
+            <Logo size={52} className="shrink-0" />
             <div className="flex flex-col leading-none">
               <h1 className="text-[2.4rem] font-semibold italic text-foreground">
                 ShipPost
               </h1>
-              <span className="heading-sub text-[10px] mt-1">
+              <span className="heading-sub text-[10px] mt-1 flex items-center gap-2">
                 Codex of Threads · Folio MMXXVI
+                <MirrorScript className="font-serif italic text-[10px] opacity-50 normal-case tracking-normal">
+                  ShipPost
+                </MirrorScript>
               </span>
             </div>
           </div>
@@ -191,6 +210,11 @@ export default function HomeClient() {
           </div>
         </div>
         <InkDivider />
+        {mounted && !isMiniPay && (
+          <Marginalia side="right" className="-mt-1 self-end">
+            $0.05 per thread, paid in stable
+          </Marginalia>
+        )}
       </header>
 
       {!mounted ? (

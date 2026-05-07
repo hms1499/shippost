@@ -61,20 +61,29 @@
     @apply border-border;
   }
 
-  /* Parchment grain — only visible on the light theme. Subtle SVG noise data
-     URI overlaid on the base background. Disabled in .dark so the slate
-     theme stays clean. */
+  /* Parchment grain + page vignette — light theme only. Layered backgrounds:
+     (1) fine SVG noise stippling, (2) subtle radial darkening towards the
+     edges so the centre reads as "page", (3) the actual parchment colour. */
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-serif), Georgia, serif;
     font-feature-settings: "liga" 1, "calt" 1, "onum" 1;
     background-image:
-      url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.32  0 0 0 0 0.22  0 0 0 0 0.12  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
-    background-size: 220px 220px;
-    background-blend-mode: multiply;
+      radial-gradient(
+        ellipse 90% 70% at 50% 38%,
+        transparent 35%,
+        hsl(var(--ink-deep) / 0.10) 100%
+      ),
+      url("data:image/svg+xml;utf8,<svg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.32  0 0 0 0 0.22  0 0 0 0 0.12  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+    background-size:
+      auto,
+      240px 240px;
+    background-attachment: fixed, scroll;
+    background-blend-mode: multiply, multiply;
   }
   .dark body {
     background-image: none;
+    background-attachment: scroll;
   }
 
   h1, h2, h3 {
@@ -114,15 +123,27 @@
     stroke-width: 1.5;
   }
 
-  /* Hand-drawn link underline. Sepia ink with offset, dotted on hover. */
+  /* Hand-drawn wavy ink underline applied as a background-image on links. The
+     SVG draws a sin-wave path; CSS positions it just below the text baseline.
+     We deliberately turn off the native text-decoration to avoid two lines. */
   a:not(.no-underline) {
+    text-decoration: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 4' preserveAspectRatio='none'><path d='M0 2 Q3 0.4 6 2 T 12 2 T 18 2 T 24 2' fill='none' stroke='%237a5a35' stroke-width='0.7' stroke-linecap='round'/></svg>");
+    background-position: 0 100%;
+    background-repeat: repeat-x;
+    background-size: 6px 3px;
+    padding-bottom: 0.1em;
+  }
+  a:hover:not(.no-underline) {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 4' preserveAspectRatio='none'><path d='M0 2 Q3 0.2 6 2 T 12 2 T 18 2 T 24 2' fill='none' stroke='%238B5E2F' stroke-width='1' stroke-linecap='round'/></svg>");
+  }
+  .dark a:not(.no-underline) {
+    background-image: none;
+    text-decoration: underline;
     text-underline-offset: 0.22em;
     text-decoration-thickness: 0.5px;
     text-decoration-color: hsl(var(--ink-faded));
-  }
-  a:hover:not(.no-underline) {
-    text-decoration-style: dotted;
-    text-decoration-color: hsl(var(--primary));
+    padding-bottom: 0;
   }
 
   /* Selection: a sepia ink wash. */

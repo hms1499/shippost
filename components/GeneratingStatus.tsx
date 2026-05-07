@@ -4,24 +4,24 @@ import { motion } from 'framer-motion';
 import {
   Search,
   LineChart,
-  PenSquare,
-  ShieldCheck,
   Check,
   X,
   Loader2,
   Receipt,
-  type LucideIcon,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { InkDivider } from './InkDivider';
+import { IllumQuill, IllumShield } from './IllumIcons';
 import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
-const STEP_META: Record<StepId, { label: string; Icon: LucideIcon; budget: string }> = {
+type StepIcon = React.ComponentType<{ size?: number; className?: string }>;
+
+const STEP_META: Record<StepId, { label: string; Icon: StepIcon; budget: string }> = {
   serper: { label: 'Searching news', Icon: Search, budget: '$0.001' },
   coingecko: { label: 'Fetching market data', Icon: LineChart, budget: '$0.000' },
-  groq: { label: 'Writing thread', Icon: PenSquare, budget: '$0.001' },
-  factCheck: { label: 'Fact-checking', Icon: ShieldCheck, budget: '$0.001' },
+  groq: { label: 'Writing thread', Icon: IllumQuill, budget: '$0.001' },
+  factCheck: { label: 'Fact-checking', Icon: IllumShield, budget: '$0.001' },
 };
 
 const ORDER: StepId[] = ['serper', 'coingecko', 'groq', 'factCheck'];
@@ -199,7 +199,7 @@ export function GeneratingStatus({
 
 interface RowProps {
   label: string;
-  Icon: LucideIcon;
+  Icon: StepIcon;
   right: React.ReactNode;
   budget: string;
 }
