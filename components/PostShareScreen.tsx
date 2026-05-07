@@ -1,5 +1,6 @@
 'use client';
 
+import { Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -31,7 +32,10 @@ export function PostShareScreen({
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-3">
-      <h3 className="text-sm font-semibold">💰 Where did your {tokenSymbol} go?</h3>
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Wallet size={16} className="text-primary" aria-hidden />
+        Where did your {tokenSymbol} go?
+      </h3>
 
       <ul className="text-xs flex flex-col gap-1 font-mono">
         <li className="flex justify-between">

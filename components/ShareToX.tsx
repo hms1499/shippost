@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -47,7 +48,14 @@ export function ShareToX({ tweets }: Props) {
       </Button>
 
       <Button variant="outline" onClick={copyAll}>
-        {copied ? 'Copied ✓' : `Copy all ${tweets.length} tweets`}
+        {copied ? (
+          <span className="flex items-center gap-1.5">
+            Copied
+            <Check size={14} aria-hidden />
+          </span>
+        ) : (
+          `Copy all ${tweets.length} tweets`
+        )}
       </Button>
 
       {copyError && <p className="text-xs text-destructive">{copyError}</p>}

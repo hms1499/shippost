@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
+import { BarChart3, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 
@@ -341,12 +342,14 @@ export default function HomeClient() {
       )}
 
       <nav className="flex gap-4 text-xs text-muted-foreground">
-        <a href="/stats" className="underline">
-          📊 Public stats
+        <a href="/stats" className="underline flex items-center gap-1">
+          <BarChart3 size={12} aria-hidden />
+          Public stats
         </a>
         {isConnected && (
-          <a href="/history" className="underline">
-            🗂️ My history
+          <a href="/history" className="underline flex items-center gap-1">
+            <History size={12} aria-hidden />
+            My history
           </a>
         )}
       </nav>

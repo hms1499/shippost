@@ -1,6 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
+import { GraduationCap, Flame } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface Thread {
@@ -48,8 +49,18 @@ export function HistoryList({ walletAddress, explorerBase }: Props) {
         >
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{new Date(t.created_at).toLocaleString()}</span>
-            <span>
-              {t.mode === 0 ? '🎓 Educational' : '🔥 Hot Take'}
+            <span className="flex items-center gap-1">
+              {t.mode === 0 ? (
+                <>
+                  <GraduationCap size={12} aria-hidden />
+                  Educational
+                </>
+              ) : (
+                <>
+                  <Flame size={12} aria-hidden />
+                  Hot Take
+                </>
+              )}
               {t.status !== 'completed' && (
                 <span className="ml-2 text-destructive">[{t.status}]</span>
               )}

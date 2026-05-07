@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Flame } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,10 @@ export function HotTakeInput({ onSubmit, disabled }: Props) {
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">🔥 Hot Take</h2>
+      <h2 className="text-lg font-semibold flex items-center gap-2">
+        <Flame size={20} className="text-primary" aria-hidden />
+        Hot Take
+      </h2>
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="event">Event URL or short description</Label>

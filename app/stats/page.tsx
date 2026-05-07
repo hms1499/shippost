@@ -1,6 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
+import { GraduationCap, Flame } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface Stats {
@@ -68,8 +69,13 @@ export default function StatsPage() {
           <Card key={`${t.chain_id}-${t.onchain_thread_id}`} className="p-3 flex flex-col gap-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{new Date(t.created_at).toLocaleString()}</span>
-              <span>
-                {t.mode === 0 ? '🎓' : '🔥'} {t.token_symbol}
+              <span className="flex items-center gap-1">
+                {t.mode === 0 ? (
+                  <GraduationCap size={12} aria-hidden />
+                ) : (
+                  <Flame size={12} aria-hidden />
+                )}
+                {t.token_symbol}
               </span>
             </div>
             <p className="text-sm line-clamp-2">{t.topic ?? '(no topic)'}</p>

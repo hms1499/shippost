@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { GraduationCap } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,10 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">🎓 Educational Thread</h2>
+      <h2 className="text-lg font-semibold flex items-center gap-2">
+        <GraduationCap size={20} className="text-primary" aria-hidden />
+        Educational Thread
+      </h2>
 
       <div className="flex flex-col gap-1">
         <Label htmlFor="topic">Topic</Label>

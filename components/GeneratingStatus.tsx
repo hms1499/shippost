@@ -1,15 +1,26 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import {
+  Search,
+  LineChart,
+  PenSquare,
+  ShieldCheck,
+  Check,
+  X,
+  Loader2,
+  Receipt,
+  type LucideIcon,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
-const STEP_META: Record<StepId, { label: string; icon: string; budget: string }> = {
-  serper: { label: 'Searching news', icon: '🔍', budget: '$0.001' },
-  coingecko: { label: 'Fetching market data', icon: '📊', budget: '$0.000' },
-  groq: { label: 'Writing thread', icon: '✍️', budget: '$0.001' },
-  factCheck: { label: 'Fact-checking', icon: '✅', budget: '$0.001' },
+const STEP_META: Record<StepId, { label: string; Icon: LucideIcon; budget: string }> = {
+  serper: { label: 'Searching news', Icon: Search, budget: '$0.001' },
+  coingecko: { label: 'Fetching market data', Icon: LineChart, budget: '$0.000' },
+  groq: { label: 'Writing thread', Icon: PenSquare, budget: '$0.001' },
+  factCheck: { label: 'Fact-checking', Icon: ShieldCheck, budget: '$0.001' },
 };
 
 const ORDER: StepId[] = ['serper', 'coingecko', 'groq', 'factCheck'];
@@ -22,11 +33,12 @@ interface Props {
   agentWalletAddress: string;
 }
 
-function statusIcon(s: string): string {
-  if (s === 'settled') return '✓';
-  if (s === 'running') return '⏳';
-  if (s === 'failed') return '✕';
-  return '—';
+function StatusIcon({ status }: { status: string }) {
+  if (status === 'settled') return <Check size={14} className="text-primary" aria-label="settled" />;
+  if (status === 'running')
+    return <Loader2 size={14} className="animate-spin text-muted-foreground" aria-label="running" />;
+  if (status === 'failed') return <X size={14} className="text-destructive" aria-label="failed" />;
+  return <span className="text-muted-foreground">—</span>;
 }
 
 export function GeneratingStatus({
@@ -44,14 +56,24 @@ export function GeneratingStatus({
 
       <ul className="text-sm flex flex-col gap-2">
         <li className="flex items-center justify-between">
-          <span>💸 Payment confirmed</span>
-          <span className="font-mono text-xs">{payTxHash ? '✓' : '⏳'}</span>
+          <span className="flex items-center gap-2">
+            <Receipt size={16} className="text-muted-foreground" aria-hidden />
+            Payment confirmed
+          </span>
+          <span className="font-mono text-xs">
+            {payTxHash ? (
+              <Check size={14} className="text-primary" aria-label="confirmed" />
+            ) : (
+              <Loader2 size={14} className="animate-spin text-muted-foreground" aria-label="pending" />
+            )}
+          </span>
         </li>
 
         {ORDER.map((id) => {
           const meta = STEP_META[id];
           const step = gen.steps[id];
           if (step.status === 'pending') return null;
+          const { Icon } = meta;
           return (
             <motion.li
               key={id}
@@ -59,14 +81,17 @@ export function GeneratingStatus({
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center justify-between gap-2"
             >
-              <span>
-                {meta.icon} {meta.label}
+              <span className="flex items-center gap-2">
+                <Icon size={16} className="text-muted-foreground" aria-hidden />
+                {meta.label}
               </span>
               <span className="flex items-center gap-2 font-mono text-xs">
                 {step.costAmount
                   ? `$${step.costAmount} ${step.tokenSymbol ?? ''}`
                   : meta.budget}
-                <span className="min-w-[1ch] text-right">{statusIcon(step.status)}</span>
+                <span className="min-w-[1ch] text-right">
+                  <StatusIcon status={step.status} />
+                </span>
               </span>
             </motion.li>
           );

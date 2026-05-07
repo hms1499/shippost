@@ -1,5 +1,6 @@
 'use client';
 
+import { GraduationCap, Flame } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface Props {
@@ -16,7 +17,7 @@ export function ModePicker({ onSelect }: Props) {
         className="p-4 cursor-pointer hover:border-primary transition-colors"
       >
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🎓</span>
+          <GraduationCap className="text-primary shrink-0" size={28} aria-hidden />
           <div>
             <h3 className="font-semibold">Educational Thread</h3>
             <p className="text-sm text-muted-foreground">
@@ -31,7 +32,7 @@ export function ModePicker({ onSelect }: Props) {
         className="p-4 cursor-pointer hover:border-primary transition-colors"
       >
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🔥</span>
+          <Flame className="text-primary shrink-0" size={28} aria-hidden />
           <div>
             <h3 className="font-semibold">Hot Take</h3>
             <p className="text-sm text-muted-foreground">
