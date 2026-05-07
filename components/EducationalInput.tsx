@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { GraduationCap } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,10 +20,11 @@ export interface EducationalSubmitPayload {
 
 interface Props {
   onSubmit: (payload: EducationalSubmitPayload) => void;
+  onBack?: () => void;
   disabled?: boolean;
 }
 
-export function EducationalInput({ onSubmit, disabled }: Props) {
+export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
   const { balances, isLoading } = useBalances();
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
@@ -45,6 +46,17 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-4">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={disabled}
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ArrowLeft size={12} aria-hidden />
+          Choose another mode
+        </button>
+      )}
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <GraduationCap size={20} className="text-primary" aria-hidden />
         Educational Thread
@@ -83,7 +95,10 @@ export function EducationalInput({ onSubmit, disabled }: Props) {
       </div>
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading balances…</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
+          <Loader2 size={12} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+          Loading balances…
+        </p>
       ) : (
         <TokenSelector
           balances={balances}

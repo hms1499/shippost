@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
-import { BarChart3, History } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
 import { FolioMark } from '@/components/FolioMark';
@@ -15,11 +15,20 @@ import { Marginalia } from '@/components/Marginalia';
 import { InkBlot } from '@/components/InkBlot';
 import { InkText } from '@/components/InkText';
 
-const ConnectButton = dynamic(
-  () => import('@rainbow-me/rainbowkit').then((m) => m.ConnectButton),
-  { ssr: false, loading: () => <div className="text-sm text-muted-foreground">Loading wallet…</div> },
+const WalletMenu = dynamic(
+  () => import('@/components/WalletMenu').then((m) => m.WalletMenu),
+  {
+    ssr: false,
+    loading: () => (
+      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[hsl(var(--ink-faded))] heading-sub text-[10px] text-muted-foreground">
+        <Loader2 size={11} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+        Loading…
+      </span>
+    ),
+  },
 );
 import { WalletStatus } from '@/components/WalletStatus';
+import { LandingHero } from '@/components/LandingHero';
 import { ModePicker } from '@/components/ModePicker';
 import { ErrorSurface } from '@/components/ErrorSurface';
 import type { EducationalSubmitPayload } from '@/components/EducationalInput';
@@ -195,18 +204,7 @@ export default function HomeClient() {
             </span>
           </div>
           <div className="flex flex-col items-end gap-2 pt-2 shrink-0">
-            {mounted && !isMiniPay && (
-              <ConnectButton
-                chainStatus="icon"
-                accountStatus={{ smallScreen: 'avatar', largeScreen: 'full' }}
-                showBalance={false}
-              />
-            )}
-            {mounted && isMiniPay && (
-              <span className="text-[10px] px-2 py-1 rounded-full border border-primary/40 text-primary heading-sub leading-none">
-                MiniPay
-              </span>
-            )}
+            {mounted && <WalletMenu />}
             <FolioMark numeral="I" />
           </div>
         </div>
@@ -219,14 +217,18 @@ export default function HomeClient() {
       </header>
 
       {!mounted ? (
-        <div className="text-sm text-muted-foreground">Loading…</div>
+        <div className="text-sm text-muted-foreground flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+          Loading…
+        </div>
       ) : !isConnected ? (
         isMiniPay ? (
-          <div className="text-sm text-muted-foreground">Connecting MiniPay…</div>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            Connect a wallet to start posting
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+            Connecting MiniPay…
           </div>
+        ) : (
+          <LandingHero />
         )
       ) : !onSupportedChain ? (
         isMiniPay ? (
@@ -239,7 +241,14 @@ export default function HomeClient() {
               disabled={isSwitching}
               onClick={() => switchChain({ chainId: celo.id })}
             >
-              Switch to Celo
+              {isSwitching ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                  Switching…
+                </>
+              ) : (
+                'Switch to Celo'
+              )}
             </Button>
           </div>
         ) : (
@@ -266,6 +275,7 @@ export default function HomeClient() {
                 setScreen('generating');
                 await pay(p.token, 0);
               }}
+              onBack={() => setScreen('mode')}
               disabled={status === 'approving' || status === 'paying'}
             />
           )}
@@ -277,12 +287,14 @@ export default function HomeClient() {
                 setScreen('generating');
                 await pay(p.token, 1);
               }}
+              onBack={() => setScreen('mode')}
               disabled={status === 'approving' || status === 'paying'}
             />
           )}
           {screen === 'generating' && (
             <GeneratingStatus
               gen={gen}
+              payStatus={status}
               payTxHash={txHash}
               threadId={threadId}
               chainExplorerBase={explorerBase(chainId)}
@@ -290,8 +302,7 @@ export default function HomeClient() {
             />
           )}
           {screen === 'preview' && draftTweets && (
-            <div className="w-full max-w-md flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Your thread is ready</h2>
+            <div className="w-full max-w-md flex flex-col gap-4">
               <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
               <ShareToX tweets={draftTweets} />
               <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
@@ -383,20 +394,8 @@ export default function HomeClient() {
         </>
       )}
 
-      <footer className="w-full max-w-md flex flex-col items-center gap-3 mt-4">
+      <footer className="w-full max-w-md flex justify-center mt-4">
         <InkDivider />
-        <nav className="flex gap-6 heading-sub text-[10px]">
-          <a href="/stats" className="flex items-center gap-1.5 no-underline hover:text-primary">
-            <BarChart3 size={12} aria-hidden />
-            Public Stats
-          </a>
-          {isConnected && (
-            <a href="/history" className="flex items-center gap-1.5 no-underline hover:text-primary">
-              <History size={12} aria-hidden />
-              My History
-            </a>
-          )}
-        </nav>
       </footer>
     </main>
   );

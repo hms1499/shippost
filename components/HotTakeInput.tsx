@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Flame } from 'lucide-react';
+import { ArrowLeft, Flame, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -25,13 +25,14 @@ export interface HotTakeSubmitPayload {
 
 interface Props {
   onSubmit: (p: HotTakeSubmitPayload) => void;
+  onBack?: () => void;
   disabled?: boolean;
 }
 
 const MIN_LEN = 10;
 const MAX_LEN = 600;
 
-export function HotTakeInput({ onSubmit, disabled }: Props) {
+export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
   const { balances, isLoading } = useBalances();
   const [input, setInput] = useState('');
   const [angle, setAngle] = useState<Angle>('skeptical');
@@ -57,6 +58,17 @@ export function HotTakeInput({ onSubmit, disabled }: Props) {
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-4">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={disabled}
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ArrowLeft size={12} aria-hidden />
+          Choose another mode
+        </button>
+      )}
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <Flame size={20} className="text-primary" aria-hidden />
         Hot Take
@@ -98,7 +110,10 @@ export function HotTakeInput({ onSubmit, disabled }: Props) {
       </div>
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground">Loading balances…</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
+          <Loader2 size={12} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+          Loading balances…
+        </p>
       ) : (
         <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
       )}

@@ -41,7 +41,7 @@ export function PostShareScreen({
       <div className="flex items-start gap-3">
         <Wallet size={18} className="text-primary mt-1 shrink-0" aria-hidden />
         <div>
-          <p className="heading-sub text-[10px]">Liber Rationum · The Account</p>
+          <p className="heading-sub text-[10px]">Ledger · The Account</p>
           <h3 className="font-display italic text-2xl leading-tight mt-0.5">
             Where did your {tokenSymbol} go?
           </h3>

@@ -15,6 +15,7 @@ import { IllumQuill, IllumShield } from './IllumIcons';
 import { InkText } from './InkText';
 import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
+import type { PayStatus } from '@/lib/usePayForThread';
 
 type StepIcon = React.ComponentType<{ size?: number; className?: string }>;
 
@@ -29,11 +30,21 @@ const ORDER: StepId[] = ['serper', 'coingecko', 'groq', 'factCheck'];
 
 interface Props {
   gen: ThreadGenerationState;
+  payStatus?: PayStatus;
   payTxHash: string | null;
   threadId: bigint | null;
   chainExplorerBase: string;
   agentWalletAddress: string;
 }
+
+const PAY_LABEL: Record<PayStatus, string> = {
+  idle: 'Payment queued',
+  approving: 'Approving allowance…',
+  paying: 'Awaiting signature in wallet…',
+  'waiting-confirmation': 'Confirming on chain…',
+  success: 'Payment confirmed',
+  error: 'Payment failed',
+};
 
 function StatusIcon({ status }: { status: string }) {
   if (status === 'settled')
@@ -57,12 +68,18 @@ function StatusIcon({ status }: { status: string }) {
  */
 export function GeneratingStatus({
   gen,
+  payStatus,
   payTxHash,
   threadId,
   chainExplorerBase,
   agentWalletAddress,
 }: Props) {
   const groqStep = gen.steps.groq;
+  const payLabel = payTxHash
+    ? PAY_LABEL.success
+    : payStatus
+      ? PAY_LABEL[payStatus]
+      : 'Payment pending';
 
   return (
     <Card ornament className="w-full max-w-md p-6 flex flex-col gap-4">
@@ -79,11 +96,13 @@ export function GeneratingStatus({
 
       <ul className="text-sm flex flex-col gap-2.5">
         <LedgerRow
-          label="Payment confirmed"
+          label={payLabel}
           Icon={Receipt}
           right={
             payTxHash ? (
               <Check size={14} className="text-primary" aria-label="confirmed" />
+            ) : payStatus === 'error' ? (
+              <X size={14} className="text-destructive" aria-label="failed" />
             ) : (
               <Loader2
                 size={14}
