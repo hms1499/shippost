@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit';
 import { wagmiConfig } from '@/lib/wagmi';
 import '@rainbow-me/rainbowkit/styles.css';
 
-const rkTheme = darkTheme({
-  accentColor: '#3b82f6',
-  accentColorForeground: '#0a1628',
+// RainbowKit only renders on web (light parchment theme); MiniPay hides it
+// entirely and uses the dark slate UI. Sepia ink is the brand accent.
+const rkTheme = lightTheme({
+  accentColor: '#8B5E2F',
+  accentColorForeground: '#F5EBD3',
   borderRadius: 'large',
   fontStack: 'system',
   overlayBlur: 'small',

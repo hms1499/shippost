@@ -3,7 +3,31 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light: Da Vinci codex parchment — sepia ink on aged cream paper.
+     Default theme used on the web (logo aesthetic). */
   :root {
+    --background: 40 45% 87%;
+    --foreground: 28 35% 22%;
+    --card: 40 55% 92%;
+    --card-foreground: 28 35% 22%;
+    --primary: 25 50% 38%;
+    --primary-foreground: 40 55% 95%;
+    --secondary: 40 35% 80%;
+    --secondary-foreground: 28 35% 22%;
+    --muted: 40 30% 82%;
+    --muted-foreground: 28 18% 38%;
+    --accent: 30 45% 75%;
+    --accent-foreground: 28 35% 22%;
+    --destructive: 0 55% 42%;
+    --destructive-foreground: 40 55% 95%;
+    --border: 35 25% 70%;
+    --input: 35 25% 75%;
+    --ring: 25 50% 38%;
+    --radius: 0.75rem;
+  }
+
+  /* Dark: original slate. Activated for MiniPay webview only (mobile UX). */
+  .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
     --card: 222 47% 13%;
@@ -21,7 +45,6 @@
     --border: 217 33% 22%;
     --input: 217 33% 22%;
     --ring: 217 91% 60%;
-    --radius: 0.75rem;
   }
 }
 
@@ -32,5 +55,13 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3 {
+    @apply font-serif;
+    letter-spacing: 0.005em;
+  }
+  /* Lucide icons feel hand-drawn at lighter stroke; matches the codex line work. */
+  .lucide {
+    stroke-width: 1.5;
   }
 }
