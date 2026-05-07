@@ -8,6 +8,9 @@ import { formatUnits } from 'viem';
 import { BarChart3, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
+import { Logo } from '@/components/Logo';
+import { FolioMark } from '@/components/FolioMark';
+import { InkDivider } from '@/components/InkDivider';
 
 const ConnectButton = dynamic(
   () => import('@rainbow-me/rainbowkit').then((m) => m.ConnectButton),
@@ -157,24 +160,38 @@ export default function HomeClient() {
   }, [gen.isDone, gen.tweets, gen.fatal, draftTweets]);
 
   return (
-    <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
-      <div className="w-full max-w-md flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-primary">ShipPost</h1>
-          {mounted && isMiniPay && (
-            <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
-              MiniPay
-            </span>
-          )}
+    <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
+      <header className="w-full max-w-md flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 text-primary">
+            <Logo size={48} className="shrink-0" />
+            <div className="flex flex-col leading-none">
+              <h1 className="text-[2.4rem] font-semibold italic text-foreground">
+                ShipPost
+              </h1>
+              <span className="heading-sub text-[10px] mt-1">
+                Codex of Threads · Folio MMXXVI
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2 pt-1">
+            {mounted && !isMiniPay && (
+              <ConnectButton
+                chainStatus="icon"
+                accountStatus={{ smallScreen: 'avatar', largeScreen: 'full' }}
+                showBalance={false}
+              />
+            )}
+            {mounted && isMiniPay && (
+              <span className="text-[10px] px-2 py-1 rounded-full border border-primary/40 text-primary heading-sub leading-none">
+                MiniPay
+              </span>
+            )}
+            <FolioMark numeral="I" />
+          </div>
         </div>
-        {mounted && !isMiniPay && (
-          <ConnectButton
-            chainStatus="icon"
-            accountStatus={{ smallScreen: 'avatar', largeScreen: 'full' }}
-            showBalance={false}
-          />
-        )}
-      </div>
+        <InkDivider />
+      </header>
 
       {!mounted ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
@@ -341,18 +358,21 @@ export default function HomeClient() {
         </>
       )}
 
-      <nav className="flex gap-4 text-xs text-muted-foreground">
-        <a href="/stats" className="underline flex items-center gap-1">
-          <BarChart3 size={12} aria-hidden />
-          Public stats
-        </a>
-        {isConnected && (
-          <a href="/history" className="underline flex items-center gap-1">
-            <History size={12} aria-hidden />
-            My history
+      <footer className="w-full max-w-md flex flex-col items-center gap-3 mt-4">
+        <InkDivider />
+        <nav className="flex gap-6 heading-sub text-[10px]">
+          <a href="/stats" className="flex items-center gap-1.5 no-underline hover:text-primary">
+            <BarChart3 size={12} aria-hidden />
+            Public Stats
           </a>
-        )}
-      </nav>
+          {isConnected && (
+            <a href="/history" className="flex items-center gap-1.5 no-underline hover:text-primary">
+              <History size={12} aria-hidden />
+              My History
+            </a>
+          )}
+        </nav>
+      </footer>
     </main>
   );
 }

@@ -18,12 +18,17 @@
     --muted-foreground: 28 18% 38%;
     --accent: 30 45% 75%;
     --accent-foreground: 28 35% 22%;
-    --destructive: 0 55% 42%;
+    --destructive: 8 65% 38%;
     --destructive-foreground: 40 55% 95%;
-    --border: 35 25% 70%;
+    --border: 35 25% 65%;
     --input: 35 25% 75%;
     --ring: 25 50% 38%;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
+
+    /* Codex extras */
+    --ink-deep: 28 50% 16%;
+    --ink-faded: 28 25% 50%;
+    --vermillion: 8 70% 42%;
   }
 
   /* Dark: original slate. Activated for MiniPay webview only (mobile UX). */
@@ -45,6 +50,9 @@
     --border: 217 33% 22%;
     --input: 217 33% 22%;
     --ring: 217 91% 60%;
+    --ink-deep: 210 40% 98%;
+    --ink-faded: 215 20% 65%;
+    --vermillion: 0 70% 60%;
   }
 }
 
@@ -52,16 +60,151 @@
   * {
     @apply border-border;
   }
+
+  /* Parchment grain — only visible on the light theme. Subtle SVG noise data
+     URI overlaid on the base background. Disabled in .dark so the slate
+     theme stays clean. */
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-serif), Georgia, serif;
+    font-feature-settings: "liga" 1, "calt" 1, "onum" 1;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.32  0 0 0 0 0.22  0 0 0 0 0.12  0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+    background-size: 220px 220px;
+    background-blend-mode: multiply;
   }
+  .dark body {
+    background-image: none;
+  }
+
   h1, h2, h3 {
-    @apply font-serif;
-    letter-spacing: 0.005em;
+    font-family: var(--font-serif), Georgia, serif;
+    letter-spacing: -0.005em;
+    font-feature-settings: "liga" 1, "dlig" 1;
   }
-  /* Lucide icons feel hand-drawn at lighter stroke; matches the codex line work. */
+  h1 {
+    font-style: italic;
+    font-weight: 600;
+  }
+  h2, h3 {
+    font-weight: 600;
+  }
+
+  /* Subhead small caps — used by .heading-sub utility */
+  .heading-sub {
+    font-family: var(--font-serif), Georgia, serif;
+    font-variant: small-caps;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    color: hsl(var(--ink-faded));
+  }
+
+  /* Old-style figures for body number rendering. Mono utility opts back into
+     tabular lining figures so columns align in cost ledgers. */
+  .num-old {
+    font-variant-numeric: oldstyle-nums proportional-nums;
+  }
+  .font-mono, code, pre, kbd, samp {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  /* Lucide icons feel hand-drawn at lighter stroke; matches codex line work. */
   .lucide {
     stroke-width: 1.5;
+  }
+
+  /* Hand-drawn link underline. Sepia ink with offset, dotted on hover. */
+  a:not(.no-underline) {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 0.5px;
+    text-decoration-color: hsl(var(--ink-faded));
+  }
+  a:hover:not(.no-underline) {
+    text-decoration-style: dotted;
+    text-decoration-color: hsl(var(--primary));
+  }
+
+  /* Selection: a sepia ink wash. */
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--ink-deep));
+  }
+
+  /* Slim sepia scrollbar (light theme). */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--ink-faded));
+  }
+}
+
+@layer components {
+  /* Codex card — extends shadcn Card with a faint inner rule, so the surface
+     looks like a vellum tile rather than a flat rectangle. Used by adding
+     `codex-card` alongside Card classes. */
+  .codex-card {
+    position: relative;
+    background-image:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))),
+      linear-gradient(135deg, hsl(var(--ink-faded) / 0.06), transparent 60%);
+    background-blend-mode: normal;
+    box-shadow:
+      0 1px 0 0 hsl(var(--border)),
+      0 0 0 1px hsl(var(--border) / 0.4),
+      inset 0 0 0 1px hsl(var(--card-foreground) / 0.02);
+  }
+  .dark .codex-card {
+    background-image: none;
+  }
+
+  /* Folio: outer page frame for hero composition. */
+  .folio {
+    position: relative;
+    isolation: isolate;
+  }
+  .folio::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 0.5px solid hsl(var(--border));
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+  .dark .folio::before {
+    display: none;
+  }
+
+  /* Drop cap for hero copy. */
+  .drop-cap::first-letter {
+    font-family: var(--font-serif), Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 3.6em;
+    line-height: 0.9;
+    float: left;
+    margin: 0.05em 0.08em 0 0;
+    color: hsl(var(--primary));
+  }
+
+  /* Animated stroke draw for SVG decorations. */
+  @keyframes ink-draw {
+    from { stroke-dashoffset: var(--len, 600); opacity: 0; }
+    to   { stroke-dashoffset: 0; opacity: 1; }
+  }
+  .ink-draw path,
+  .ink-draw circle,
+  .ink-draw rect,
+  .ink-draw line,
+  .ink-draw polyline {
+    stroke-dasharray: var(--len, 600);
+    stroke-dashoffset: var(--len, 600);
+    animation: ink-draw 1.6s cubic-bezier(.4,.1,.2,1) forwards;
   }
 }

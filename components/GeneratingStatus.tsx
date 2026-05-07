@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { InkDivider } from './InkDivider';
 import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
@@ -34,13 +35,25 @@ interface Props {
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === 'settled') return <Check size={14} className="text-primary" aria-label="settled" />;
+  if (status === 'settled')
+    return <Check size={14} className="text-primary" aria-label="settled" />;
   if (status === 'running')
-    return <Loader2 size={14} className="animate-spin text-muted-foreground" aria-label="running" />;
-  if (status === 'failed') return <X size={14} className="text-destructive" aria-label="failed" />;
-  return <span className="text-muted-foreground">—</span>;
+    return (
+      <Loader2
+        size={14}
+        className="animate-spin text-[hsl(var(--ink-faded))]"
+        aria-label="running"
+      />
+    );
+  if (status === 'failed')
+    return <X size={14} className="text-destructive" aria-label="failed" />;
+  return <span className="text-[hsl(var(--ink-faded))]">·</span>;
 }
 
+/**
+ * Reads like a Renaissance accounting ledger entry: italic title, leader-dot
+ * rows, sepia ticks. The cost column uses tabular monospace so columns align.
+ */
 export function GeneratingStatus({
   gen,
   payTxHash,
@@ -51,67 +64,77 @@ export function GeneratingStatus({
   const groqStep = gen.steps.groq;
 
   return (
-    <Card className="w-full max-w-md p-4 flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Generating your thread…</h2>
+    <Card ornament className="w-full max-w-md p-6 flex flex-col gap-4">
+      <div>
+        <p className="heading-sub text-[10px]">In Progress · Folio II</p>
+        <h2 className="font-serif italic text-2xl mt-1">Calligraphing your thread…</h2>
+      </div>
 
-      <ul className="text-sm flex flex-col gap-2">
-        <li className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Receipt size={16} className="text-muted-foreground" aria-hidden />
-            Payment confirmed
-          </span>
-          <span className="font-mono text-xs">
-            {payTxHash ? (
+      <ul className="text-sm flex flex-col gap-2.5">
+        <LedgerRow
+          label="Payment confirmed"
+          Icon={Receipt}
+          right={
+            payTxHash ? (
               <Check size={14} className="text-primary" aria-label="confirmed" />
             ) : (
-              <Loader2 size={14} className="animate-spin text-muted-foreground" aria-label="pending" />
-            )}
-          </span>
-        </li>
+              <Loader2
+                size={14}
+                className="animate-spin text-[hsl(var(--ink-faded))]"
+                aria-label="pending"
+              />
+            )
+          }
+          budget="—"
+        />
 
         {ORDER.map((id) => {
           const meta = STEP_META[id];
           const step = gen.steps[id];
           if (step.status === 'pending') return null;
-          const { Icon } = meta;
           return (
-            <motion.li
+            <motion.div
               key={id}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between gap-2"
+              transition={{ duration: 0.3 }}
             >
-              <span className="flex items-center gap-2">
-                <Icon size={16} className="text-muted-foreground" aria-hidden />
-                {meta.label}
-              </span>
-              <span className="flex items-center gap-2 font-mono text-xs">
-                {step.costAmount
-                  ? `$${step.costAmount} ${step.tokenSymbol ?? ''}`
-                  : meta.budget}
-                <span className="min-w-[1ch] text-right">
-                  <StatusIcon status={step.status} />
-                </span>
-              </span>
-            </motion.li>
+              <LedgerRow
+                label={meta.label}
+                Icon={meta.Icon}
+                right={<StatusIcon status={step.status} />}
+                budget={
+                  step.costAmount
+                    ? `$${step.costAmount} ${step.tokenSymbol ?? ''}`
+                    : meta.budget
+                }
+              />
+            </motion.div>
           );
         })}
       </ul>
 
       {groqStep.status === 'failed' && groqStep.error && (
-        <p className="text-xs text-destructive">Step failed: {groqStep.error}</p>
+        <p className="text-xs text-destructive italic">
+          Step failed: {groqStep.error}
+        </p>
       )}
 
       {gen.totalCostUsd && (
-        <p className="text-xs text-muted-foreground">
-          Agent spent <span className="font-mono">${gen.totalCostUsd}</span> generating this thread
-        </p>
+        <>
+          <InkDivider />
+          <p className="text-xs italic text-muted-foreground">
+            Agent spent{' '}
+            <span className="font-mono not-italic">${gen.totalCostUsd}</span>{' '}
+            calligraphing this folio.
+          </p>
+        </>
       )}
 
       <div className="flex flex-col gap-1 text-xs">
         {payTxHash && (
           <a
-            className="text-primary underline"
+            className="text-primary"
             href={`${chainExplorerBase}/tx/${payTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -121,7 +144,7 @@ export function GeneratingStatus({
         )}
         {gen.steps.serper.txHash && (
           <a
-            className="text-primary underline"
+            className="text-primary"
             href={`${chainExplorerBase}/tx/${gen.steps.serper.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -131,7 +154,7 @@ export function GeneratingStatus({
         )}
         {groqStep.txHash && (
           <a
-            className="text-primary underline"
+            className="text-primary"
             href={`${chainExplorerBase}/tx/${groqStep.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -141,7 +164,7 @@ export function GeneratingStatus({
         )}
         {gen.steps.factCheck.txHash && (
           <a
-            className="text-primary underline"
+            className="text-primary"
             href={`${chainExplorerBase}/tx/${gen.steps.factCheck.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -150,7 +173,7 @@ export function GeneratingStatus({
           </a>
         )}
         <a
-          className="text-muted-foreground underline"
+          className="text-muted-foreground"
           href={`${chainExplorerBase}/address/${agentWalletAddress}`}
           target="_blank"
           rel="noopener noreferrer"
@@ -160,10 +183,44 @@ export function GeneratingStatus({
       </div>
 
       {threadId !== null && (
-        <p className="text-xs text-muted-foreground">Thread #{threadId.toString()}</p>
+        <p className="heading-sub text-[10px]">
+          Thread № <span className="font-mono">{threadId.toString()}</span>
+        </p>
       )}
 
-      {gen.fatal && <p className="text-sm text-destructive">Pipeline failed: {gen.fatal}</p>}
+      {gen.fatal && (
+        <p className="text-sm text-destructive italic">
+          Pipeline failed: {gen.fatal}
+        </p>
+      )}
     </Card>
+  );
+}
+
+interface RowProps {
+  label: string;
+  Icon: LucideIcon;
+  right: React.ReactNode;
+  budget: string;
+}
+
+function LedgerRow({ label, Icon, right, budget }: RowProps) {
+  return (
+    <li className="flex items-baseline gap-3 text-sm">
+      <Icon
+        size={14}
+        className="self-center text-[hsl(var(--ink-faded))] shrink-0"
+        aria-hidden
+      />
+      <span className="italic">{label}</span>
+      <span
+        className="flex-1 self-center border-b border-dotted border-[hsl(var(--ink-faded))] mx-1 mt-2 opacity-60"
+        aria-hidden
+      />
+      <span className="font-mono text-[11px] text-[hsl(var(--ink-faded))]">
+        {budget}
+      </span>
+      <span className="w-4 text-right">{right}</span>
+    </li>
   );
 }

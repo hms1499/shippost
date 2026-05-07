@@ -47,6 +47,7 @@ const config: Config = {
       },
       fontFamily: {
         serif: ['var(--font-serif)', 'Georgia', 'serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },
