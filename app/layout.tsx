@@ -1,20 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, JetBrains_Mono } from 'next/font/google';
+import { JetBrains_Mono } from 'next/font/google';
 import { Providers } from './providers';
 import { ThemeApplicator } from '@/components/ThemeApplicator';
 import './globals.css';
 
-const cormorant = Cormorant_Garamond({
+const mono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
-  variable: '--font-serif',
-  display: 'swap',
-});
-
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
   variable: '--font-mono',
   display: 'swap',
 });
@@ -37,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${cormorant.variable} ${mono.variable}`}>
+    <html lang="en" className={mono.variable}>
       <body>
         <ThemeApplicator />
         <Providers>{children}</Providers>

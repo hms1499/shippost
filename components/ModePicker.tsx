@@ -65,7 +65,7 @@ export function ModePicker({ onSelect }: Props) {
                   className="absolute inset-0 w-full h-full text-[hsl(var(--ink-faded))] opacity-70 group-hover:opacity-100 transition-opacity"
                 />
                 <span
-                  className="relative font-serif italic font-semibold text-[3rem] leading-none select-none"
+                  className="relative italic font-bold text-[2.6rem] leading-none select-none tracking-[-0.05em]"
                   aria-hidden
                 >
                   {m.numeral}
@@ -78,7 +78,7 @@ export function ModePicker({ onSelect }: Props) {
 
               <div className="flex flex-col justify-between flex-1 min-w-0">
                 <div>
-                  <h3 className="font-serif text-xl font-semibold leading-tight">
+                  <h3 className="text-lg font-semibold leading-tight tracking-tight">
                     {m.label}
                   </h3>
                   <p className="text-sm text-muted-foreground italic mt-1 leading-snug">

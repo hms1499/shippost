@@ -187,7 +187,7 @@ export default function HomeClient() {
               </h1>
               <span className="heading-sub text-[10px] mt-1 flex items-center gap-2">
                 Codex of Threads · Folio MMXXVI
-                <MirrorScript className="font-serif italic text-[10px] opacity-50 normal-case tracking-normal">
+                <MirrorScript className="italic text-[10px] opacity-50 normal-case tracking-normal">
                   ShipPost
                 </MirrorScript>
               </span>

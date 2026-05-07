@@ -67,7 +67,7 @@ export function GeneratingStatus({
     <Card ornament className="w-full max-w-md p-6 flex flex-col gap-4">
       <div>
         <p className="heading-sub text-[10px]">In Progress · Folio II</p>
-        <h2 className="font-serif italic text-2xl mt-1">Calligraphing your thread…</h2>
+        <h2 className="italic text-2xl mt-1 tracking-tight">Calligraphing your thread…</h2>
       </div>
 
       <ul className="text-sm flex flex-col gap-2.5">

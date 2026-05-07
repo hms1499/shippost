@@ -46,7 +46,10 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        serif: ['var(--font-serif)', 'Georgia', 'serif'],
+        // Mono everywhere — this is an engineer's codex, not an illuminated
+        // manuscript. JetBrains Mono ships an italic with cursive shapes for
+        // display flourish, plus weights up to 700 for hierarchy.
+        sans: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },

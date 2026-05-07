@@ -66,8 +66,9 @@
      edges so the centre reads as "page", (3) the actual parchment colour. */
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-serif), Georgia, serif;
-    font-feature-settings: "liga" 1, "calt" 1, "onum" 1;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-feature-settings: "liga" 1, "calt" 1, "ss01" 1;
+    font-variant-numeric: lining-nums;
     background-image:
       radial-gradient(
         ellipse 90% 70% at 50% 38%,
@@ -86,32 +87,32 @@
     background-attachment: scroll;
   }
 
+  /* Headings: mono italic for hero (h1) so the cursive italic JBMono shapes
+     read as a flourish; mono regular for h2/h3 with tight tracking + weight
+     to carry the hierarchy. */
   h1, h2, h3 {
-    font-family: var(--font-serif), Georgia, serif;
-    letter-spacing: -0.005em;
-    font-feature-settings: "liga" 1, "dlig" 1;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    letter-spacing: -0.02em;
   }
   h1 {
     font-style: italic;
-    font-weight: 600;
+    font-weight: 700;
   }
   h2, h3 {
     font-weight: 600;
   }
 
-  /* Subhead small caps — used by .heading-sub utility */
+  /* Subhead — uppercase tracked, replaces small-caps (mono ships no smcp). */
   .heading-sub {
-    font-family: var(--font-serif), Georgia, serif;
-    font-variant: small-caps;
-    letter-spacing: 0.14em;
-    font-weight: 600;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
     color: hsl(var(--ink-faded));
   }
 
-  /* Old-style figures for body number rendering. Mono utility opts back into
-     tabular lining figures so columns align in cost ledgers. */
   .num-old {
-    font-variant-numeric: oldstyle-nums proportional-nums;
+    font-variant-numeric: lining-nums proportional-nums;
   }
   .font-mono, code, pre, kbd, samp {
     font-family: var(--font-mono), ui-monospace, monospace;
@@ -123,9 +124,8 @@
     stroke-width: 1.5;
   }
 
-  /* Hand-drawn wavy ink underline applied as a background-image on links. The
-     SVG draws a sin-wave path; CSS positions it just below the text baseline.
-     We deliberately turn off the native text-decoration to avoid two lines. */
+  /* Hand-drawn wavy ink underline applied as a background-image on links.
+     Disabled inside .dark — slate keeps a flat underline. */
   a:not(.no-underline) {
     text-decoration: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 4' preserveAspectRatio='none'><path d='M0 2 Q3 0.4 6 2 T 12 2 T 18 2 T 24 2' fill='none' stroke='%237a5a35' stroke-width='0.7' stroke-linecap='round'/></svg>");
@@ -146,13 +146,11 @@
     padding-bottom: 0;
   }
 
-  /* Selection: a sepia ink wash. */
   ::selection {
     background: hsl(var(--primary) / 0.25);
     color: hsl(var(--ink-deep));
   }
 
-  /* Slim sepia scrollbar (light theme). */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -166,9 +164,6 @@
 }
 
 @layer components {
-  /* Codex card — extends shadcn Card with a faint inner rule, so the surface
-     looks like a vellum tile rather than a flat rectangle. Used by adding
-     `codex-card` alongside Card classes. */
   .codex-card {
     position: relative;
     background-image:
@@ -184,7 +179,6 @@
     background-image: none;
   }
 
-  /* Folio: outer page frame for hero composition. */
   .folio {
     position: relative;
     isolation: isolate;
@@ -202,19 +196,19 @@
     display: none;
   }
 
-  /* Drop cap for hero copy. */
+  /* Drop cap: large mono italic, Renaissance edition. JBMono italic keeps a
+     mechanical flair that nicely contrasts the surrounding body. */
   .drop-cap::first-letter {
-    font-family: var(--font-serif), Georgia, serif;
+    font-family: var(--font-mono), ui-monospace, monospace;
     font-style: italic;
     font-weight: 700;
-    font-size: 3.6em;
+    font-size: 3.2em;
     line-height: 0.9;
     float: left;
-    margin: 0.05em 0.08em 0 0;
+    margin: 0.05em 0.12em 0 0;
     color: hsl(var(--primary));
   }
 
-  /* Animated stroke draw for SVG decorations. */
   @keyframes ink-draw {
     from { stroke-dashoffset: var(--len, 600); opacity: 0; }
     to   { stroke-dashoffset: 0; opacity: 1; }
