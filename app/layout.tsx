@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono } from 'next/font/google';
+import { JetBrains_Mono, IM_Fell_DW_Pica } from 'next/font/google';
 import { Providers } from './providers';
 import { ThemeApplicator } from '@/components/ThemeApplicator';
 import './globals.css';
@@ -9,6 +9,17 @@ const mono = JetBrains_Mono({
   weight: ['400', '500', '600', '700'],
   style: ['normal', 'italic'],
   variable: '--font-mono',
+  display: 'swap',
+});
+
+// IM Fell DW Pica — type cut by John Fell c. 1690, period-correct codex
+// hand-press feel with deliberate ink irregularity. Reserved for display
+// surfaces (hero, section titles, illuminated initials, drop cap).
+const display = IM_Fell_DW_Pica({
+  subsets: ['latin'],
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  variable: '--font-display',
   display: 'swap',
 });
 
@@ -30,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={mono.variable}>
+    <html lang="en" className={`${mono.variable} ${display.variable}`}>
       <body>
         <ThemeApplicator />
         <Providers>{children}</Providers>

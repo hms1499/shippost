@@ -87,19 +87,21 @@
     background-attachment: scroll;
   }
 
-  /* Headings: mono italic for hero (h1) so the cursive italic JBMono shapes
-     read as a flourish; mono regular for h2/h3 with tight tracking + weight
-     to carry the hierarchy. */
+  /* Hierarchy is two-voice: IM Fell DW Pica is the display tier (hero,
+     sections, illuminated initials, drop cap); JBMono is everything else.
+     IM Fell ships only weight 400 — display impact comes from size, italic,
+     and surrounding negative space, not weight. */
   h1, h2, h3 {
-    font-family: var(--font-mono), ui-monospace, monospace;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display), Garamond, Georgia, serif;
+    letter-spacing: 0;
   }
   h1 {
     font-style: italic;
-    font-weight: 700;
+    font-weight: 400;
+    letter-spacing: -0.005em;
   }
   h2, h3 {
-    font-weight: 600;
+    font-weight: 400;
   }
 
   /* Subhead — uppercase tracked, replaces small-caps (mono ships no smcp). */
@@ -196,16 +198,16 @@
     display: none;
   }
 
-  /* Drop cap: large mono italic, Renaissance edition. JBMono italic keeps a
-     mechanical flair that nicely contrasts the surrounding body. */
+  /* Drop cap: oversized IM Fell italic. The hand-pressed irregular shapes
+     read as an illuminated capital cut on a single block of metal. */
   .drop-cap::first-letter {
-    font-family: var(--font-mono), ui-monospace, monospace;
+    font-family: var(--font-display), Garamond, Georgia, serif;
     font-style: italic;
-    font-weight: 700;
-    font-size: 3.2em;
-    line-height: 0.9;
+    font-weight: 400;
+    font-size: 3.8em;
+    line-height: 0.85;
     float: left;
-    margin: 0.05em 0.12em 0 0;
+    margin: 0.04em 0.1em -0.1em 0;
     color: hsl(var(--primary));
   }
 

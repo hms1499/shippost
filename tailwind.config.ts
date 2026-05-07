@@ -46,11 +46,12 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        // Mono everywhere — this is an engineer's codex, not an illuminated
-        // manuscript. JetBrains Mono ships an italic with cursive shapes for
-        // display flourish, plus weights up to 700 for hierarchy.
+        // Engineer's codex hybrid: JBMono for body/UI/data; IM Fell DW Pica
+        // for display tier (h1/h2/h3, illuminated initials, drop cap). Both
+        // are loaded via next/font/google in app/layout.tsx.
         sans: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        display: ['var(--font-display)', 'Garamond', 'Georgia', 'serif'],
       },
     },
   },
