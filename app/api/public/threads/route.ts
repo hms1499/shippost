@@ -11,6 +11,8 @@ const MAX_LIMIT = 50;
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const wallet = url.searchParams.get('wallet')?.toLowerCase();
+  const chainIdParam = url.searchParams.get('chainId');
+  const chainId = chainIdParam ? Number(chainIdParam) : MAINNET_CHAIN_ID;
   const limit = Math.min(
     Math.max(Number(url.searchParams.get('limit') ?? DEFAULT_LIMIT) || DEFAULT_LIMIT, 1),
     MAX_LIMIT,
@@ -23,7 +25,7 @@ export async function GET(req: Request) {
       .select(
         'chain_id,onchain_thread_id,wallet_address,mode,token_symbol,pay_tx_hash,topic,total_cost_usd,tweets,status,created_at',
       )
-      .eq('chain_id', MAINNET_CHAIN_ID)
+      .eq('chain_id', chainId)
       .order('created_at', { ascending: false })
       .limit(limit);
 

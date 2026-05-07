@@ -6,20 +6,24 @@ export const revalidate = 30;
 
 const MAINNET_CHAIN_ID = 42220;
 
-export async function GET() {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const chainIdParam = url.searchParams.get('chainId');
+  const chainId = chainIdParam ? Number(chainIdParam) : MAINNET_CHAIN_ID;
+
   try {
     const supabase = getSupabaseServer();
 
     const { count: threads } = await supabase
       .from('threads')
       .select('*', { count: 'exact', head: true })
-      .eq('chain_id', MAINNET_CHAIN_ID)
+      .eq('chain_id', chainId)
       .eq('status', 'completed');
 
     const { data: walletRows } = await supabase
       .from('threads')
       .select('wallet_address')
-      .eq('chain_id', MAINNET_CHAIN_ID)
+      .eq('chain_id', chainId)
       .eq('status', 'completed');
 
     const walletCounts = new Map<string, number>();
@@ -31,7 +35,7 @@ export async function GET() {
     const { data: x402 } = await supabase
       .from('threads')
       .select('groq_tx_hash,serper_tx_hash,fact_check_tx_hash')
-      .eq('chain_id', MAINNET_CHAIN_ID)
+      .eq('chain_id', chainId)
       .eq('status', 'completed');
 
     const x402Count = (x402 ?? []).reduce(
