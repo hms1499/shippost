@@ -12,6 +12,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { InkDivider } from './InkDivider';
 import { IllumQuill, IllumShield } from './IllumIcons';
+import { InkText } from './InkText';
 import type { ThreadGenerationState } from '@/hooks/useThreadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
@@ -67,9 +68,13 @@ export function GeneratingStatus({
     <Card ornament className="w-full max-w-md p-6 flex flex-col gap-4">
       <div>
         <p className="heading-sub text-[10px]">In Progress · Folio II</p>
-        <h2 className="font-display italic text-3xl mt-1 leading-tight">
+        <InkText
+          as="h2"
+          className="font-display italic text-3xl mt-1 leading-tight"
+          delay={65}
+        >
           Calligraphing your thread…
-        </h2>
+        </InkText>
       </div>
 
       <ul className="text-sm flex flex-col gap-2.5">
