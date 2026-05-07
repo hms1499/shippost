@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { CodexFrame } from './CodexFrame';
 import { IllumGraduationCap, IllumFlame } from './IllumIcons';
+import { InkText } from './InkText';
 
 interface Props {
   onSelect: (mode: 'educational' | 'hot-take') => void;
@@ -39,7 +40,13 @@ const MODES: Mode[] = [
 export function ModePicker({ onSelect }: Props) {
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
-      <h2 className="heading-sub text-xs">De Modis Scribendi</h2>
+      <InkText
+        as="h2"
+        className="heading-sub text-xs"
+        delay={50}
+      >
+        De Modis Scribendi
+      </InkText>
       <p className="drop-cap text-base italic text-muted-foreground -mt-2 leading-relaxed">
         Two ways to compose a thread. Choose your hand — the agent will pick up
         the quill and finish the rest.

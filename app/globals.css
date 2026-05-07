@@ -215,6 +215,24 @@
     from { stroke-dashoffset: var(--len, 600); opacity: 0; }
     to   { stroke-dashoffset: 0; opacity: 1; }
   }
+
+  /* Per-letter ink reveal — used by InkText so glyphs bloom into focus
+     instead of just appearing flat. */
+  @keyframes ink-reveal {
+    0% {
+      opacity: 0;
+      transform: translateY(3px);
+      filter: blur(2px);
+    }
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
   .ink-draw path,
   .ink-draw circle,
   .ink-draw rect,
