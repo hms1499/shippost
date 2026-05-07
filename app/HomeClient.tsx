@@ -13,6 +13,7 @@ import { InkDivider } from '@/components/InkDivider';
 import { MirrorScript } from '@/components/MirrorScript';
 import { Marginalia } from '@/components/Marginalia';
 import { InkBlot } from '@/components/InkBlot';
+import { InkText } from '@/components/InkText';
 
 const ConnectButton = dynamic(
   () => import('@rainbow-me/rainbowkit').then((m) => m.ConnectButton),
@@ -179,9 +180,13 @@ export default function HomeClient() {
       <header className="w-full max-w-md flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col leading-none">
-            <h1 className="font-display italic text-[3.4rem] text-foreground leading-[0.9]">
+            <InkText
+              as="h1"
+              className="font-display italic text-[3.4rem] text-foreground leading-[0.9]"
+              delay={70}
+            >
               ShipPost
-            </h1>
+            </InkText>
             <span className="heading-sub text-[10px] mt-2 flex items-center gap-2">
               Codex of Threads · Folio MMXXVI
               <MirrorScript className="font-display italic text-[12px] opacity-50 normal-case tracking-normal text-[hsl(var(--ink-faded))]">
