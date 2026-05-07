@@ -7,6 +7,11 @@ import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
 import { Button } from '@/components/ui/button';
 import { useIsMiniPay } from '@/lib/minipay';
+
+const ConnectButton = dynamic(
+  () => import('@rainbow-me/rainbowkit').then((m) => m.ConnectButton),
+  { ssr: false, loading: () => <div className="text-sm text-muted-foreground">Loading wallet…</div> },
+);
 import { WalletStatus } from '@/components/WalletStatus';
 import { ModePicker } from '@/components/ModePicker';
 import { ErrorSurface } from '@/components/ErrorSurface';
@@ -17,7 +22,7 @@ import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
-import { celoSepolia } from '@/lib/wagmi';
+import { celoSepolia } from '@/lib/celoSepolia';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
@@ -72,13 +77,21 @@ export default function HomeClient() {
   useEffect(() => {
     if (!mounted) return;
     if (autoConnectAttempted.current) return;
-    if (isMiniPay && !isConnected && connectors[0]) {
-      autoConnectAttempted.current = true;
-      try {
-        connect({ connector: connectors[0] });
-      } catch {
-        autoConnectAttempted.current = false;
-      }
+    if (!isMiniPay || isConnected) return;
+    // RainbowKit's getDefaultConfig adds many static connectors (MetaMask, Coinbase, WC) on top
+    // of EIP-6963 discoveries — picking connectors[0] would grab a wallet that isn't actually
+    // present in the MiniPay webview. Prefer the injected connector, which is what MiniPay
+    // surfaces via window.ethereum.
+    const injected =
+      connectors.find((c) => c.id === 'injected') ??
+      connectors.find((c) => c.name?.toLowerCase().includes('minipay')) ??
+      connectors[0];
+    if (!injected) return;
+    autoConnectAttempted.current = true;
+    try {
+      connect({ connector: injected });
+    } catch {
+      autoConnectAttempted.current = false;
     }
   }, [mounted, isMiniPay, isConnected, connect, connectors]);
 
@@ -156,45 +169,20 @@ export default function HomeClient() {
       {!mounted ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : !isConnected ? (
-        <div className="flex flex-col items-center gap-2 max-w-sm w-full">
-          <p className="text-sm text-muted-foreground">Choose a wallet</p>
-          {connectors.length === 0 ? (
-            <p className="text-sm text-destructive">No wallet detected. Install MetaMask, Coinbase, Rainbow…</p>
-          ) : (
-            (() => {
-              const seen = new Set<string>();
-              const unique = connectors.filter((c) => {
-                const key = c.name.toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-              });
-              return unique.map((c) => (
-                <Button
-                  key={c.uid}
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => connect({ connector: c })}
-                >
-                  {c.name}
-                </Button>
-              ));
-            })()
-          )}
-        </div>
+        isMiniPay ? (
+          <div className="text-sm text-muted-foreground">Connecting MiniPay…</div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 max-w-sm w-full">
+            <ConnectButton />
+          </div>
+        )
       ) : !onSupportedChain ? (
         <div className="flex flex-col items-center gap-3 max-w-sm text-center">
           <p className="text-sm text-destructive">
-            Wrong network (chainId {chainId}). ShipPost runs on Celo Sepolia (testnet) or Celo (mainnet).
+            Wrong network (chainId {chainId}). ShipPost runs on Celo
+            {isMiniPay ? '' : ' (mainnet) or Celo Sepolia (testnet)'}.
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={isSwitching}
-              onClick={() => switchChain({ chainId: celoSepolia.id })}
-            >
-              Switch to Celo Sepolia
-            </Button>
             <Button
               variant="outline"
               disabled={isSwitching}
@@ -202,6 +190,15 @@ export default function HomeClient() {
             >
               Switch to Celo
             </Button>
+            {!isMiniPay && (
+              <Button
+                variant="outline"
+                disabled={isSwitching}
+                onClick={() => switchChain({ chainId: celoSepolia.id })}
+              >
+                Switch to Celo Sepolia
+              </Button>
+            )}
           </div>
         </div>
       ) : (

@@ -1,5 +1,5 @@
 import { celo } from 'wagmi/chains';
-import { celoSepolia } from './wagmi';
+import { celoSepolia } from './celoSepolia';
 
 export function getChain(chainId: number) {
   if (chainId === celoSepolia.id) return celoSepolia;

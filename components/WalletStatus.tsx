@@ -3,6 +3,7 @@
 import { useAccount, useDisconnect } from 'wagmi';
 import { formatUnits } from 'viem';
 import { useBalances } from '@/lib/useBalances';
+import { useIsMiniPay } from '@/lib/minipay';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +15,7 @@ export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
   const { disconnect, isPending: isDisconnecting } = useDisconnect();
   const { balances, isLoading } = useBalances();
+  const isMiniPay = useIsMiniPay();
 
   if (!isConnected || !address) return null;
 
@@ -26,14 +28,16 @@ export function WalletStatus() {
           </span>
           <span className="font-mono text-sm">{shorten(address)}</span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isDisconnecting}
-          onClick={() => disconnect()}
-        >
-          {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
-        </Button>
+        {!isMiniPay && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isDisconnecting}
+            onClick={() => disconnect()}
+          >
+            {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+          </Button>
+        )}
       </div>
       <div className="border-t border-border pt-2 flex flex-col gap-1">
         {isLoading && <span className="text-xs text-muted-foreground">Loading balances…</span>}

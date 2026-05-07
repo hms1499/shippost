@@ -1,29 +1,24 @@
-import { createConfig, http } from 'wagmi';
+import { http } from 'wagmi';
 import { celo } from 'wagmi/chains';
-import { injected } from 'wagmi/connectors';
-import { defineChain } from 'viem';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { celoSepolia } from './celoSepolia';
 
-export const celoSepolia = defineChain({
-  id: 11142220,
-  name: 'Celo Sepolia',
-  nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://forno.celo-sepolia.celo-testnet.org'] },
-  },
-  blockExplorers: {
-    default: { name: 'Blockscout', url: 'https://celo-sepolia.blockscout.com' },
-  },
-  testnet: true,
-});
+export { celoSepolia };
 
-export const wagmiConfig = createConfig({
-  chains: [celoSepolia, celo],
-  connectors: [
-    injected({ shimDisconnect: true }),
-  ],
+// RainbowKit's getDefaultConfig requires a non-empty projectId at module load.
+// Falling back to a placeholder lets builds succeed without WC configured;
+// at runtime the WalletConnect option will fail to init but injected/Coinbase
+// wallets still work, which covers MiniPay (the priority surface).
+const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'shippost-placeholder';
+
+export const wagmiConfig = getDefaultConfig({
+  appName: 'ShipPost',
+  projectId,
+  chains: [celo, celoSepolia],
   transports: {
-    [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
     [celo.id]: http('https://forno.celo.org'),
+    [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
   },
   ssr: true,
 });

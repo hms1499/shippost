@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 import { celo } from 'wagmi/chains';
-import { celoSepolia } from './wagmi';
+import { celoSepolia } from './celoSepolia';
 
 export const shipPostPaymentAbi = [
   { inputs: [{ internalType: 'address', name: '_agentWallet', type: 'address' }, { internalType: 'address', name: '_treasury', type: 'address' }, { internalType: 'address', name: '_reservePool', type: 'address' }], stateMutability: 'nonpayable', type: 'constructor' },
