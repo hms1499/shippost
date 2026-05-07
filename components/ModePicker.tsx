@@ -40,17 +40,14 @@ const MODES: Mode[] = [
 export function ModePicker({ onSelect }: Props) {
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
+      <h2 className="heading-sub text-xs">De Modis Scribendi</h2>
       <InkText
-        as="h2"
-        className="heading-sub text-xs"
-        delay={50}
+        as="p"
+        className="text-base italic text-muted-foreground -mt-2 leading-relaxed"
+        delay={16}
       >
-        De Modis Scribendi
+        Two ways to compose a thread. Choose your hand — the agent will pick up the quill and finish the rest.
       </InkText>
-      <p className="drop-cap text-base italic text-muted-foreground -mt-2 leading-relaxed">
-        Two ways to compose a thread. Choose your hand — the agent will pick up
-        the quill and finish the rest.
-      </p>
 
       {MODES.map((m, i) => {
         const { Icon } = m;
