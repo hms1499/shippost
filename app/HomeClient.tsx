@@ -157,12 +157,21 @@ export default function HomeClient() {
 
   return (
     <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-8">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-bold text-primary">ShipPost</h1>
-        {mounted && isMiniPay && (
-          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
-            MiniPay
-          </span>
+      <div className="w-full max-w-md flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-primary">ShipPost</h1>
+          {mounted && isMiniPay && (
+            <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">
+              MiniPay
+            </span>
+          )}
+        </div>
+        {mounted && !isMiniPay && (
+          <ConnectButton
+            chainStatus="icon"
+            accountStatus={{ smallScreen: 'avatar', largeScreen: 'full' }}
+            showBalance={false}
+          />
         )}
       </div>
 
@@ -172,17 +181,16 @@ export default function HomeClient() {
         isMiniPay ? (
           <div className="text-sm text-muted-foreground">Connecting MiniPay…</div>
         ) : (
-          <div className="flex flex-col items-center gap-2 max-w-sm w-full">
-            <ConnectButton />
+          <div className="text-sm text-muted-foreground">
+            Connect a wallet to start posting
           </div>
         )
       ) : !onSupportedChain ? (
-        <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-          <p className="text-sm text-destructive">
-            Wrong network (chainId {chainId}). ShipPost runs on Celo
-            {isMiniPay ? '' : ' (mainnet) or Celo Sepolia (testnet)'}.
-          </p>
-          <div className="flex gap-2">
+        isMiniPay ? (
+          <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+            <p className="text-sm text-destructive">
+              Wrong network (chainId {chainId}). ShipPost runs on Celo.
+            </p>
             <Button
               variant="outline"
               disabled={isSwitching}
@@ -190,17 +198,12 @@ export default function HomeClient() {
             >
               Switch to Celo
             </Button>
-            {!isMiniPay && (
-              <Button
-                variant="outline"
-                disabled={isSwitching}
-                onClick={() => switchChain({ chainId: celoSepolia.id })}
-              >
-                Switch to Celo Sepolia
-              </Button>
-            )}
           </div>
-        </div>
+        ) : (
+          <div className="text-sm text-destructive text-center max-w-sm">
+            Wrong network. Use the wallet button above to switch to Celo or Celo Sepolia.
+          </div>
+        )
       ) : (
         <>
           <WalletStatus />
