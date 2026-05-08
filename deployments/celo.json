@@ -1,0 +1,16 @@
+{
+  "network": "celo",
+  "chainId": 42220,
+  "deployer": "0xcfab15c950093391fa1ca3b9810880839b05bcbc",
+  "contracts": {
+    "ShipPostPayment": "0x40dc09399f24a8052f10ad4930246d1409390343",
+    "AgentWallet": "0xe9b5e714509d7ad317e51e78ad34fa8bd4da7a97"
+  },
+  "tokens": {
+    "cUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+    "USDT": "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
+    "USDC": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C"
+  },
+  "dailyCapsUSD": 10,
+  "deployedAt": "2026-05-08T07:24:17.576Z"
+}

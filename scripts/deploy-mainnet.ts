@@ -47,7 +47,7 @@ async function main() {
   console.log('Network: Celo mainnet (chainId 42220)');
 
   const chainId = await publicClient.getChainId();
-  if (chainId !== 42220n) throw new Error(`Wrong network: expected chainId 42220, got ${chainId}`);
+  if (chainId !== 42220) throw new Error(`Wrong network: expected chainId 42220, got ${chainId}`);
 
   const balance = await publicClient.getBalance({ address: deployerAddr });
   const MIN_CELO = 100_000_000_000_000_000n; // 0.1 CELO
