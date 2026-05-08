@@ -26,6 +26,9 @@ const display = IM_Fell_DW_Pica({
 export const metadata: Metadata = {
   title: 'ShipPost — pay-per-thread, written in ink',
   description: 'A Renaissance for posting. Pay $0.05, agent crafts your thread.',
+  other: {
+    'talentapp:project_verification': 'a716144f6408810e3737c83cfc3fd4e663c78686f3bc89e2945c4bd0346a196c4e46cc35371bf8137e929a2a73f5e6024aab7c9bf90ec93a4d34b052ddf144a8',
+  },
 };
 
 export const viewport: Viewport = {
