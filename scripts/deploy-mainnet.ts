@@ -14,7 +14,7 @@ const MAINNET_TOKENS = {
   USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as `0x${string}`,
 };
 
-// $10/day caps — cUSD has 18 decimals, USDT/USDC have 6
+// $10/day caps (conservative for mainnet launch; testnet uses $50) — cUSD has 18 decimals, USDT/USDC have 6
 const DAILY_CAPS = {
   cUSD: 10n * 10n ** 18n,
   USDT: 10_000_000n,
@@ -28,7 +28,8 @@ function patchEnvLocal(key: string, value: string) {
     return;
   }
   let content = fs.readFileSync(envPath, 'utf8');
-  const regex = new RegExp(`^${key}=.*$`, 'm');
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`^${escapedKey}=.*$`, 'm');
   if (regex.test(content)) {
     content = content.replace(regex, `${key}=${value}`);
   } else {
@@ -45,6 +46,16 @@ async function main() {
   console.log('Deployer:', deployerAddr);
   console.log('Network: Celo mainnet (chainId 42220)');
 
+  const chainId = await publicClient.getChainId();
+  if (chainId !== 42220n) throw new Error(`Wrong network: expected chainId 42220, got ${chainId}`);
+
+  const balance = await publicClient.getBalance({ address: deployerAddr });
+  const MIN_CELO = 100_000_000_000_000_000n; // 0.1 CELO
+  if (balance < MIN_CELO) {
+    throw new Error(`Insufficient CELO: deployer has ${balance} wei. Need at least 0.1 CELO for gas.`);
+  }
+  console.log(`Deployer CELO balance: ${balance} wei — OK`);
+
   // 1. Deploy AgentWallet — owner = deployer
   const agentWallet = await viem.deployContract('AgentWallet', []);
   console.log('AgentWallet:', agentWallet.address);
@@ -56,6 +67,23 @@ async function main() {
     deployerAddr, // reservePool
   ]);
   console.log('ShipPostPayment:', payment.address);
+
+  // Persist addresses immediately in case configuration txs fail
+  const partialOut = {
+    network: 'celo',
+    chainId: 42220,
+    deployer: deployerAddr,
+    contracts: {
+      ShipPostPayment: payment.address,
+      AgentWallet: agentWallet.address,
+    },
+    status: 'partial — configuration in progress',
+    deployedAt: new Date().toISOString(),
+  };
+  const outPath = path.join(__dirname, '..', 'deployments', 'celo.json');
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(partialOut, null, 2));
+  console.log('Partial deploy record saved to deployments/celo.json');
 
   // 3. Whitelist real mainnet tokens on ShipPostPayment
   console.log('Whitelisting tokens...');
@@ -76,7 +104,7 @@ async function main() {
     await sleep(2000);
   }
 
-  // 5. Write deployments/celo.json
+  // 5. Write deployments/celo.json (final complete record)
   const out = {
     network: 'celo',
     chainId: 42220,
@@ -89,8 +117,6 @@ async function main() {
     dailyCapsUSD: 10,
     deployedAt: new Date().toISOString(),
   };
-  const outPath = path.join(__dirname, '..', 'deployments', 'celo.json');
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(out, null, 2));
   console.log(`\nWrote ${outPath}`);
 
