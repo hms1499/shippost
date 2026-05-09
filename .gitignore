@@ -18,6 +18,7 @@ typechain-types/
 .env
 .env.local
 .env.*.local
+tools/
 
 # Editor
 .vscode/

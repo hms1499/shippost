@@ -14,6 +14,10 @@
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network celoSepolia",
     "refund": "tsx scripts/refund.ts",
+    "withdraw:agent": "hardhat run scripts/withdraw-agent.ts --network celo",
+    "tools:distribute": "tsx tools/distribute-celo.ts --",
+    "tools:distribute-token": "tsx tools/distribute-token.ts --",
+    "tools:volume": "tsx tools/generate-volume.ts",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
