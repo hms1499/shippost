@@ -72,6 +72,50 @@ Groq, Serper, and CoinGecko don't support x402 natively. Each `/api/x402/*` rout
 
 ---
 
+## Demo
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="33%">
+        <img 
+          src="./screenshots/1-mode-selection.png" 
+          alt="Mode Selection Screen" 
+          width="280"
+          style="border-radius: 8px; border: 1px solid #e5e7eb;"
+        />
+        <br />
+        <b>Mode Selection</b><br/>
+        <small>Choose Educational or Hot Take mode</small>
+      </td>
+      <td align="center" width="33%">
+        <img 
+          src="./screenshots/2-progress.png" 
+          alt="Progress Theatre" 
+          width="280"
+          style="border-radius: 8px; border: 1px solid #e5e7eb;"
+        />
+        <br />
+        <b>Live Progress</b><br/>
+        <small>Real-time x402 cost breakdown per step</small>
+      </td>
+      <td align="center" width="33%">
+        <img 
+          src="./screenshots/3-thread-preview.png" 
+          alt="Thread Preview" 
+          width="280"
+          style="border-radius: 8px; border: 1px solid #e5e7eb;"
+        />
+        <br />
+        <b>Thread Preview</b><br/>
+        <small>Editable tweet cards, ready to share</small>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## Tech stack
 
 | Layer | Tech |
