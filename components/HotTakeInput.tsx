@@ -147,9 +147,9 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
         className="flex flex-col gap-2"
         style={{ animation: 'form-reveal 0.55s 0.20s cubic-bezier(.2,.6,.2,1) both' }}
       >
-        <p className="heading-sub text-[10px]">II · Angle</p>
+        <p id="angle-label" className="heading-sub text-[10px]">II · Angle</p>
         <InkDivider />
-        <div className="flex gap-2 flex-wrap">
+        <div role="group" aria-labelledby="angle-label" className="flex gap-2 flex-wrap">
           {ANGLE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -209,7 +209,7 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
           onClick={() => {
             if (canSubmit && effectiveToken) {
               onSubmit({
-                eventUrl: isUrl ? parsed!.url : null,
+                eventUrl: parsed?.url ?? null,
                 eventDescription: input.trim(),
                 angle,
                 token: effectiveToken,
