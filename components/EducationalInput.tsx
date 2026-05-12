@@ -108,7 +108,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
         className="flex flex-col gap-2"
         style={{ animation: 'form-reveal 0.55s 0.10s cubic-bezier(.2,.6,.2,1) both' }}
       >
-        <p className="heading-sub text-[10px]">I · Topic</p>
+        <label htmlFor="topic" className="heading-sub text-[10px]">I · Topic</label>
         <InkDivider />
         <Input
           id="topic"
@@ -132,6 +132,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
               key={opt.value}
               type="button"
               disabled={disabled}
+              aria-pressed={audience === opt.value}
               onClick={() => setAudience(opt.value)}
               className={`px-3 py-1 rounded-full text-xs border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 audience === opt.value
