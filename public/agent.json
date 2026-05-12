@@ -1,0 +1,26 @@
+{
+  "type": "Agent",
+  "name": "ShipPost",
+  "description": "Pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 stablecoin per thread. An ERC-8004 agent wallet makes x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread.",
+  "image": "https://shippost.vercel.app/logo.png",
+  "endpoints": [
+    {
+      "type": "a2a",
+      "url": "https://shippost.vercel.app/agent.json"
+    },
+    {
+      "type": "wallet",
+      "address": "0x7538627c5eef2193fa4960f03157f482eca333be",
+      "chainId": 11142220
+    }
+  ],
+  "supportedTrust": ["reputation"],
+  "version": "1.0.0",
+  "network": {
+    "testnet": {
+      "chainId": 11142220,
+      "agentWallet": "0x7538627c5eef2193fa4960f03157f482eca333be",
+      "paymentContract": "0x277e140933d600cafcad38e2f1018e4fbd5476b2"
+    }
+  }
+}

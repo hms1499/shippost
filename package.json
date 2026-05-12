@@ -13,6 +13,8 @@
     "test:lib": "vitest run lib",
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network celoSepolia",
+    "register:erc8004:testnet": "hardhat run scripts/register-erc8004.ts --network celoSepolia",
+    "register:erc8004:mainnet": "hardhat run scripts/register-erc8004.ts --network celo",
     "refund": "tsx scripts/refund.ts",
     "withdraw:agent": "hardhat run scripts/withdraw-agent.ts --network celo",
     "tools:distribute": "tsx tools/distribute-celo.ts --",
