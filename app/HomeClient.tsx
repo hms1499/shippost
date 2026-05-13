@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
@@ -84,6 +84,8 @@ export default function HomeClient() {
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
   const [hotTake, setHotTake] = useState<HotTakeSubmitPayload | null>(null);
   const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
+  const [refundStatus, setRefundStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [refundError, setRefundError] = useState<string | null>(null);
 
   const activeToken = submitted?.token ?? hotTake?.token ?? null;
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
@@ -170,6 +172,39 @@ export default function HomeClient() {
       setScreen('preview');
     }
   }, [gen.isDone, gen.tweets, gen.fatal, draftTweets]);
+
+  // Reset refund UI state whenever a new generation starts (new threadId).
+  useEffect(() => {
+    setRefundStatus('idle');
+    setRefundError(null);
+  }, [threadId]);
+
+  const requestRefund = useCallback(
+    async (kind: 'full' | 'partial' | 'slow-cancel') => {
+      if (!address || !threadId) return;
+      setRefundStatus('sending');
+      setRefundError(null);
+      try {
+        const res = await fetch('/api/refund-request', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            chainId,
+            onchainThreadId: threadId.toString(),
+            walletAddress: address,
+            kind,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        if (!res.ok) throw new Error(data?.error ?? `request failed (${res.status})`);
+        setRefundStatus('sent');
+      } catch (e) {
+        setRefundStatus('error');
+        setRefundError(e instanceof Error ? e.message : 'request failed');
+      }
+    },
+    [address, threadId, chainId],
+  );
 
   return (
     <main className="relative min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
@@ -359,21 +394,25 @@ export default function HomeClient() {
           {screen === 'generating' && gen.fatal === 'slow' && !gen.isDone && (
             <ErrorSurface
               kind="slow"
-              onRefundRequest={() => {
-                alert('Cancel + 50% refund requested. Operator will process within 24h.');
-              }}
+              onRefundRequest={() => requestRefund('slow-cancel')}
+              refundStatus={refundStatus}
+              refundError={refundError}
             />
           )}
           {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
             <ErrorSurface
               kind="full-fail"
-              onRefundRequest={() => alert('Refund request received. Check Celoscan within 24h.')}
+              onRefundRequest={() => requestRefund('full')}
+              refundStatus={refundStatus}
+              refundError={refundError}
             />
           )}
           {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
             <ErrorSurface
               kind="partial"
-              onRefundRequest={() => alert('Partial refund requested.')}
+              onRefundRequest={() => requestRefund('partial')}
+              refundStatus={refundStatus}
+              refundError={refundError}
             />
           )}
           {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && (

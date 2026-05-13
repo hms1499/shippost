@@ -12,10 +12,14 @@ export type ErrorKind =
   | 'cap-hit'
   | 'slow';
 
+export type RefundRequestStatus = 'idle' | 'sending' | 'sent' | 'error';
+
 interface Props {
   kind: ErrorKind;
   onRetry?: () => void;
   onRefundRequest?: () => void;
+  refundStatus?: RefundRequestStatus;
+  refundError?: string | null;
 }
 
 const COPY: Record<
@@ -58,23 +62,42 @@ const COPY: Record<
   },
 };
 
-export function ErrorSurface({ kind, onRetry, onRefundRequest }: Props) {
+export function ErrorSurface({
+  kind,
+  onRetry,
+  onRefundRequest,
+  refundStatus = 'idle',
+  refundError,
+}: Props) {
   const c = COPY[kind];
-  const primary =
-    kind === 'insufficient'
-      ? () => window.open('https://minipay.to', '_blank')
-      : kind === 'slow' || kind === 'partial' || kind === 'full-fail'
-        ? onRefundRequest
-        : onRetry;
+  const isRefundKind = kind === 'slow' || kind === 'partial' || kind === 'full-fail';
+  const primary = kind === 'insufficient'
+    ? () => window.open('https://minipay.to', '_blank')
+    : isRefundKind
+      ? onRefundRequest
+      : onRetry;
+
+  const buttonLabel = isRefundKind && refundStatus === 'sending'
+    ? 'Sending…'
+    : isRefundKind && refundStatus === 'sent'
+      ? 'Refund request received ✓'
+      : c.primary;
+  const disabled = isRefundKind && (refundStatus === 'sending' || refundStatus === 'sent');
 
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-3 border-destructive/40">
       <h3 className="text-sm font-semibold">{c.title}</h3>
       <p className="text-sm text-muted-foreground">{c.body}</p>
-      {c.primary && primary && (
-        <Button variant="outline" onClick={primary}>
-          {c.primary}
+      {buttonLabel && primary && (
+        <Button variant="outline" onClick={primary} disabled={disabled}>
+          {buttonLabel}
         </Button>
+      )}
+      {isRefundKind && refundStatus === 'sent' && (
+        <p className="text-xs text-muted-foreground">Operator will process within 24h.</p>
+      )}
+      {isRefundKind && refundStatus === 'error' && refundError && (
+        <p className="text-xs text-destructive">{refundError}</p>
       )}
     </Card>
   );
