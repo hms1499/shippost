@@ -17,6 +17,7 @@
     "register:erc8004:mainnet": "hardhat run scripts/register-erc8004.ts --network celo",
     "refund": "tsx scripts/refund.ts",
     "refund:list": "tsx scripts/list-refund-requests.ts",
+    "refund:process": "tsx scripts/process-refund-request.ts",
     "withdraw:agent": "hardhat run scripts/withdraw-agent.ts --network celo",
     "tools:distribute": "tsx tools/distribute-celo.ts --",
     "tools:distribute-token": "tsx tools/distribute-token.ts --",
