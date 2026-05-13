@@ -1,6 +1,6 @@
 import { celo } from 'wagmi/chains';
 import type { Address } from 'viem';
-import { celoSepolia } from './celoSepolia';
+import { celoSepolia } from './chains';
 
 export type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
 

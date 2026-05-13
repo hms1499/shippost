@@ -1,7 +1,7 @@
 import { http } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { celoSepolia } from './celoSepolia';
+import { celoSepolia } from './chains';
 
 export { celoSepolia };
 

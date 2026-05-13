@@ -38,7 +38,7 @@ import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase, isSupportedChain } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
-import { celoSepolia } from '@/lib/celoSepolia';
+import { celoSepolia } from '@/lib/chains';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
