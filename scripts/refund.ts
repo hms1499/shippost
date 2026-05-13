@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { refundThread } from '../lib/orchestrator';
+import { refundThread } from '../lib/agent/orchestrator';
 
 async function main() {
   const [chainIdStr, to, tokenSymbol, amount, ...reasonParts] = process.argv.slice(2);

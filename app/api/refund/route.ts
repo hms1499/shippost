@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { refundThread } from '@/lib/orchestrator';
+import { refundThread } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
 import type { Address } from 'viem';
 

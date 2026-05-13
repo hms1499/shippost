@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { parseEther } from 'viem';
-import { settleX402Call } from '@/lib/orchestrator';
+import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
 import type { PipelineContext, PipelineEvent } from './types';

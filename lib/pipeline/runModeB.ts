@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { parseEther } from 'viem';
-import { settleX402Call } from '@/lib/orchestrator';
+import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeBPrompt, summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/modeB';

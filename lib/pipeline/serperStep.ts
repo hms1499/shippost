@@ -1,5 +1,5 @@
 import { parseEther } from 'viem';
-import { settleX402Call } from '@/lib/orchestrator';
+import { settleX402Call } from '@/lib/agent/orchestrator';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const SERPER_SINK = '0x00000000000000000000000000000000000053E2' as const;

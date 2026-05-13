@@ -1,8 +1,8 @@
 import { createWalletClient, createPublicClient, http, parseUnits, erc20Abi, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getChain } from './chains';
-import { agentWalletAbi, getContracts } from './contracts';
-import { getTokens, type TokenSymbol } from './tokens';
+import { getChain } from '../chains';
+import { agentWalletAbi, getContracts } from '../contracts';
+import { getTokens, type TokenSymbol } from '../tokens';
 
 export async function settleX402Call(params: {
   chainId: number;
