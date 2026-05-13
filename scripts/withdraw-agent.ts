@@ -34,7 +34,7 @@ function getAgentWallet(): `0x${string}` {
 }
 
 async function main() {
-  const { viem } = network as any;
+  const { viem } = await network.create();
   const [owner] = await viem.getWalletClients();
   const pub = await viem.getPublicClient();
 
