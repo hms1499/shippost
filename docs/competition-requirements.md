@@ -60,8 +60,8 @@ Option A — Find the correct type string:
 2. Or open a GitHub issue / ask in the selfxyz Discord for the deployed contract ABI
 
 Option B — Use the web UI instead of the script:
-1. Go to `selfagentid.xyz`
-2. Connect the deployer wallet (`0xcfab15c950093391fa1ca3b9810880839b05bcbc`)
+1. Go to **https://app.ai.self.xyz** (the docs still reference `selfagentid.xyz` but that domain is NXDOMAIN — the live frontend moved to `app.ai.self.xyz`, confirmed in the [self-agent-id repo README](https://github.com/selfxyz/self-agent-id))
+2. Connect the deployer wallet (`0xcfab15c950093391fa1ca3b9810880839b05bcbc`) on Celo Mainnet
 3. Use the UI to link the wallet to agentId 9057 — the UI will use the correct type string
 
 Option C — Skip `setAgentWallet` (acceptable):
@@ -76,7 +76,7 @@ Option C — Skip `setAgentWallet` (acceptable):
 
 **What it means:** Bind the ShipPost agent's deployer EOA to a verified human identity using zero-knowledge passport proofs. The result is a soulbound ERC-721 NFT on Celo that proves the AI agent is backed by a real, verified human — preventing Sybil attacks and enabling trustless accountability.
 
-**Source reference:** https://docs.celo.org/build-on-celo/build-with-self and https://selfagentid.xyz
+**Source reference:** https://docs.celo.org/build-on-celo/build-with-self and https://app.ai.self.xyz (live frontend; the older `selfagentid.xyz` URL referenced in some docs is NXDOMAIN)
 
 **Self.xyz contracts:**
 - Celo Mainnet: `0xaC3DF9ABf80d0F5c020C06B04Cced27763355944`
@@ -85,7 +85,7 @@ Option C — Skip `setAgentWallet` (acceptable):
 ### How to register (no code required)
 
 1. Download the **Self app** on iOS or Android
-2. Open `selfagentid.xyz` in a browser
+2. Open **https://app.ai.self.xyz** in a browser (note: `selfagentid.xyz` referenced in older docs is NXDOMAIN)
 3. Connect the deployer wallet (`0xcfab15c950093391fa1ca3b9810880839b05bcbc`)
 4. Scan your **passport** via NFC on your phone inside the Self app
 5. The app generates a ZK proof locally (no personal data leaves the device)
