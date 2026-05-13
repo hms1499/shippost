@@ -18,11 +18,13 @@ pnpm test:contracts                                 # Hardhat tests
 pnpm compile                                        # compile Solidity
 pnpm deploy:testnet                                 # deploy to Celo Sepolia (chainId 11142220)
 hardhat run scripts/deploy.ts --network celo        # deploy to Celo mainnet (chainId 42220)
+pnpm refund:list                                    # admin: list pending refund_requests rows
+pnpm refund:process <requestId> [--amount=0.02]     # admin: settle one queued refund (REFUND_ADMIN_KEY required)
 ```
 
 Run a single Hardhat test file:
 ```bash
-npx hardhat test test/ShipPostPayment.t.ts
+npx hardhat test test/contracts/ShipPostPayment.t.ts
 ```
 
 ## Architecture
