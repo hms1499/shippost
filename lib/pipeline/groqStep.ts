@@ -44,8 +44,10 @@ export async function runGroqStep(
   }
 
   const tweets = parseThread(raw);
-  emit({ type: 'step_output', step: 'groq', output: tweets });
 
+  // Settle gates delivery: spend x402 BEFORE the tweets leave the server, so
+  // a failed or uncapped settle can't yield free content the user then also
+  // gets refunded for.
   try {
     const txHash = await settleX402Call({
       chainId: ctx.chainId,
@@ -67,5 +69,6 @@ export async function runGroqStep(
     throw new Error(`x402 settle failed: ${msg}`);
   }
 
+  emit({ type: 'step_output', step: 'groq', output: tweets });
   return { tweets };
 }
