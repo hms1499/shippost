@@ -29,6 +29,10 @@ const VALID_ANGLES: Angle[] = ['bullish', 'bearish', 'skeptical'];
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+// Mode B = Serper + CoinGecko + 2 LLM calls + x402 receipt waits. Pin the
+// function ceiling explicitly so a slow run can't be killed mid-generation
+// (user paid, no content, thread stuck 'pending') by a lower platform default.
+export const maxDuration = 300;
 
 function sseLine(e: PipelineEvent): string {
   return `data: ${JSON.stringify(e)}\n\n`;
