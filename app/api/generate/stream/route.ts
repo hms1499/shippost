@@ -34,6 +34,26 @@ export const runtime = 'nodejs';
 // (user paid, no content, thread stuck 'pending') by a lower platform default.
 export const maxDuration = 300;
 
+// Internal deadline well under maxDuration. A platform SIGKILL at 300s is a
+// hard kill with no cleanup — the thread is left 'pending' with no `fatal`
+// emitted (worst state: paid, no content, can't self-refund). Racing an
+// internal timeout instead routes a hung run through the normal catch:
+// thread -> 'failed', `fatal` emitted, refundable. (The orphaned pipeline may
+// keep running in the background until maxDuration; true cancellation needs
+// AbortController plumbed through every step — a separate, larger change.)
+const PIPELINE_DEADLINE_MS = 150_000;
+
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`generation exceeded ${ms / 1000}s deadline`)),
+      ms,
+    );
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
 function sseLine(e: PipelineEvent): string {
   return `data: ${JSON.stringify(e)}\n\n`;
 }
@@ -173,17 +193,20 @@ export async function POST(req: Request) {
         let marketSnippet: string | null = null;
 
         if (body.mode === 0) {
-          const out = await runModeA(baseCtx, emit);
+          const out = await withDeadline(runModeA(baseCtx, emit), PIPELINE_DEADLINE_MS);
           tweets = out.tweets;
           totalCostUsd = MODE_A_TOTAL_COST_USD;
         } else {
-          const out = await runModeB(
-            {
-              ...baseCtx,
-              angle: body.angle ?? 'skeptical',
-              eventDescription: body.eventDescription ?? '',
-            },
-            emit,
+          const out = await withDeadline(
+            runModeB(
+              {
+                ...baseCtx,
+                angle: body.angle ?? 'skeptical',
+                eventDescription: body.eventDescription ?? '',
+              },
+              emit,
+            ),
+            PIPELINE_DEADLINE_MS,
           );
           tweets = out.tweets;
           totalCostUsd = out.totalCostUsd;
