@@ -1,5 +1,6 @@
 import { parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
+import { retryOnce } from './retry';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const SERPER_SINK = '0x00000000000000000000000000000000000053E2' as const;
@@ -32,19 +33,27 @@ export async function runSerperStep(
   let newsSnippet: string | null = null;
 
   try {
-    const res = await fetch(SERPER_ENDPOINT, {
-      method: 'POST',
-      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: ctx.query, num: 5, gl: 'us', hl: 'en' }),
+    // Retry only the fetch (no side effect) — settle stays outside, below.
+    const data = await retryOnce(async () => {
+      const res = await fetch(SERPER_ENDPOINT, {
+        method: 'POST',
+        headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: ctx.query, num: 5, gl: 'us', hl: 'en' }),
+      });
+      if (!res.ok) throw new Error(`Serper ${res.status}`);
+      const json = (await res.json()) as {
+        organic?: SerperOrganicResult[];
+        answerBox?: { snippet?: string };
+        knowledgeGraph?: { description?: string };
+      };
+      return {
+        organic: json.organic ?? [],
+        newsSnippet:
+          json.answerBox?.snippet ?? json.knowledgeGraph?.description ?? null,
+      };
     });
-    if (!res.ok) throw new Error(`Serper ${res.status}`);
-    const json = (await res.json()) as {
-      organic?: SerperOrganicResult[];
-      answerBox?: { snippet?: string };
-      knowledgeGraph?: { description?: string };
-    };
-    organic = json.organic ?? [];
-    newsSnippet = json.answerBox?.snippet ?? json.knowledgeGraph?.description ?? null;
+    organic = data.organic;
+    newsSnippet = data.newsSnippet;
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'serper failed';
     emit({ type: 'step_failed', step: 'serper', error: msg });

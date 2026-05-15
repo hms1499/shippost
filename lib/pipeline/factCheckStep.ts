@@ -2,6 +2,7 @@ import Groq from 'groq-sdk';
 import { parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
+import { retryOnce } from './retry';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
 import type { PipelineContext, PipelineEvent } from './types';
 
@@ -27,17 +28,21 @@ export async function runFactCheckStep(
 
   let raw: string;
   try {
-    const resp = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: FACT_CHECK_SYSTEM },
-        { role: 'user', content: buildFactCheckUserPrompt(input) },
-      ],
-      temperature: 0.1,
-      max_tokens: 1400,
+    // Retry only the LLM call (no side effect) — settle stays outside, below.
+    raw = await retryOnce(async () => {
+      const resp = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: FACT_CHECK_SYSTEM },
+          { role: 'user', content: buildFactCheckUserPrompt(input) },
+        ],
+        temperature: 0.1,
+        max_tokens: 1400,
+      });
+      const out = resp.choices[0]?.message?.content ?? '';
+      if (!out.trim()) throw new Error('fact-check returned empty');
+      return out;
     });
-    raw = resp.choices[0]?.message?.content ?? '';
-    if (!raw.trim()) throw new Error('fact-check returned empty');
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'fact-check failed';
     emit({ type: 'step_failed', step: 'factCheck', error: msg });

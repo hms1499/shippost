@@ -1,4 +1,5 @@
 import type { Hex } from 'viem';
+import { retryOnce } from './retry';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const CG_BASE = 'https://api.coingecko.com/api/v3';
@@ -65,15 +66,18 @@ export async function runCoinGeckoStep(
       });
       return r;
     }
-    const res = await fetch(
-      `${CG_BASE}/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
-    );
-    if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
-    const j = (await res.json()) as Record<
-      string,
-      { usd?: number; usd_24h_change?: number; usd_market_cap?: number }
-    >;
-    const entry = j[id];
+    // No x402 settle in this step, so retrying the fetch is fully safe.
+    const entry = await retryOnce(async () => {
+      const res = await fetch(
+        `${CG_BASE}/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
+      );
+      if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
+      const j = (await res.json()) as Record<
+        string,
+        { usd?: number; usd_24h_change?: number; usd_market_cap?: number }
+      >;
+      return j[id];
+    });
     const result: CoinGeckoResult = {
       symbol: sym.toUpperCase(),
       priceUsd: entry?.usd ?? null,
