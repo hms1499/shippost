@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScreenTransition } from '@/components/motion/ScreenTransition';
+import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
 import { FolioMark } from '@/components/FolioMark';
 import { InkDivider } from '@/components/InkDivider';
@@ -348,8 +349,9 @@ export default function HomeClient() {
             />
           )}
           {screen === 'preview' && draftTweets && (
-            <div className="w-full max-w-md flex flex-col gap-4">
+            <Stagger className="w-full max-w-md flex flex-col gap-4">
               {degradedSteps.length > 0 && (
+                <StaggerItem>
                 <div className="rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3 flex flex-col gap-2.5">
                   <p className="text-sm text-muted-foreground">
                     Built without live data ({degradedSteps.join(', ')}). Still
@@ -374,11 +376,18 @@ export default function HomeClient() {
                     <p className="text-xs text-destructive">{refundError}</p>
                   )}
                 </div>
+                </StaggerItem>
               )}
-              <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
-              <ShareToX tweets={draftTweets} />
-              <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
-            </div>
+              <StaggerItem>
+                <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
+              </StaggerItem>
+              <StaggerItem>
+                <ShareToX tweets={draftTweets} />
+              </StaggerItem>
+              <StaggerItem>
+                <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
+              </StaggerItem>
+            </Stagger>
           )}
           {screen === 'post-share' && activeToken && (
             <PostShareScreen
