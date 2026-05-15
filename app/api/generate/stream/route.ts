@@ -92,10 +92,43 @@ export async function POST(req: Request) {
     return new Response(`payment not verified: ${msg}`, { status: 402 });
   }
 
+  const supabase = getSupabaseSafe();
+
+  // Replay guard: the pending row also enforces one generation per payment
+  // via the unique (chain_id, onchain_thread_id) index. Insert BEFORE opening
+  // the stream so a replayed payment is rejected with a real status and zero
+  // x402 spend — not logged-and-continued. Trade-off: if Supabase is down we
+  // lose this guard (degraded mode) so a DB outage doesn't take generation
+  // fully offline; verifyPayment still bounds abuse to real payers + the cap.
+  if (supabase) {
+    const { error } = await supabase.from('threads').insert({
+      chain_id: body.chainId,
+      onchain_thread_id: body.threadId,
+      wallet_address: body.walletAddress.toLowerCase(),
+      mode: body.mode,
+      token_symbol: body.tokenSymbol,
+      token_address: body.tokenAddress.toLowerCase(),
+      amount_paid_raw: verifiedAmountRaw,
+      pay_tx_hash: body.payTxHash.toLowerCase(),
+      topic: body.topic ?? body.eventDescription ?? null,
+      audience: body.audience ?? null,
+      angle: body.angle ?? null,
+      status: 'pending',
+    });
+    if (error) {
+      // 23505 = unique_violation → this payment was already generated.
+      if (error.code === '23505') {
+        return new Response('thread already generated for this payment', { status: 409 });
+      }
+      // Can't prove this isn't a replay — fail closed rather than spend x402.
+      console.error('[supabase] insert pending failed:', error.message);
+      return new Response('could not record generation attempt', { status: 503 });
+    }
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
-      const supabase = getSupabaseSafe();
 
       const txByStep: Partial<Record<'groq' | 'serper' | 'factCheck', string>> = {};
       let capturedTweets: string[] | null = null;
@@ -115,25 +148,6 @@ export async function POST(req: Request) {
         }
         controller.enqueue(encoder.encode(sseLine(e)));
       };
-
-      // Insert pending row up-front so we record paid attempts even if pipeline fails.
-      if (supabase) {
-        const { error } = await supabase.from('threads').insert({
-          chain_id: body.chainId,
-          onchain_thread_id: body.threadId,
-          wallet_address: body.walletAddress.toLowerCase(),
-          mode: body.mode,
-          token_symbol: body.tokenSymbol,
-          token_address: body.tokenAddress.toLowerCase(),
-          amount_paid_raw: verifiedAmountRaw,
-          pay_tx_hash: body.payTxHash.toLowerCase(),
-          topic: body.topic ?? body.eventDescription ?? null,
-          audience: body.audience ?? null,
-          angle: body.angle ?? null,
-          status: 'pending',
-        });
-        if (error) console.error('[supabase] insert pending failed:', error.message);
-      }
 
       // Flush an initial byte so Vercel's 25s first-byte timeout doesn't
       // kill the connection while the first AI call is still running.
