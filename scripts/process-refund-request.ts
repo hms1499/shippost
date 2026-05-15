@@ -155,8 +155,21 @@ async function main() {
       reason,
     });
   } catch (e) {
-    // Best-effort revert to pending so admin can retry.
-    await supabase.from('refund_requests').update({ status: 'pending' }).eq('id', requestId);
+    // Do NOT revert to pending. refundThread may have broadcast the transfer
+    // and only thrown while waiting for the receipt (RPC timeout) — the tx can
+    // still mine. Auto-reverting would let a retry double-send. Leave the row
+    // 'processing' (the CAS lock then blocks any retry) and record why, so an
+    // operator verifies on-chain state before manually deciding.
+    const msg = e instanceof Error ? e.message : String(e);
+    await supabase
+      .from('refund_requests')
+      .update({ rejection_reason: `send failed, on-chain state UNKNOWN: ${msg}` })
+      .eq('id', requestId);
+    console.error(
+      `\n⚠  request #${requestId} left in 'processing'. The transfer MAY have been broadcast.\n` +
+        `   Check ${request.wallet_address} on the explorer before any retry.\n` +
+        `   To retry: confirm no transfer landed, then reset status to 'pending' manually.`,
+    );
     throw e;
   }
 
