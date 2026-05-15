@@ -77,13 +77,28 @@ async function main() {
 
   const { data: thread, error: thrErr } = await supabase
     .from('threads')
-    .select('token_symbol, amount_paid_raw')
+    .select('token_symbol, amount_paid_raw, refund_tx_hash')
     .eq('chain_id', request.chain_id)
     .eq('onchain_thread_id', request.onchain_thread_id)
     .single();
 
   if (thrErr || !thread) {
     console.error('parent thread not found:', thrErr?.message);
+    process.exit(1);
+  }
+
+  // Idempotency across both refund paths: /api/refund and this script both
+  // stamp threads.refund_tx_hash. If it's already set, this thread was paid
+  // out once — never send again, regardless of refund_requests.status.
+  if (thread.refund_tx_hash) {
+    console.error(
+      `thread ${request.onchain_thread_id} already refunded (tx ${thread.refund_tx_hash}) — refuse to double-send`,
+    );
+    // Reconcile the queue row so it stops showing as pending.
+    await supabase
+      .from('refund_requests')
+      .update({ status: 'completed', refund_tx_hash: thread.refund_tx_hash })
+      .eq('id', requestId);
     process.exit(1);
   }
 

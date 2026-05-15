@@ -45,6 +45,31 @@ export async function POST(req: Request) {
   const err = validate(body);
   if (err) return NextResponse.json({ error: err }, { status: 400 });
 
+  // Idempotency across both refund paths: refuse if this thread was already
+  // paid out (stamped by either this endpoint or `pnpm refund:process`).
+  try {
+    const supabase = getSupabaseServer();
+    const { data: existing, error: lookErr } = await supabase
+      .from('threads')
+      .select('refund_tx_hash')
+      .eq('chain_id', body.chainId)
+      .eq('onchain_thread_id', body.onchainThreadId)
+      .maybeSingle();
+    if (lookErr) {
+      return NextResponse.json({ error: 'refund precheck failed' }, { status: 502 });
+    }
+    if (existing?.refund_tx_hash) {
+      return NextResponse.json(
+        { error: 'already refunded', txHash: existing.refund_tx_hash },
+        { status: 409 },
+      );
+    }
+  } catch {
+    // No Supabase = no audit trail = no safe idempotency. Refuse rather than
+    // risk a blind double-send.
+    return NextResponse.json({ error: 'refund audit store unavailable' }, { status: 503 });
+  }
+
   try {
     const txHash = await refundThread({
       chainId: body.chainId,
