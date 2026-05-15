@@ -1,7 +1,7 @@
 import Groq from 'groq-sdk';
 import { parseEther, formatEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
-import { parseThread } from '@/lib/threadParser';
+import { parseThread, boundThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeAPrompt } from '@/lib/prompts/modeA';
 import type { PipelineContext, PipelineEvent } from './types';
@@ -56,7 +56,7 @@ export async function runGroqStep(
     throw e;
   }
 
-  const tweets = parseThread(raw);
+  const tweets = boundThread(parseThread(raw));
 
   // Settle gates delivery: spend x402 BEFORE the tweets leave the server, so
   // a failed or uncapped settle can't yield free content the user then also

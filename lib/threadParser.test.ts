@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseThread } from './threadParser';
+import { parseThread, boundThread, MAX_TWEETS } from './threadParser';
 
 describe('parseThread', () => {
   it('splits numbered tweets separated by blank lines', () => {
@@ -47,5 +47,21 @@ still line one.
   it('returns single element if LLM forgot to number', () => {
     const raw = `Some unnumbered text from the model.`;
     expect(parseThread(raw)).toEqual(['Some unnumbered text from the model.']);
+  });
+});
+
+describe('boundThread', () => {
+  it('trims and drops empty entries', () => {
+    expect(boundThread(['  a  ', '', '   ', 'b'])).toEqual(['a', 'b']);
+  });
+
+  it('throws when nothing usable remains', () => {
+    expect(() => boundThread(['', '   '])).toThrow(/no usable thread content/);
+    expect(() => boundThread([])).toThrow(/no usable thread content/);
+  });
+
+  it('caps runaway output at MAX_TWEETS', () => {
+    const many = Array.from({ length: MAX_TWEETS + 10 }, (_, i) => `t${i}`);
+    expect(boundThread(many)).toHaveLength(MAX_TWEETS);
   });
 });

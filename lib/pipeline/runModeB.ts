@@ -1,7 +1,7 @@
 import Groq from 'groq-sdk';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqStep';
-import { parseThread } from '@/lib/threadParser';
+import { parseThread, boundThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeBPrompt, summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/modeB';
 import { runSerperStep } from './serperStep';
@@ -87,7 +87,7 @@ export async function runModeB(
     throw e;
   }
 
-  const draftTweets = parseThread(raw);
+  const draftTweets = boundThread(parseThread(raw));
 
   // Settle gates delivery: spend x402 BEFORE the draft leaves the server, so
   // a failed or uncapped settle can't yield free content the user then also
