@@ -350,27 +350,28 @@ export default function HomeClient() {
           {screen === 'preview' && draftTweets && (
             <div className="w-full max-w-md flex flex-col gap-4">
               {degradedSteps.length > 0 && (
-                <div className="rounded-md border border-[hsl(var(--ink-faded))] px-4 py-3 text-sm text-muted-foreground flex flex-col gap-2">
-                  <span>
+                <div className="rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3 flex flex-col gap-2.5">
+                  <p className="text-sm text-muted-foreground">
                     Built without live data ({degradedSteps.join(', ')}). Still
                     usable — or request a refund if it falls short.
-                  </span>
+                  </p>
                   {refundStatus === 'sent' ? (
-                    <span className="text-xs">
+                    <p className="text-xs text-muted-foreground">
                       Refund requested. Operator will process within 24h.
-                    </span>
+                    </p>
                   ) : (
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
                       onClick={() => requestRefund('partial')}
                       disabled={refundStatus === 'sending'}
-                      className="self-start underline underline-offset-2 disabled:opacity-50"
                     >
                       {refundStatus === 'sending' ? 'Sending…' : 'Request a refund'}
-                    </button>
+                    </Button>
                   )}
                   {refundStatus === 'error' && refundError && (
-                    <span className="text-xs text-destructive">{refundError}</span>
+                    <p className="text-xs text-destructive">{refundError}</p>
                   )}
                 </div>
               )}
