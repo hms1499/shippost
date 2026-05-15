@@ -195,6 +195,9 @@ export async function refundThread(params: {
     functionName: 'transfer',
     args: [params.to, amount],
   });
-  await publicClient.waitForTransactionReceipt({ hash });
+  // Bound the wait so refund:process can't hang indefinitely on a dead RPC.
+  // The tx is already broadcast here — a timeout is the "on-chain state
+  // unknown" case the runbook covers (row left 'processing', verify manually).
+  await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
   return hash;
 }
