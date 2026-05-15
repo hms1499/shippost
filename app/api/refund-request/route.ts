@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   // queueing refunds against thread IDs they didn't pay for.
   const { data: thread, error: threadErr } = await supabase
     .from('threads')
-    .select('wallet_address, status')
+    .select('wallet_address, status, refund_tx_hash')
     .eq('chain_id', body.chainId)
     .eq('onchain_thread_id', body.onchainThreadId)
     .maybeSingle();
@@ -52,6 +52,15 @@ export async function POST(req: Request) {
   }
   if (thread.wallet_address.toLowerCase() !== wallet) {
     return NextResponse.json({ error: 'wallet did not pay for this thread' }, { status: 403 });
+  }
+  // Already settled — don't let users queue requests against a refunded
+  // thread. Keeps the operator queue clean and removes the double-processing
+  // confusion the cross-path idempotency guard also defends against.
+  if (thread.refund_tx_hash) {
+    return NextResponse.json(
+      { error: 'thread already refunded', txHash: thread.refund_tx_hash },
+      { status: 409 },
+    );
   }
 
   // Upsert: if user clicks twice, return the existing pending row instead of erroring.
