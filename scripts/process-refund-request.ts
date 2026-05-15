@@ -124,14 +124,24 @@ async function main() {
   console.log(`  amount: ${amountHuman}`);
   console.log(`  reason: ${reason}`);
 
-  // Mark processing first so a concurrent run won't double-send.
-  const { error: lockErr } = await supabase
+  // Mark processing first so a concurrent run won't double-send. The
+  // .eq('status','pending') makes this a compare-and-swap, but Supabase does
+  // NOT error when zero rows match — so we must inspect what came back. Only
+  // the worker whose UPDATE actually flipped the row (returns it) may proceed.
+  const { data: locked, error: lockErr } = await supabase
     .from('refund_requests')
     .update({ status: 'processing' })
     .eq('id', requestId)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('id');
   if (lockErr) {
     console.error('failed to lock request:', lockErr.message);
+    process.exit(1);
+  }
+  if (!locked || locked.length !== 1) {
+    console.error(
+      `request #${requestId} was not pending at lock time — another worker holds it. Refusing to send.`,
+    );
     process.exit(1);
   }
 
