@@ -243,3 +243,25 @@
     animation: ink-draw 1.6s cubic-bezier(.4,.1,.2,1) forwards;
   }
 }
+
+/* Accessibility: honor the OS "reduce motion" setting (WCAG 2.3.3). The codex
+   leans on ink-reveal/ink-draw + transitions; here we collapse them to their
+   end state. framer-motion is handled separately via useReducedMotion(). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ink-draw path,
+  .ink-draw circle,
+  .ink-draw rect,
+  .ink-draw line,
+  .ink-draw polyline {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+}
