@@ -206,6 +206,13 @@ export default function HomeClient() {
     [address, threadId, chainId],
   );
 
+  // Soft steps that failed even after retry — thread is still usable but the
+  // user paid full price for a degraded result. Surface a one-tap refund
+  // request rather than silently keeping their money or auto-refunding.
+  const degradedSteps = (['serper', 'coingecko', 'factCheck'] as const).filter(
+    (s) => gen.steps[s]?.status === 'failed',
+  );
+
   return (
     <main className="relative min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
       {/* Decorative ink stains, light theme only — pulled to edges so they
@@ -338,6 +345,31 @@ export default function HomeClient() {
           )}
           {screen === 'preview' && draftTweets && (
             <div className="w-full max-w-md flex flex-col gap-4">
+              {degradedSteps.length > 0 && (
+                <div className="rounded-md border border-[hsl(var(--ink-faded))] px-4 py-3 text-sm text-muted-foreground flex flex-col gap-2">
+                  <span>
+                    Built without live data ({degradedSteps.join(', ')}). Still
+                    usable — or request a refund if it falls short.
+                  </span>
+                  {refundStatus === 'sent' ? (
+                    <span className="text-xs">
+                      Refund requested. Operator will process within 24h.
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => requestRefund('partial')}
+                      disabled={refundStatus === 'sending'}
+                      className="self-start underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {refundStatus === 'sending' ? 'Sending…' : 'Request a refund'}
+                    </button>
+                  )}
+                  {refundStatus === 'error' && refundError && (
+                    <span className="text-xs text-destructive">{refundError}</span>
+                  )}
+                </div>
+              )}
               <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
               <ShareToX tweets={draftTweets} />
               <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
