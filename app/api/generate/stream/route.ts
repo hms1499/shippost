@@ -1,7 +1,9 @@
 import { runModeA, MODE_A_TOTAL_COST_USD } from '@/lib/pipeline/runModeA';
 import { runModeB } from '@/lib/pipeline/runModeB';
 import { getContracts } from '@/lib/contracts';
+import { verifyPayment } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
+import type { Address, Hex } from 'viem';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 import type { Angle } from '@/lib/prompts/modeB';
 
@@ -71,6 +73,25 @@ export async function POST(req: Request) {
   const err = validate(body);
   if (err) return new Response(err, { status: 400 });
 
+  // Prove the payment on-chain BEFORE opening the stream or spending any
+  // x402. Without this, the body is forgeable and anyone can drain the agent
+  // wallet for free. Reject (402) on any mismatch.
+  let verifiedAmountRaw: string;
+  try {
+    const { amountRaw } = await verifyPayment({
+      chainId: body.chainId,
+      payTxHash: body.payTxHash as Hex,
+      threadId: BigInt(body.threadId),
+      walletAddress: body.walletAddress as Address,
+      tokenAddress: body.tokenAddress as Address,
+      mode: body.mode,
+    });
+    verifiedAmountRaw = amountRaw.toString();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'payment verification failed';
+    return new Response(`payment not verified: ${msg}`, { status: 402 });
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
@@ -104,7 +125,7 @@ export async function POST(req: Request) {
           mode: body.mode,
           token_symbol: body.tokenSymbol,
           token_address: body.tokenAddress.toLowerCase(),
-          amount_paid_raw: body.amountPaidRaw,
+          amount_paid_raw: verifiedAmountRaw,
           pay_tx_hash: body.payTxHash.toLowerCase(),
           topic: body.topic ?? body.eventDescription ?? null,
           audience: body.audience ?? null,
