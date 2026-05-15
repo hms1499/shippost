@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http, parseUnits, formatUnits, erc20Abi, type Address, type Hex } from 'viem';
+import { createWalletClient, createPublicClient, http, parseUnits, formatUnits, erc20Abi, decodeEventLog, getAddress, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getChain } from '../chains';
 import { agentWalletAbi, shipPostPaymentAbi, getContracts } from '../contracts';
@@ -53,6 +53,94 @@ export async function getOnChainPaidAmount(params: {
     args: [token.address],
   });
   return amount as bigint;
+}
+
+// Verify a payForThread payment actually happened on-chain before doing any
+// paid work. The /api/generate/stream body is fully attacker-controlled, so
+// every field a caller claims (threadId, payer, token, mode, amount) must be
+// proven against the ThreadRequested event emitted by our payment contract —
+// not trusted. Returns the on-chain amount so callers store the real value
+// instead of the client-supplied amount_paid_raw.
+export async function verifyPayment(params: {
+  chainId: number;
+  payTxHash: Hex;
+  threadId: bigint;
+  walletAddress: Address;
+  tokenAddress: Address;
+  mode: 0 | 1;
+}): Promise<{ amountRaw: bigint }> {
+  const chain = getChain(params.chainId);
+  const publicClient = createPublicClient({ chain, transport: http() });
+  const contracts = getContracts(params.chainId);
+  const paymentAddr = getAddress(contracts.ShipPostPayment);
+
+  let receipt;
+  try {
+    receipt = await publicClient.getTransactionReceipt({ hash: params.payTxHash });
+  } catch {
+    throw new Error('payment tx not found on chain');
+  }
+  if (receipt.status !== 'success') {
+    throw new Error('payment tx did not succeed');
+  }
+
+  // Find the ThreadRequested log emitted *by our contract* (don't rely on
+  // receipt.to — tolerate router/multicall paths).
+  let evt:
+    | { user: Address; threadId: bigint; mode: number; token: Address; amount: bigint }
+    | null = null;
+  for (const log of receipt.logs) {
+    if (getAddress(log.address) !== paymentAddr) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: shipPostPaymentAbi,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName === 'ThreadRequested') {
+        evt = decoded.args as unknown as {
+          user: Address;
+          threadId: bigint;
+          mode: number;
+          token: Address;
+          amount: bigint;
+        };
+        break;
+      }
+    } catch {
+      // not the event we want — keep scanning
+    }
+  }
+  if (!evt) {
+    throw new Error('no ThreadRequested event from ShipPostPayment in this tx');
+  }
+
+  if (evt.threadId !== params.threadId) {
+    throw new Error('threadId does not match the payment tx');
+  }
+  if (getAddress(evt.user) !== getAddress(params.walletAddress)) {
+    throw new Error('payer does not match the payment tx');
+  }
+  if (getAddress(evt.token) !== getAddress(params.tokenAddress)) {
+    throw new Error('token does not match the payment tx');
+  }
+  if (Number(evt.mode) !== params.mode) {
+    throw new Error('mode does not match the payment tx');
+  }
+
+  // Defense in depth: the amount pulled must equal the canonical price for
+  // that token, so a forged event (wrong contract somehow) still can't pass.
+  const required = (await publicClient.readContract({
+    address: paymentAddr,
+    abi: shipPostPaymentAbi,
+    functionName: 'requiredAmount',
+    args: [params.tokenAddress],
+  })) as bigint;
+  if (evt.amount !== required) {
+    throw new Error('paid amount does not match required price');
+  }
+
+  return { amountRaw: evt.amount };
 }
 
 // MVP refund: direct ERC20 transfer from the deployer/reserve EOA to the user.
