@@ -1,7 +1,7 @@
 import { createWalletClient, createPublicClient, http, parseUnits, erc20Abi, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getChain } from '../chains';
-import { agentWalletAbi, getContracts } from '../contracts';
+import { agentWalletAbi, shipPostPaymentAbi, getContracts } from '../contracts';
 import { getTokens, type TokenSymbol } from '../tokens';
 
 export async function settleX402Call(params: {
@@ -31,6 +31,28 @@ export async function settleX402Call(params: {
   });
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
+}
+
+// Canonical refundable base: payForThread always pulls exactly
+// requiredAmount(token), so the trustless paid amount is that on-chain value —
+// never the client-supplied amount_paid_raw stored in Supabase (which an
+// attacker controls via the /api/generate/stream body).
+export async function getOnChainPaidAmount(params: {
+  chainId: number;
+  tokenSymbol: TokenSymbol;
+}): Promise<bigint> {
+  const chain = getChain(params.chainId);
+  const publicClient = createPublicClient({ chain, transport: http() });
+  const contracts = getContracts(params.chainId);
+  const token = getTokens(params.chainId)[params.tokenSymbol];
+
+  const amount = await publicClient.readContract({
+    address: contracts.ShipPostPayment,
+    abi: shipPostPaymentAbi,
+    functionName: 'requiredAmount',
+    args: [token.address],
+  });
+  return amount as bigint;
 }
 
 // MVP refund: direct ERC20 transfer from the deployer/reserve EOA to the user.

@@ -12,8 +12,8 @@
  * against accidental runs in the wrong shell, not an authorization layer).
  */
 import 'dotenv/config';
-import { formatUnits } from 'viem';
-import { refundThread } from '../lib/agent/orchestrator';
+import { formatUnits, parseUnits } from 'viem';
+import { refundThread, getOnChainPaidAmount } from '../lib/agent/orchestrator';
 import { getTokens } from '../lib/tokens';
 import { getSupabaseServer } from '../lib/supabase';
 
@@ -37,7 +37,7 @@ function parseArgs() {
 
 function computeAmount(opts: {
   kind: 'full' | 'partial' | 'slow-cancel';
-  amountPaidRaw: string;
+  paidRaw: bigint;
   decimals: number;
   override?: string;
 }): string {
@@ -45,10 +45,21 @@ function computeAmount(opts: {
     if (!opts.override) {
       throw new Error('partial refunds require --amount=<human>');
     }
+    if (!/^\d+(\.\d+)?$/.test(opts.override)) {
+      throw new Error('--amount must be a positive decimal string');
+    }
+    const raw = parseUnits(opts.override, opts.decimals);
+    if (raw <= 0n) {
+      throw new Error('--amount must be greater than 0');
+    }
+    if (raw > opts.paidRaw) {
+      throw new Error(
+        `--amount ${opts.override} exceeds amount paid (${formatUnits(opts.paidRaw, opts.decimals)}) — refusing over-refund`,
+      );
+    }
     return opts.override;
   }
-  const paid = BigInt(opts.amountPaidRaw);
-  const raw = opts.kind === 'full' ? paid : paid / 2n;
+  const raw = opts.kind === 'full' ? opts.paidRaw : opts.paidRaw / 2n;
   return formatUnits(raw, opts.decimals);
 }
 
@@ -77,7 +88,7 @@ async function main() {
 
   const { data: thread, error: thrErr } = await supabase
     .from('threads')
-    .select('token_symbol, amount_paid_raw, refund_tx_hash')
+    .select('token_symbol, refund_tx_hash')
     .eq('chain_id', request.chain_id)
     .eq('onchain_thread_id', request.onchain_thread_id)
     .single();
@@ -110,9 +121,15 @@ async function main() {
     process.exit(1);
   }
 
+  // Trustless paid amount: read requiredAmount(token) from the contract
+  // rather than the client-supplied Supabase value.
+  const paidRaw = await getOnChainPaidAmount({
+    chainId: request.chain_id,
+    tokenSymbol,
+  });
   const amountHuman = computeAmount({
     kind: request.kind,
-    amountPaidRaw: thread.amount_paid_raw,
+    paidRaw,
     decimals: token.decimals,
     override: amountOverride,
   });
