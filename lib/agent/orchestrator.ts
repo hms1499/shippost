@@ -29,7 +29,10 @@ export async function settleX402Call(params: {
     functionName: 'executeX402Call',
     args: [params.serviceAddress, token.address, params.amount, params.threadId],
   });
-  await publicClient.waitForTransactionReceipt({ hash });
+  // Bound the wait: a stuck tx or dead RPC must not hang the whole generation
+  // until maxDuration (user paid, no content). A timeout throws cleanly ->
+  // pipeline fails -> thread refundable, which is the correct outcome.
+  await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
   return hash;
 }
 
