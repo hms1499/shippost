@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http, parseUnits, erc20Abi, type Address, type Hex } from 'viem';
+import { createWalletClient, createPublicClient, http, parseUnits, formatUnits, erc20Abi, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getChain } from '../chains';
 import { agentWalletAbi, shipPostPaymentAbi, getContracts } from '../contracts';
@@ -58,6 +58,13 @@ export async function getOnChainPaidAmount(params: {
 // MVP refund: direct ERC20 transfer from the deployer/reserve EOA to the user.
 // Spec says refund comes from "reserve" — Week 1 deploy uses deployer EOA as reserve,
 // so this avoids a contract change while still demonstrating the audit trail.
+//
+// ACCOUNTING CAVEAT: the contract only routes 10% (reserveBp) into the reserve
+// pool, but a `full` refund returns 100% of the price. The shortfall is
+// effectively paid out of the deployer EOA's own balance, not user fees. This
+// is acceptable for the competition MVP but is NOT sustainable — a proper fix
+// is an on-chain refund() that draws from accumulated reserve. Tracked as a
+// follow-up; do not scale full-refund volume on this path.
 export async function refundThread(params: {
   chainId: number;
   to: Address;
@@ -75,6 +82,21 @@ export async function refundThread(params: {
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
   const amount = parseUnits(params.amountHuman, token.decimals);
+
+  // Fail with a clear, actionable error instead of an opaque ERC20 revert when
+  // the refund source is drained.
+  const balance = (await publicClient.readContract({
+    address: token.address,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: [account.address],
+  })) as bigint;
+  if (balance < amount) {
+    throw new Error(
+      `refund source ${account.address} has insufficient ${params.tokenSymbol}: ` +
+        `need ${params.amountHuman}, have ${formatUnits(balance, token.decimals)} — top up before retrying`,
+    );
+  }
 
   const hash = await wallet.writeContract({
     address: token.address,
