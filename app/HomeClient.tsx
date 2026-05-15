@@ -6,7 +6,9 @@ import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
 import { Loader2 } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { ScreenTransition } from '@/components/motion/ScreenTransition';
 import { useIsMiniPay } from '@/lib/minipay';
 import { FolioMark } from '@/components/FolioMark';
 import { InkDivider } from '@/components/InkDivider';
@@ -301,6 +303,8 @@ export default function HomeClient() {
       ) : (
         <>
           <WalletStatus />
+          <AnimatePresence mode="wait">
+            <ScreenTransition key={screen}>
           {screen === 'mode' && (
             <ModePicker
               onSelect={(m) => {
@@ -395,6 +399,8 @@ export default function HomeClient() {
               }}
             />
           )}
+            </ScreenTransition>
+          </AnimatePresence>
           {error && /approve/i.test(error) && (
             <ErrorSurface
               kind="approve-rejected"
