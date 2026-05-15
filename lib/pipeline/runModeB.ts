@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
-import { parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
+import { GROQ_COST_CUSD, GROQ_COST_HUMAN } from './groqStep';
 import { parseThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeBPrompt, summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/modeB';
@@ -10,7 +10,6 @@ import { runFactCheckStep } from './factCheckStep';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const GROQ_SINK = '0x000000000000000000000000000000000000dead' as const;
-const GROQ_COST_CUSD = parseEther('0.001');
 
 export interface ModeBOutput {
   tweets: string[];
@@ -106,7 +105,7 @@ export async function runModeB(
       type: 'step_settled',
       step: 'groq',
       txHash,
-      costAmount: '0.001',
+      costAmount: GROQ_COST_HUMAN,
       tokenSymbol: 'cUSD',
     });
   } catch (e: unknown) {

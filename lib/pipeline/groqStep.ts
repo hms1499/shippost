@@ -1,5 +1,5 @@
 import Groq from 'groq-sdk';
-import { parseEther } from 'viem';
+import { parseEther, formatEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
@@ -7,7 +7,12 @@ import { buildModeAPrompt } from '@/lib/prompts/modeA';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const GROQ_SINK = '0x000000000000000000000000000000000000dead' as const;
-const GROQ_COST_CUSD = parseEther('0.001');
+
+// Single source of truth for the Groq x402 charge. The displayed cost is
+// derived from the same bigint that's actually settled on-chain, so the
+// number shown to the user can't drift from what moved.
+export const GROQ_COST_CUSD = parseEther('0.001');
+export const GROQ_COST_HUMAN = formatEther(GROQ_COST_CUSD);
 
 export async function runGroqStep(
   ctx: PipelineContext,
@@ -60,7 +65,7 @@ export async function runGroqStep(
       type: 'step_settled',
       step: 'groq',
       txHash,
-      costAmount: '0.001',
+      costAmount: GROQ_COST_HUMAN,
       tokenSymbol: 'cUSD',
     });
   } catch (e: unknown) {
