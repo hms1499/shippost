@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { settleX402Call } from '@/lib/agent/orchestrator';
-import { GROQ_COST_CUSD, GROQ_COST_HUMAN } from './groqStep';
+import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqStep';
 import { parseThread } from '@/lib/threadParser';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeBPrompt, summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/modeB';
@@ -9,7 +9,6 @@ import { runCoinGeckoStep } from './coingeckoStep';
 import { runFactCheckStep } from './factCheckStep';
 import type { PipelineContext, PipelineEvent } from './types';
 
-const GROQ_SINK = '0x000000000000000000000000000000000000dead' as const;
 
 export interface ModeBOutput {
   tweets: string[];
