@@ -90,8 +90,10 @@ export async function runModeB(
   }
 
   const draftTweets = parseThread(raw);
-  emit({ type: 'step_output', step: 'groq', output: draftTweets });
 
+  // Settle gates delivery: spend x402 BEFORE the draft leaves the server, so
+  // a failed or uncapped settle can't yield free content the user then also
+  // gets refunded for.
   try {
     const txHash = await settleX402Call({
       chainId: ctx.chainId,
@@ -112,6 +114,8 @@ export async function runModeB(
     emit({ type: 'step_failed', step: 'groq', error: `x402 settle: ${msg}` });
     throw new Error(`x402 settle failed: ${msg}`);
   }
+
+  emit({ type: 'step_output', step: 'groq', output: draftTweets });
 
   // Step 4 — Fact-check (soft-fail: fall back to draft if fact-check errors)
   let finalTweets = draftTweets;
