@@ -54,6 +54,17 @@ Step abstraction used by the SSE endpoint `/api/generate/stream`. Each step is a
 
 `runModeA.ts` / `runModeB.ts` compose steps and stream SSE events to the `useThreadGeneration` hook on the client.
 
+### Generate-flow invariants (don't regress)
+
+`/api/generate/stream` spends real cUSD per run, so the body is treated as hostile. Hard rules:
+
+- **Payment is verified on-chain before any paid work.** `verifyPayment` (lib/agent/orchestrator.ts) decodes the `ThreadRequested` log from `payTxHash` and asserts threadId/payer/token/mode + `amount == requiredAmount`. The route rejects with 402 before opening the stream. Never trust `amountPaidRaw` or any body field — persist the verified amount.
+- **One generation per payment.** The up-front `threads` insert runs *before* the stream; a unique-violation (23505) → 409, any other insert error → 503 fail-closed, both with zero x402 spend. Supabase-down is a documented degraded mode (serves, no replay guard), not a bug to "fix" by failing closed without discussion.
+- **Settle gates delivery.** `step_output` (tweets) is emitted only *after* `settleX402Call` confirms, in both `groqStep` and `runModeB`. Never move the emit before settle — that reintroduces free-content-plus-refund.
+- **Every failure is a clean, refundable state.** Output is `boundThread`-validated (empty/junk → throw before settle, no spend). Receipt waits are bounded (90s). A hung run hits the internal 150s deadline → `fatal` → thread `failed` → refundable, instead of a platform SIGKILL that leaves it stuck `pending`.
+- **Retry, then escape hatch — never auto-refund.** Soft steps retry once (`retryOnce`, scoped to the external call only, never around settle). If still degraded, the preview surfaces a one-tap `kind=partial` refund request. Auto partial-refund was deliberately rejected (accounting complexity + amplifies the refund-funding caveat).
+- **`X402_SINK_ADDRESS`** overrides the default 0x..dead burn sink; unset = burn (demo). The displayed cost derives from `GROQ_COST_CUSD` (single source) and cannot drift from what settles.
+
 ### Frontend (app/ + components/ + hooks/)
 
 Next.js 14 App Router, mobile-only (MiniPay webview). **Dark mode default.** Bundle budget: <200KB gzipped on `/`.
