@@ -43,6 +43,10 @@ export async function runModeB(
     searchSummary = summarizeSerper(s.organic, s.newsSnippet);
   } catch (e) {
     console.error('[runModeB] serper failed, continuing with no search context:', e);
+    // Surface the degradation: non-terminal in the hook (only `fatal` ends
+    // the run), so the user sees the thread was built without search context
+    // rather than silently paying full price for a degraded result.
+    emit({ type: 'step_failed', step: 'serper', error: e instanceof Error ? e.message : 'search failed' });
   }
 
   // Step 2 — CoinGecko market data (soft-fail: free API, no x402 settle)
@@ -52,6 +56,7 @@ export async function runModeB(
     marketSnippet = summarizeMarket(cg);
   } catch (e) {
     console.error('[runModeB] coingecko failed:', e);
+    emit({ type: 'step_failed', step: 'coingecko', error: e instanceof Error ? e.message : 'market data failed' });
   }
 
   // Step 3 — Groq draft (HARD-fail: strict-settle, no thread = no value)
@@ -126,6 +131,7 @@ export async function runModeB(
     finalTweets = fc.tweets;
   } catch (e) {
     console.error('[runModeB] fact-check failed, using draft:', e);
+    emit({ type: 'step_failed', step: 'factCheck', error: e instanceof Error ? e.message : 'fact-check failed' });
   }
 
   return {
