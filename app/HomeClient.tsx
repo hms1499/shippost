@@ -75,6 +75,10 @@ export default function HomeClient() {
     setMounted(true);
   }, []);
 
+  // If MiniPay auto-connect hasn't resolved after 5s, surface an error instead
+  // of spinning forever. Covers cases where the injected provider is unresponsive.
+  const [miniPayTimeout, setMiniPayTimeout] = useState(false);
+
   const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
@@ -129,6 +133,11 @@ export default function HomeClient() {
     } catch {
       autoConnectAttempted.current = false;
     }
+
+    const timeout = setTimeout(() => {
+      if (!isConnected) setMiniPayTimeout(true);
+    }, 5000);
+    return () => clearTimeout(timeout);
   }, [mounted, isMiniPay, isConnected, connect, connectors]);
 
   useEffect(() => {
@@ -283,10 +292,18 @@ export default function HomeClient() {
         </div>
       ) : !isConnected ? (
         isMiniPay ? (
-          <div className="text-sm text-muted-foreground flex items-center gap-2">
-            <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
-            Connecting MiniPay…
-          </div>
+          miniPayTimeout ? (
+            <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+              <p className="text-sm text-destructive">
+                Could not connect to MiniPay. Try closing and reopening the app.
+              </p>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+              Connecting MiniPay…
+            </div>
+          )
         ) : (
           <LandingHero />
         )
