@@ -45,6 +45,17 @@ export function ThreadPreview({ tweets, onChange }: Props) {
   const [draft, setDraft] = useState('');
 
   function startEdit(i: number) {
+    // Switching directly from another leaf's editor would silently drop the
+    // in-progress draft. Commit it first (unless it was emptied — an empty
+    // tweet is invalid, so we discard that edit instead of saving junk).
+    if (editingIdx !== null && editingIdx !== i) {
+      const trimmed = draft.trim();
+      if (trimmed && trimmed !== tweets[editingIdx]) {
+        const next = [...tweets];
+        next[editingIdx] = trimmed;
+        onChange(next);
+      }
+    }
     setEditingIdx(i);
     setDraft(tweets[i]);
   }
@@ -54,6 +65,8 @@ export function ThreadPreview({ tweets, onChange }: Props) {
   }
   function saveEdit() {
     if (editingIdx === null) return;
+    // An empty tweet would post a blank segment to X. Keep the editor open.
+    if (draft.trim() === '') return;
     const next = [...tweets];
     next[editingIdx] = draft.trim();
     onChange(next);
@@ -231,7 +244,11 @@ function FolioLeaf({
               <Button size="sm" variant="ghost" onClick={onCancel}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={onSave}>
+              <Button
+                size="sm"
+                onClick={onSave}
+                disabled={draft.trim().length === 0}
+              >
                 Save
               </Button>
             </div>
