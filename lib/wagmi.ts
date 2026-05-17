@@ -2,6 +2,7 @@ import { http } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { celoSepolia } from './chains';
+import { TARGET_CHAIN_ID, getTargetChain } from './targetChain';
 
 export { celoSepolia };
 
@@ -12,13 +13,18 @@ export { celoSepolia };
 const projectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'shippost-placeholder';
 
+const targetChain = getTargetChain();
+const rpcUrl =
+  TARGET_CHAIN_ID === celoSepolia.id
+    ? 'https://forno.celo-sepolia.celo-testnet.org'
+    : 'https://forno.celo.org';
+
 export const wagmiConfig = getDefaultConfig({
   appName: 'ShipPost',
   projectId,
-  chains: [celo, celoSepolia],
+  chains: [targetChain],
   transports: {
-    [celo.id]: http('https://forno.celo.org'),
-    [celoSepolia.id]: http('https://forno.celo-sepolia.celo-testnet.org'),
+    [TARGET_CHAIN_ID]: http(rpcUrl),
   },
   ssr: true,
 });

@@ -14,6 +14,7 @@ import {
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
 import { isSupportedChain, getChain } from './chains';
+import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
 
 export type PayStatus =
   | 'idle'
@@ -74,8 +75,8 @@ export function usePayForThread(): PayResult {
         setStatus('error');
         return;
       }
-      if (!isSupportedChain(chainId)) {
-        setError(`Wrong network (chainId ${chainId}). Switch your wallet to Celo Sepolia (11142220) or Celo (42220).`);
+      if (chainId !== TARGET_CHAIN_ID) {
+        setError(`Wrong network. Switch your wallet to ${targetChainName()} (${TARGET_CHAIN_ID}).`);
         setStatus('error');
         return;
       }
@@ -130,7 +131,7 @@ export function usePayForThread(): PayResult {
           } catch (e) {
             const m = (e as { shortMessage?: string; message?: string });
             setError(
-              `Wallet is on chainId ${walletChainId}; switch to ${chainId} (Celo Sepolia) in your wallet. ${m.shortMessage ?? m.message ?? ''}`,
+              `Wallet is on chainId ${walletChainId}; switch to ${targetChainName()} (${TARGET_CHAIN_ID}) in your wallet. ${m.shortMessage ?? m.message ?? ''}`,
             );
             setStatus('error');
             return;
@@ -140,7 +141,7 @@ export function usePayForThread(): PayResult {
             walletChainId = await wc.getChainId();
           }
           if (walletChainId !== chainId) {
-            setError(`Wallet is still on chainId ${walletChainId}; please switch to ${chainId} manually and retry.`);
+            setError(`Wallet is still on chainId ${walletChainId}; please switch to ${targetChainName()} (${TARGET_CHAIN_ID}) manually and retry.`);
             setStatus('error');
             return;
           }
