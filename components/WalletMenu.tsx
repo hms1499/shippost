@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useSwitchChain } from 'wagmi';
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeftRight,
@@ -61,6 +61,9 @@ export function WalletMenu() {
   const { switchChain } = useSwitchChain();
   const switchToTarget = () => switchChain({ chainId: TARGET_CHAIN_ID });
   const connectorLabel = isMiniPay ? 'MiniPay' : connector?.name ?? null;
+  // Track current chain to hide the switch button when already on target chain
+  const chainId = useChainId();
+  const isOnTargetChain = chainId === TARGET_CHAIN_ID;
 
   // useIsMiniPay returns false on first render (before its effect runs). If we
   // render "Sign in" immediately, MiniPay users see a flash of the web CTA
@@ -294,19 +297,22 @@ export function WalletMenu() {
                         })}
                       </ul>
 
-                      <InkDivider />
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpen(false);
-                          switchToTarget();
-                        }}
-                        className="flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors self-start"
-                      >
-                        <ArrowLeftRight size={11} aria-hidden />
-                        Switch to {targetChainName()}
-                      </button>
+                      {!isOnTargetChain && (
+                        <>
+                          <InkDivider />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpen(false);
+                              switchToTarget();
+                            }}
+                            className="flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-destructive transition-colors self-start"
+                          >
+                            <ArrowLeftRight size={11} aria-hidden />
+                            Switch to {targetChainName()}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 </>
