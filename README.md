@@ -31,7 +31,7 @@ ShipPost is a pay-per-use AI thread writer running as a MiniApp inside Opera's M
 
 | Contract | Address |
 |----------|---------|
-| ShipPostPayment | [`0x40dc09399f24a8052f10ad4930246d1409390343`](https://celoscan.io/address/0x40dc09399f24a8052f10ad4930246d1409390343) |
+| ShipPostPayment | [`0xa15bded7b53111e6477d63294c6643e82cba1c07`](https://celoscan.io/address/0xa15bded7b53111e6477d63294c6643e82cba1c07) |
 | AgentWallet | [`0xe9b5e714509d7ad317e51e78ad34fa8bd4da7a97`](https://celoscan.io/address/0xe9b5e714509d7ad317e51e78ad34fa8bd4da7a97) |
 
 ### Celo Sepolia Testnet (chainId 11142220)

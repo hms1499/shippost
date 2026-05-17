@@ -1,16 +1,19 @@
 {
   "network": "celo",
   "chainId": 42220,
-  "deployer": "0xcfab15c950093391fa1ca3b9810880839b05bcbc",
+  "deployer": "0x64ad61211c1b0b7f20b3e04b49661f30f152ae78",
+  "owner": "0x64Ad61211C1b0B7f20B3e04B49661f30f152ae78",
   "contracts": {
-    "ShipPostPayment": "0x40dc09399f24a8052f10ad4930246d1409390343",
-    "AgentWallet": "0xe9b5e714509d7ad317e51e78ad34fa8bd4da7a97"
+    "ShipPostPayment": "0xa15bded7b53111e6477d63294c6643e82cba1c07",
+    "AgentWallet": "0xe9B5e714509d7Ad317E51e78ad34Fa8bd4Da7A97"
   },
+  "treasury": "0x64Ad61211C1b0B7f20B3e04B49661f30f152ae78",
+  "reservePool": "0x64Ad61211C1b0B7f20B3e04B49661f30f152ae78",
   "tokens": {
     "cUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
     "USDT": "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
     "USDC": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C"
   },
   "dailyCapsUSD": 10,
-  "deployedAt": "2026-05-08T07:24:17.576Z"
+  "deployedAt": "2026-05-17T04:28:20.658Z"
 }
