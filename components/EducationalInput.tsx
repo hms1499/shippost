@@ -216,9 +216,6 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
           0%   { opacity: 0; transform: translateY(10px); filter: blur(1.5px); }
           100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
         }
-        @media (prefers-reduced-motion: reduce) {
-          * { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
-        }
       `}</style>
     </section>
   );
