@@ -140,6 +140,76 @@ describe('ShipPostPayment', () => {
     expect(log.args.amount).to.equal(5n * 10n ** 16n);
   });
 
+  it('owner can redirect treasury/reservePool/agentWallet and splits follow', async () => {
+    const { viem } = await network.create();
+    const [deployer, agentWallet, treasury, reservePool, user, newTreasury, newReserve, newAgent] =
+      await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await viem.deployContract('ShipPostPayment', [
+      agentWallet.account.address,
+      treasury.account.address,
+      reservePool.account.address,
+    ]);
+    await payment.write.setAllowedToken([cusd.address, true]);
+
+    await payment.write.setAgentWallet([newAgent.account.address]);
+    await payment.write.setTreasury([newTreasury.account.address]);
+    await payment.write.setReservePool([newReserve.account.address]);
+
+    expect((await payment.read.agentWallet()).toLowerCase()).to.equal(
+      newAgent.account.address.toLowerCase()
+    );
+    expect((await payment.read.treasury()).toLowerCase()).to.equal(
+      newTreasury.account.address.toLowerCase()
+    );
+    expect((await payment.read.reservePool()).toLowerCase()).to.equal(
+      newReserve.account.address.toLowerCase()
+    );
+
+    await cusd.write.mint([user.account.address, 10n ** 18n]);
+    await cusd.write.approve([payment.address, 5n * 10n ** 16n], { account: user.account });
+    await payment.write.payForThread([cusd.address, 0], { account: user.account });
+
+    expect(await cusd.read.balanceOf([newAgent.account.address])).to.equal(25n * 10n ** 15n);
+    expect(await cusd.read.balanceOf([newTreasury.account.address])).to.equal(20n * 10n ** 15n);
+    expect(await cusd.read.balanceOf([newReserve.account.address])).to.equal(5n * 10n ** 15n);
+    // Old addresses must receive nothing after redirection
+    expect(await cusd.read.balanceOf([treasury.account.address])).to.equal(0n);
+    expect(await cusd.read.balanceOf([reservePool.account.address])).to.equal(0n);
+  });
+
+  it('setters reject zero address and non-owner callers', async () => {
+    const { viem } = await network.create();
+    const [deployer, agentWallet, treasury, reservePool, attacker] =
+      await viem.getWalletClients();
+
+    const payment = await viem.deployContract('ShipPostPayment', [
+      agentWallet.account.address,
+      treasury.account.address,
+      reservePool.account.address,
+    ]);
+
+    const zero = '0x0000000000000000000000000000000000000000';
+    let zeroReverted = false;
+    try {
+      await payment.write.setTreasury([zero]);
+    } catch (e: any) {
+      zeroReverted = /ZERO_ADDR/.test(e.message);
+    }
+    expect(zeroReverted).to.equal(true);
+
+    let authReverted = false;
+    try {
+      await payment.write.setTreasury([attacker.account.address], {
+        account: attacker.account,
+      });
+    } catch (e: any) {
+      authReverted = /OwnableUnauthorizedAccount|Ownable/.test(e.message);
+    }
+    expect(authReverted).to.equal(true);
+  });
+
   it('blocks payForThread when paused', async () => {
     const { viem } = await network.create();
     const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();

@@ -30,6 +30,9 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
     );
     event TokenAllowed(address indexed token, bool allowed);
     event FeeSplitUpdated(uint256 agentBp, uint256 treasuryBp, uint256 reserveBp);
+    event AgentWalletUpdated(address indexed previous, address indexed current);
+    event TreasuryUpdated(address indexed previous, address indexed current);
+    event ReservePoolUpdated(address indexed previous, address indexed current);
 
     constructor(
         address _agentWallet,
@@ -53,6 +56,26 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
         treasuryBp = _treasuryBp;
         reserveBp = _reserveBp;
         emit FeeSplitUpdated(_agentBp, _treasuryBp, _reserveBp);
+    }
+
+    /// @notice Redirect the agent split. Constructor-set addresses were
+    /// previously immutable, forcing a full redeploy to change a payout target.
+    function setAgentWallet(address _agentWallet) external onlyOwner {
+        require(_agentWallet != address(0), "ZERO_ADDR");
+        emit AgentWalletUpdated(agentWallet, _agentWallet);
+        agentWallet = _agentWallet;
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "ZERO_ADDR");
+        emit TreasuryUpdated(treasury, _treasury);
+        treasury = _treasury;
+    }
+
+    function setReservePool(address _reservePool) external onlyOwner {
+        require(_reservePool != address(0), "ZERO_ADDR");
+        emit ReservePoolUpdated(reservePool, _reservePool);
+        reservePool = _reservePool;
     }
 
     function pause() external onlyOwner { _pause(); }
