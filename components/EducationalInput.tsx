@@ -44,7 +44,11 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
   const effectiveToken = selectedToken ?? defaultToken;
-  const canSubmit = topic.trim().length > 0 && effectiveToken !== null && !disabled;
+  const insufficient =
+    effectiveToken !== null &&
+    effectiveToken.balance < computeTokenAmount(effectiveToken);
+  const canSubmit =
+    topic.trim().length > 0 && effectiveToken !== null && !insufficient && !disabled;
 
   const amountStr = effectiveToken
     ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
@@ -185,6 +189,12 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
             </span>
           </div>
         )}
+        {insufficient && effectiveToken && (
+          <p className="text-xs text-destructive italic leading-snug">
+            You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
+            pick another token above.
+          </p>
+        )}
         <Button
           disabled={!canSubmit}
           onClick={() => {
@@ -193,9 +203,11 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
             }
           }}
         >
-          {effectiveToken
-            ? `Generate for ${amountStr} ${effectiveToken.symbol} →`
-            : 'Select token'}
+          {!effectiveToken
+            ? 'Select token'
+            : insufficient
+              ? `Not enough ${effectiveToken.symbol}`
+              : `Generate for ${amountStr} ${effectiveToken.symbol} →`}
         </Button>
       </div>
 
