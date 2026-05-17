@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
-import { celo } from 'wagmi/chains';
 import { formatUnits } from 'viem';
 import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -38,10 +37,10 @@ import type { EducationalSubmitPayload } from '@/components/EducationalInput';
 import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
-import { explorerBase, isSupportedChain } from '@/lib/chains';
+import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
-import { celoSepolia } from '@/lib/chains';
+import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
@@ -81,7 +80,7 @@ export default function HomeClient() {
   const isMiniPay = useIsMiniPay();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
-  const onSupportedChain = isSupportedChain(chainId);
+  const onSupportedChain = chainId === TARGET_CHAIN_ID;
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
@@ -279,12 +278,12 @@ export default function HomeClient() {
         isMiniPay ? (
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
             <p className="text-sm text-destructive">
-              Wrong network (chainId {chainId}). ShipPost runs on Celo.
+              Wrong network (chainId {chainId}). ShipPost runs on {targetChainName()}.
             </p>
             <Button
               variant="outline"
               disabled={isSwitching}
-              onClick={() => switchChain({ chainId: celo.id })}
+              onClick={() => switchChain({ chainId: TARGET_CHAIN_ID })}
             >
               {isSwitching ? (
                 <>
@@ -298,7 +297,7 @@ export default function HomeClient() {
           </div>
         ) : (
           <div className="text-sm text-destructive text-center max-w-sm">
-            Wrong network. Use the wallet button above to switch to Celo or Celo Sepolia.
+            Wrong network. Use the wallet button above to switch to {targetChainName()}.
           </div>
         )
       ) : (

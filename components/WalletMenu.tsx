@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useSwitchChain } from 'wagmi';
-import { celo } from 'wagmi/chains';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeftRight,
@@ -15,6 +14,7 @@ import {
   X as XIcon,
 } from 'lucide-react';
 import { useIsMiniPay } from '@/lib/minipay';
+import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
 import { InkDivider } from './InkDivider';
 
 function shorten(addr: string): string {
@@ -59,10 +59,7 @@ export function WalletMenu() {
   const isMiniPay = useIsMiniPay();
   const { connector } = useAccount();
   const { switchChain } = useSwitchChain();
-  // App is mainnet-only for users. Don't open RainbowKit's chain modal (it
-  // lists every wagmi chain incl. Celo Sepolia); switch straight to Celo.
-  // celoSepolia stays in wagmi for contract/dev tooling — just not offered.
-  const switchToCelo = () => switchChain({ chainId: celo.id });
+  const switchToTarget = () => switchChain({ chainId: TARGET_CHAIN_ID });
   const connectorLabel = isMiniPay ? 'MiniPay' : connector?.name ?? null;
 
   // useIsMiniPay returns false on first render (before its effect runs). If we
@@ -134,7 +131,7 @@ export function WalletMenu() {
           return (
             <button
               type="button"
-              onClick={switchToCelo}
+              onClick={switchToTarget}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px] hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
             >
               Wrong network
@@ -303,12 +300,12 @@ export function WalletMenu() {
                         type="button"
                         onClick={() => {
                           setOpen(false);
-                          switchToCelo();
+                          switchToTarget();
                         }}
                         className="flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors self-start"
                       >
                         <ArrowLeftRight size={11} aria-hidden />
-                        Switch to Celo
+                        Switch to {targetChainName()}
                       </button>
                     </div>
                   </motion.div>
