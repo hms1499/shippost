@@ -9,9 +9,30 @@ interface Props {
   tweets: string[];
 }
 
-function buildFirstTweetUrl(text: string): string {
+// Open the native X composer when the app is installed (the common case in
+// the MiniPay Android webview); fall back to the web intent if nothing
+// handles the twitter:// scheme. When the app takes the foreground the page
+// goes hidden — that's our signal to cancel the web fallback.
+function postFirstTweet(text: string): void {
   const encoded = encodeURIComponent(text);
-  return `https://twitter.com/intent/tweet?text=${encoded}`;
+  const webUrl = `https://twitter.com/intent/tweet?text=${encoded}`;
+  const appUrl = `twitter://post?message=${encoded}`;
+
+  let settled = false;
+  const fallback = window.setTimeout(() => {
+    if (!settled) window.open(webUrl, '_blank', 'noopener,noreferrer');
+  }, 1500);
+
+  const onVis = () => {
+    if (document.hidden) {
+      settled = true;
+      window.clearTimeout(fallback);
+      document.removeEventListener('visibilitychange', onVis);
+    }
+  };
+  document.addEventListener('visibilitychange', onVis);
+
+  window.location.href = appUrl;
 }
 
 export function ShareToX({ tweets }: Props) {
@@ -41,10 +62,8 @@ export function ShareToX({ tweets }: Props) {
         X, use the <b>+</b> button under your own tweet to add each follow-up from the clipboard.
       </p>
 
-      <Button asChild>
-        <a href={buildFirstTweetUrl(first)} target="_blank" rel="noopener noreferrer">
-          Post first tweet in X →
-        </a>
+      <Button onClick={() => postFirstTweet(first)}>
+        Post first tweet in X →
       </Button>
 
       <Button variant="outline" onClick={copyAll}>
