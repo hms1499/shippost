@@ -51,7 +51,11 @@ interface StartParams {
   angle?: 'bullish' | 'bearish' | 'skeptical';
 }
 
-const SLOW_WATCHDOG_MS = 60_000;
+// Fires only after this long with NO forward progress (no step start/settle/
+// output). Distinguishes a genuinely stalled pipeline from one that is just
+// long-running (Mode B has 4 sequential x402 steps): the timer re-arms on
+// every progress event, so a healthy-but-slow run never trips it.
+const STALL_WATCHDOG_MS = 60_000;
 
 export function useThreadGeneration() {
   const [state, setState] = useState<ThreadGenerationState>(initial);
@@ -64,6 +68,16 @@ export function useThreadGeneration() {
       slowTimerRef.current = null;
     }
   }, []);
+
+  // (Re)start the stall watchdog. Called on generation start and on every
+  // forward-progress event, so the deadline is measured from the LAST sign of
+  // life, not from the start of the run.
+  const armSlowTimer = useCallback(() => {
+    clearSlowTimer();
+    slowTimerRef.current = setTimeout(() => {
+      setState((s) => (s.isDone || s.fatal ? s : { ...s, fatal: 'slow' }));
+    }, STALL_WATCHDOG_MS);
+  }, [clearSlowTimer]);
 
   const apply = useCallback((e: PipelineEvent) => {
     setState((prev) => {
@@ -111,21 +125,22 @@ export function useThreadGeneration() {
     });
     if (e.type === 'done' || e.type === 'fatal') {
       clearSlowTimer();
+    } else if (
+      e.type === 'started' ||
+      e.type === 'step_started' ||
+      e.type === 'step_settled' ||
+      e.type === 'step_output'
+    ) {
+      armSlowTimer();
     }
-  }, [clearSlowTimer]);
+  }, [clearSlowTimer, armSlowTimer]);
 
   const start = useCallback(
     async (params: StartParams) => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-      clearSlowTimer();
       setState(initial);
-
-      slowTimerRef.current = setTimeout(() => {
-        setState((s) =>
-          s.isDone || s.fatal ? s : { ...s, fatal: 'slow' },
-        );
-      }, SLOW_WATCHDOG_MS);
+      armSlowTimer();
 
       let res: Response;
       try {
@@ -189,7 +204,7 @@ export function useThreadGeneration() {
         setState((s) => ({ ...s, fatal: msg, isDone: true }));
       }
     },
-    [apply, clearSlowTimer],
+    [apply, clearSlowTimer, armSlowTimer],
   );
 
   const reset = useCallback(() => {
