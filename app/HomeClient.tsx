@@ -93,6 +93,22 @@ export default function HomeClient() {
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
+  // When the user disconnects mid-flow, clear all transient state and return to
+  // the mode picker. Without this, screens like 'generating' or 'preview' stay
+  // visible with stale data after the wallet is gone.
+  const prevConnected = useRef(false);
+  useEffect(() => {
+    if (prevConnected.current && !isConnected) {
+      setScreen('mode');
+      setSubmitted(null);
+      setHotTake(null);
+      setDraftTweets(null);
+      reset();
+      resetGen();
+    }
+    prevConnected.current = isConnected;
+  }, [isConnected, reset, resetGen]);
+
   const autoConnectAttempted = useRef(false);
   useEffect(() => {
     if (!mounted) return;
