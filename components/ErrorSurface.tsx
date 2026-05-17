@@ -53,7 +53,8 @@ const COPY: Record<
   },
   'cap-hit': {
     title: 'Agent paused — back tomorrow',
-    body: "Today's agent budget is spent. The app pauses new generations until midnight UTC.",
+    body: "Today's agent budget is spent, so this thread couldn't be generated. New generations resume at midnight UTC — and since you paid for nothing, a full refund will be sent within 24h.",
+    primary: 'Request refund now',
   },
   slow: {
     title: 'This is taking longer than usual',
@@ -70,7 +71,11 @@ export function ErrorSurface({
   refundError,
 }: Props) {
   const c = COPY[kind];
-  const isRefundKind = kind === 'slow' || kind === 'partial' || kind === 'full-fail';
+  const isRefundKind =
+    kind === 'slow' ||
+    kind === 'partial' ||
+    kind === 'full-fail' ||
+    kind === 'cap-hit';
   const primary = kind === 'insufficient'
     ? () => window.open('https://minipay.to', '_blank')
     : isRefundKind

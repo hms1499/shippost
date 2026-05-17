@@ -240,6 +240,12 @@ export default function HomeClient() {
     (s) => gen.steps[s]?.status === 'failed',
   );
 
+  // AgentWallet.executeX402Call reverts with "CAP_EXCEEDED" once the daily
+  // spend cap is hit; that string propagates verbatim into gen.fatal. Treat it
+  // as a distinct, full-refundable outcome with its own copy instead of a
+  // generic failure.
+  const capHit = gen.fatal != null && /CAP_EXCEEDED/i.test(gen.fatal);
+
   return (
     <main className="relative min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
       {/* Decorative ink stains, light theme only — pulled to edges so they
@@ -479,7 +485,15 @@ export default function HomeClient() {
               refundError={refundError}
             />
           )}
-          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
+          {screen === 'generating' && capHit && (
+            <ErrorSurface
+              kind="cap-hit"
+              onRefundRequest={() => requestRefund('full')}
+              refundStatus={refundStatus}
+              refundError={refundError}
+            />
+          )}
+          {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
             <ErrorSurface
               kind="full-fail"
               onRefundRequest={() => requestRefund('full')}
@@ -487,7 +501,7 @@ export default function HomeClient() {
               refundError={refundError}
             />
           )}
-          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
+          {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
             <ErrorSurface
               kind="partial"
               onRefundRequest={() => requestRefund('partial')}
