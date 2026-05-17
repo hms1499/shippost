@@ -14,6 +14,10 @@ function requireDeployerPk(): string {
 }
 
 const DEPLOYER_PK = requireDeployerPk();
+// forno.celo.org is rate-limited and intermittently returns non-standard HTTP
+// statuses that break tx submission. Override with a more reliable endpoint
+// (e.g. CELO_RPC_URL=https://celo.drpc.org) without touching code.
+const CELO_RPC_URL = process.env.CELO_RPC_URL || 'https://forno.celo.org';
 const FORK_URL = process.env.CELO_FORK_URL || 'https://forno.celo.org';
 const FORK_BLOCK = process.env.CELO_FORK_BLOCK ? parseInt(process.env.CELO_FORK_BLOCK) : undefined;
 
@@ -53,7 +57,7 @@ export default defineConfig({
     },
     celo: {
       type: 'http',
-      url: 'https://forno.celo.org',
+      url: CELO_RPC_URL,
       accounts: [DEPLOYER_PK],
       chainId: 42220,
     },
