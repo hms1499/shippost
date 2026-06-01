@@ -31,11 +31,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Typecheck stands in for lint: `next lint` is not configured yet (no
-      # ESLint config) and prompts interactively, which would hang CI. Add a
-      # `pnpm lint` step here once ESLint is wired up.
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
 
       - name: Library tests
         run: pnpm test:lib
