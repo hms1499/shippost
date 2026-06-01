@@ -36,14 +36,20 @@ Two contracts, both deployed on Celo Sepolia testnet (Week 1) and Celo mainnet (
 - **`ShipPostPayment.sol`** — payment splitter. `payForThread(address token, uint8 mode)` pulls 0.05 stablecoin from user, splits 50% → AgentWallet / 40% → treasury / 10% → reserve, emits `ThreadRequested`. Token whitelist only (cUSD/USDT/USDC). Decimal handling: `IERC20Metadata(token).decimals()` — cUSD=18, USDT=6, USDC=6.
 - **`AgentWallet.sol`** — ERC-8004 compatible. Holds stablecoins for x402 spending. Single owner (orchestrator backend EOA), daily spend cap per token (cUSD=$50, USDT/USDC=$50 equiv). `executeX402Call` enforces the cap and emits `X402PaymentMade`.
 
-### x402 Proxy (app/api/x402/)
+### x402 settlement (in-process, via pipeline steps)
 
-Custom Next.js API routes — Groq, Serper, CoinGecko don't support x402 natively. Each route:
-1. Verifies `X-Payment` header (EIP-712 signed payment intent from agent wallet)
-2. Forwards to the real AI API using our backend API keys
-3. Settles by pulling stablecoin from AgentWallet
+Groq, Serper, CoinGecko don't support x402 natively, so each pipeline step
+(lib/pipeline/*Step.ts) wraps the real API call and settles by pulling
+stablecoin from AgentWallet through `settleX402Call` (lib/agent/orchestrator.ts),
+which calls `executeX402Call` (cap-enforced) on-chain.
 
-Routes: `/api/x402/groq`, `/api/x402/serper`, `/api/x402/coingecko`, `/api/x402/fact-check`
+Settlement runs **in-process** inside the SSE endpoint `/api/generate/stream` —
+there are no standalone HTTP proxy routes. (Earlier `/api/x402/*` routes were
+removed: the frontend never called them, they performed no `X-Payment`
+verification, and exposing an unauthenticated endpoint that spends from
+AgentWallet was a drain risk capped only by the daily limit.) If a public
+agent-callable x402 surface is ever reintroduced, it MUST verify a signed
+`X-Payment` intent before `settleX402Call`.
 
 ### Pipeline (lib/pipeline/)
 
