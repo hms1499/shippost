@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Typecheck stands in for lint: `next lint` is not configured yet (no
+      # ESLint config) and prompts interactively, which would hang CI. Add a
+      # `pnpm lint` step here once ESLint is wired up.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Library tests
+        run: pnpm test:lib
+
+      # Compiles Solidity, then runs the AgentWallet + ShipPostPayment suites on
+      # the in-process Hardhat network (no RPC or private keys needed).
+      - name: Contract tests
+        run: pnpm test:contracts
+
+      # Contract address envs all have hardcoded fallbacks (lib/contracts.ts),
+      # so a production build needs no secrets.
+      - name: Build
+        run: pnpm build
