@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Hoisted mock fns so the vi.mock factories (hoisted above imports) can close
 // over them.
-const { limitMock, redisCtor, slidingWindowMock } = vi.hoisted(() => ({
+const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor } = vi.hoisted(() => ({
   limitMock: vi.fn(),
   redisCtor: vi.fn(),
   slidingWindowMock: vi.fn((tokens: number, window: string) => ({ tokens, window })),
+  ratelimitCtor: vi.fn(),
 }));
 
 vi.mock('@upstash/redis', () => ({
@@ -19,7 +20,9 @@ vi.mock('@upstash/redis', () => ({
 vi.mock('@upstash/ratelimit', () => ({
   Ratelimit: class {
     limit = limitMock;
-    constructor(_opts: unknown) {}
+    constructor(opts: unknown) {
+      ratelimitCtor(opts);
+    }
     static slidingWindow = slidingWindowMock;
   },
 }));
@@ -63,6 +66,9 @@ describe('checkRateLimit', () => {
     expect(redisCtor).toHaveBeenCalledTimes(1);
     expect(slidingWindowMock).toHaveBeenCalledWith(10, '60 s');
     expect(limitMock).toHaveBeenCalledWith('1.2.3.4');
+    expect(ratelimitCtor).toHaveBeenCalledWith(
+      expect.objectContaining({ prefix: 'ratelimit:url-preview' }),
+    );
   });
 
   it('denies when over the limit', async () => {
