@@ -247,7 +247,7 @@ export default function HomeClient() {
   const capHit = gen.fatal != null && /CAP_EXCEEDED/i.test(gen.fatal);
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
+    <main className="relative min-h-screen flex flex-col items-center gap-6 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       {/* Decorative ink stains, light theme only — pulled to edges so they
           don't sit on top of content. dark:hidden keeps MiniPay clean. */}
       <InkBlot
