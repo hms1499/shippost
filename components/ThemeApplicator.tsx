@@ -15,6 +15,16 @@ export function ThemeApplicator() {
       .ethereum;
     if (eth?.isMiniPay) {
       document.documentElement.classList.add('dark');
+      // Match the mobile status-bar tint to the slate theme. Dark is forced by
+      // class here (not prefers-color-scheme), so a media-query theme-color
+      // wouldn't track it — update the meta tag directly.
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'theme-color');
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', '#0f1729');
     }
   }, []);
   return null;
