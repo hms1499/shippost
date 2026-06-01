@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import ogs from 'open-graph-scraper';
 import { parseUrl } from '@/lib/urlParser';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,17 @@ interface OgImage {
 }
 
 export async function POST(req: Request) {
+  const rl = await checkRateLimit(getClientIp(req), 'url-preview');
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'rate limited' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((rl.reset - Date.now()) / 1000)) },
+      },
+    );
+  }
+
   let body: { url?: string };
   try {
     body = (await req.json()) as { url?: string };
