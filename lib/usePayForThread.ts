@@ -15,6 +15,7 @@ import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
 import { isSupportedChain, getChain } from './chains';
 import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
+import { haptic } from './haptics';
 
 export type PayStatus =
   | 'idle'
@@ -168,6 +169,7 @@ export function usePayForThread(): PayResult {
         }
 
         setStatus('paying');
+        haptic('tap');
         const payHash = await wc.writeContract({
           address: paymentAddr,
           abi: shipPostPaymentAbi,
@@ -192,12 +194,14 @@ export function usePayForThread(): PayResult {
 
         setThreadId(id);
         setStatus('success');
+        haptic('success');
       } catch (e) {
         const msg =
           (e as { shortMessage?: string }).shortMessage ??
           (e instanceof Error ? e.message : 'Payment failed');
         setError(msg);
         setStatus('error');
+        haptic('error');
       }
     },
     [walletClient, refetchWalletClient, publicClient, address, chainId, connector]

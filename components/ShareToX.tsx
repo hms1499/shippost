@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { haptic } from '@/lib/haptics';
 
 interface Props {
   tweets: string[];
@@ -44,6 +45,7 @@ export function ShareToX({ tweets }: Props) {
     try {
       await navigator.clipboard.writeText(tweets.join('\n\n'));
       setCopied(true);
+      haptic('tick');
       setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopyError('Clipboard blocked — long-press a tweet card to copy manually.');

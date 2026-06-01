@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type { PipelineEvent, StepId } from '@/lib/pipeline/types';
+import { haptic } from '@/lib/haptics';
 
 export interface StepState {
   status: 'pending' | 'running' | 'settled' | 'failed';
@@ -125,6 +126,7 @@ export function useThreadGeneration() {
     });
     if (e.type === 'done' || e.type === 'fatal') {
       clearSlowTimer();
+      haptic(e.type === 'done' ? 'success' : 'error');
     } else if (
       e.type === 'started' ||
       e.type === 'step_started' ||
