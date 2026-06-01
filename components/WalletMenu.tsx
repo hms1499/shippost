@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
@@ -13,6 +13,7 @@ import {
   Wallet,
   X as XIcon,
 } from 'lucide-react';
+import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
 import { InkDivider } from './InkDivider';
@@ -56,6 +57,29 @@ const NAV_ITEMS: NavItem[] = [
  */
 export function WalletMenu() {
   const [open, setOpen] = useState(false);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+
+  useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (open) {
+      lastFocusedRef.current = document.activeElement as HTMLElement | null;
+      requestAnimationFrame(() => closeBtnRef.current?.focus());
+    } else {
+      lastFocusedRef.current?.focus?.();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
   const isMiniPay = useIsMiniPay();
   const { connector } = useAccount();
   const { switchChain } = useSwitchChain();
@@ -73,20 +97,6 @@ export function WalletMenu() {
   useEffect(() => {
     setConfirmedNotMiniPay(true);
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
 
   return (
     <ConnectButton.Custom>
@@ -205,7 +215,7 @@ export function WalletMenu() {
                     transition={{ type: 'spring', damping: 28, stiffness: 240 }}
                     className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-[0_-12px_40px_-8px_hsl(var(--ink-deep)/0.35)]"
                   >
-                    <div className="w-full max-w-md mx-auto px-6 pt-3 pb-6 flex flex-col gap-4">
+                    <div className="w-full max-w-md mx-auto px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex flex-col gap-4">
                       <div
                         className="self-center w-10 h-1 rounded-full bg-[hsl(var(--ink-faded)/0.35)]"
                         aria-hidden
@@ -219,6 +229,7 @@ export function WalletMenu() {
                           Account · {chain.name}
                         </h2>
                         <button
+                          ref={closeBtnRef}
                           type="button"
                           onClick={() => setOpen(false)}
                           aria-label="Close menu"
