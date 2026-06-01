@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,17 @@ function validate(b: Partial<Body>): string | null {
 }
 
 export async function POST(req: Request) {
+  const rl = await checkRateLimit(getClientIp(req), 'refund-request');
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'rate limited' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((rl.reset - Date.now()) / 1000)) },
+      },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
