@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:contracts": "hardhat test",
-    "test:lib": "vitest run lib",
+    "test:lib": "vitest run lib app",
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network celoSepolia",
     "register:erc8004:testnet": "hardhat run scripts/register-erc8004.ts --network celoSepolia",

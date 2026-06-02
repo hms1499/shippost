@@ -1,0 +1,262 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { celoSepolia } from '@/lib/chains';
+
+// /api/generate/stream is the ONLY path that spends real cUSD, so its money
+// invariants (CLAUDE.md "Generate-flow invariants") must be locked by tests,
+// not just comments. We mock the four boundaries the route orchestrates —
+// payment proof, DB, and the two pipelines — and assert the route's own
+// behaviour: nothing paid runs before the on-chain proof, the replay guard
+// fails closed, the *verified* amount (never the client's) is persisted, and a
+// pipeline failure lands in a clean refundable state. getContracts stays real
+// (pure address lookup with hardcoded fallbacks).
+const verifyPayment = vi.fn();
+const getSupabaseServer = vi.fn();
+const runModeA = vi.fn();
+const runModeB = vi.fn();
+const MODE_A_TOTAL_COST_USD = '0.050';
+
+vi.mock('@/lib/agent/orchestrator', () => ({ verifyPayment }));
+vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
+vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA, MODE_A_TOTAL_COST_USD }));
+vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB }));
+
+const { POST } = await import('./route');
+
+const CHAIN_ID = celoSepolia.id;
+const VERIFIED_AMOUNT = 50_000_000_000_000_000n; // 0.05 cUSD (18 decimals)
+
+// A Supabase test double recording every insert/update payload, with
+// configurable per-call errors. Mirrors the chained shape the route uses:
+//   await supabase.from('threads').insert({...})
+//   await supabase.from('threads').update({...}).eq(...).eq(...)
+function makeSupabase(opts: { insertError?: { code?: string; message: string }; updateError?: { message: string } } = {}) {
+  const inserts: Array<Record<string, unknown>> = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const client = {
+    from() {
+      return {
+        insert(payload: Record<string, unknown>) {
+          inserts.push(payload);
+          return Promise.resolve({ error: opts.insertError ?? null });
+        },
+        update(payload: Record<string, unknown>) {
+          updates.push(payload);
+          const chain = {
+            eq: () => chain,
+            then: (resolve: (v: { error: unknown }) => unknown) =>
+              Promise.resolve({ error: opts.updateError ?? null }).then(resolve),
+          };
+          return chain;
+        },
+      };
+    },
+  };
+  return { client, inserts, updates };
+}
+
+function postReq(body: unknown): Request {
+  return new Request('http://localhost/api/generate/stream', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+async function readSSE(res: Response): Promise<string> {
+  const reader = res.body!.getReader();
+  const dec = new TextDecoder();
+  let out = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    out += dec.decode(value);
+  }
+  return out;
+}
+
+// Mode A body. amountPaidRaw is deliberately a wrong/garbage value: the route
+// must persist the on-chain *verified* amount, never this client field.
+const bodyA = {
+  threadId: '42',
+  chainId: CHAIN_ID,
+  walletAddress: '0x1111111111111111111111111111111111111111',
+  tokenSymbol: 'cUSD' as const,
+  tokenAddress: '0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5',
+  amountPaidRaw: '999999999999999999999', // hostile: not what we persist
+  payTxHash: '0xabc',
+  mode: 0 as const,
+  topic: 'zk rollups',
+  audience: 'beginner' as const,
+};
+
+const bodyB = {
+  ...bodyA,
+  mode: 1 as const,
+  topic: undefined,
+  eventDescription: 'token X depegged',
+  angle: 'skeptical' as const,
+};
+
+describe('POST /api/generate/stream', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    verifyPayment.mockResolvedValue({ amountRaw: VERIFIED_AMOUNT });
+    runModeA.mockResolvedValue({ tweets: ['tweet 1', 'tweet 2'] });
+    runModeB.mockResolvedValue({
+      tweets: ['hot 1', 'hot 2'],
+      searchSummary: 'summary',
+      marketSnippet: 'snippet',
+      totalCostUsd: '0.123',
+    });
+  });
+
+  describe('input validation (before any work)', () => {
+    it('returns 400 on a non-JSON body without verifying payment', async () => {
+      const req = new Request('http://localhost/api/generate/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{ not json',
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect(verifyPayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when a required field is missing', async () => {
+      const res = await POST(postReq({ ...bodyA, topic: undefined }));
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain('topic required');
+      expect(verifyPayment).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 on an out-of-range mode', async () => {
+      const res = await POST(postReq({ ...bodyA, mode: 7 }));
+      expect(res.status).toBe(400);
+      expect(verifyPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('payment gate (no paid work before on-chain proof)', () => {
+    it('returns 402 and spends nothing when verifyPayment rejects', async () => {
+      verifyPayment.mockRejectedValue(new Error('threadId does not match'));
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(402);
+      expect(await res.text()).toContain('payment not verified');
+      // No DB row, no pipeline, no x402 spend.
+      expect(getSupabaseServer).not.toHaveBeenCalled();
+      expect(runModeA).not.toHaveBeenCalled();
+      expect(runModeB).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replay guard (one generation per payment, fail closed)', () => {
+    it('returns 409 on a unique-violation and never runs the pipeline', async () => {
+      const { client, inserts } = makeSupabase({
+        insertError: { code: '23505', message: 'duplicate key' },
+      });
+      getSupabaseServer.mockReturnValue(client);
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(409);
+      expect(inserts).toHaveLength(1); // attempted the guard insert
+      expect(runModeA).not.toHaveBeenCalled(); // but spent zero x402
+    });
+
+    it('returns 503 (fail closed) on any other insert error, with zero spend', async () => {
+      const { client } = makeSupabase({
+        insertError: { code: '42501', message: 'permission denied' },
+      });
+      getSupabaseServer.mockReturnValue(client);
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(503);
+      expect(runModeA).not.toHaveBeenCalled();
+      expect(runModeB).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('happy path (Mode A)', () => {
+    it('persists the VERIFIED amount (not the client field) on the pending insert', async () => {
+      const { client, inserts } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+
+      await readSSE(await POST(postReq(bodyA)));
+
+      expect(inserts).toHaveLength(1);
+      expect(inserts[0].amount_paid_raw).toBe(VERIFIED_AMOUNT.toString());
+      expect(inserts[0].amount_paid_raw).not.toBe(bodyA.amountPaidRaw);
+      expect(inserts[0].status).toBe('pending');
+    });
+
+    it('streams started → final tweets → done and marks the row completed', async () => {
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/event-stream');
+
+      const sse = await readSSE(res);
+      expect(sse).toContain('"type":"started"');
+      expect(sse).toContain('"type":"done"');
+      expect(sse).toContain('tweet 1');
+
+      expect(runModeA).toHaveBeenCalledOnce();
+      expect(updates).toHaveLength(1);
+      expect(updates[0].status).toBe('completed');
+      expect(updates[0].tweets).toEqual(['tweet 1', 'tweet 2']);
+      expect(updates[0].total_cost_usd).toBe(MODE_A_TOTAL_COST_USD);
+    });
+  });
+
+  describe('happy path (Mode B)', () => {
+    it('runs runModeB and persists its summary/snippet/cost', async () => {
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+
+      const sse = await readSSE(await POST(postReq(bodyB)));
+      expect(sse).toContain('"type":"done"');
+
+      expect(runModeB).toHaveBeenCalledOnce();
+      expect(runModeA).not.toHaveBeenCalled();
+      expect(updates[0].status).toBe('completed');
+      expect(updates[0].tweets).toEqual(['hot 1', 'hot 2']);
+      expect(updates[0].search_summary).toBe('summary');
+      expect(updates[0].market_snippet).toBe('snippet');
+      expect(updates[0].total_cost_usd).toBe('0.123');
+    });
+  });
+
+  describe('failure path (clean, refundable state)', () => {
+    it('emits fatal and marks the row failed when the pipeline throws', async () => {
+      runModeA.mockRejectedValue(new Error('groq exploded'));
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+
+      const sse = await readSSE(await POST(postReq(bodyA)));
+      expect(sse).toContain('"type":"fatal"');
+      expect(sse).toContain('groq exploded');
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0].status).toBe('failed');
+      expect(updates[0].error_message).toBe('groq exploded');
+    });
+  });
+
+  describe('degraded mode (Supabase down)', () => {
+    it('still serves the generation when the DB client cannot be created', async () => {
+      // getSupabaseServer throws → getSupabaseSafe() returns null → the route
+      // serves without the replay guard (documented degraded mode), rather
+      // than taking generation fully offline on a DB outage.
+      getSupabaseServer.mockImplementation(() => {
+        throw new Error('Supabase env vars missing');
+      });
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(200);
+      const sse = await readSSE(res);
+      expect(sse).toContain('"type":"done"');
+      expect(runModeA).toHaveBeenCalledOnce();
+    });
+  });
+});
