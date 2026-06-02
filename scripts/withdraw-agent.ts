@@ -90,11 +90,15 @@ async function main() {
     outputs: [],
   }] as const;
 
+  // Some Celo RPC nodes return a too-low eth_estimateGas (intrinsic only,
+  // ignoring the EIP-7623 calldata floor → "insufficient gas for floor data
+  // gas cost"). Set an explicit, generous limit; unused gas is not charged.
   const hash = await owner.writeContract({
     address: agentAddr,
     abi: agentWalletAbi,
     functionName: 'emergencyWithdraw',
     args: [token.address, amount, ownerAddr],
+    gas: 200_000n,
   });
 
   await pub.waitForTransactionReceipt({ hash });
