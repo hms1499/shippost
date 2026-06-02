@@ -13,6 +13,10 @@ export interface X402ChainConfig {
 export const X402_PRICE_USD = '0.001';
 export const X402_PRICE_LABEL = `$${X402_PRICE_USD}`; // withX402 `price` form
 
+// Groq model used by both the x402 proxy and the legacy pipeline. One source so
+// a model rotation can't leave the two settlement paths on different models.
+export const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
 const BASE_MAINNET = 8453;
 const BASE_SEPOLIA = 84532;
 
