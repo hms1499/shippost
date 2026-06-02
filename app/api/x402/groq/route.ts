@@ -60,7 +60,8 @@ const cfg = getX402ChainConfig(Number(process.env.X402_CHAIN_ID || '84532'));
 // payTo for the x402 charge. Mirrors GROQ_SINK in groqStep.ts: an unset/invalid
 // value falls back to the burn address rather than throwing, so `next build`
 // and legacy-mode deployments (which never set X402_PAY_TO) still load this
-// route. A real x402 deployment MUST set X402_PAY_TO to a treasury it controls.
+// route (mirrors the GROQ_SINK fallback in groqCost.ts). A real x402 deployment
+// MUST set X402_PAY_TO to a treasury it controls.
 const RAW_PAY_TO = process.env.X402_PAY_TO;
 const PAY_TO: `0x${string}` =
   RAW_PAY_TO && /^0x[a-fA-F0-9]{40}$/.test(RAW_PAY_TO)
