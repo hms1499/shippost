@@ -36,20 +36,36 @@ Two contracts, both deployed on Celo Sepolia testnet (Week 1) and Celo mainnet (
 - **`ShipPostPayment.sol`** — payment splitter. `payForThread(address token, uint8 mode)` pulls 0.05 stablecoin from user, splits 50% → AgentWallet / 40% → treasury / 10% → reserve, emits `ThreadRequested`. Token whitelist only (cUSD/USDT/USDC). Decimal handling: `IERC20Metadata(token).decimals()` — cUSD=18, USDT=6, USDC=6.
 - **`AgentWallet.sol`** — ERC-8004 compatible. Holds stablecoins for x402 spending. Single owner (orchestrator backend EOA), daily spend cap per token (cUSD=$50, USDT/USDC=$50 equiv). `executeX402Call` enforces the cap and emits `X402PaymentMade`.
 
-### x402 settlement (in-process, via pipeline steps)
+### x402 settlement — two distinct models (don't conflate)
 
-Groq, Serper, CoinGecko don't support x402 natively, so each pipeline step
-(lib/pipeline/*Step.ts) wraps the real API call and settles by pulling
-stablecoin from AgentWallet through `settleX402Call` (lib/agent/orchestrator.ts),
-which calls `executeX402Call` (cap-enforced) on-chain.
+The codebase has **two unrelated mechanisms** that both go by "x402". They
+flow money in opposite directions:
 
-Settlement runs **in-process** inside the SSE endpoint `/api/generate/stream` —
-there are no standalone HTTP proxy routes. (Earlier `/api/x402/*` routes were
-removed: the frontend never called them, they performed no `X-Payment`
-verification, and exposing an unauthenticated endpoint that spends from
-AgentWallet was a drain risk capped only by the daily limit.) If a public
-agent-callable x402 surface is ever reintroduced, it MUST verify a signed
-`X-Payment` intent before `settleX402Call`.
+**Model 1 — Celo in-process (we BUY services).** Groq, Serper, CoinGecko don't
+support x402 natively, so each pipeline step (lib/pipeline/*Step.ts) wraps the
+real API call and *simulates* x402 by pulling stablecoin from **AgentWallet**
+through `settleX402Call` (lib/agent/orchestrator.ts), which calls
+`executeX402Call` (cap-enforced) on-chain (Celo). There is no `X-Payment`
+header here. This runs **in-process** inside the SSE endpoint
+`/api/generate/stream` — the per-thread generation flow uses only Model 1.
+
+**Model 2 — real x402 (we SELL a service).** `/api/x402/groq/route.ts` is a
+genuine x402 endpoint via `withX402` (`@x402/next`) + CDP facilitator on Base.
+The **caller** pays *us* (settles to `X402_PAY_TO` treasury, default burn). It
+does **not** touch AgentWallet or `settleX402Call`. `withX402` returns 402 with
+payment requirements and verifies the caller's `X-Payment` via the facilitator
+*before* the handler runs; settlement happens only after the handler returns
+200 (Groq fail → 502, junk thread → 422 → no settle). No payment ⇒ no content ⇒
+no charge, so there is no drain risk. This satisfies the rule below by
+construction. (CDP needs a request-scoped JWT, not a static bearer — see
+`lib/x402/server.ts`, fixed in `4c48a08`. Proven on Base mainnet 2026-06-03.)
+
+History: the *original* `/api/x402/*` routes were unauthenticated proxies that
+called `settleX402Call` directly — a free AgentWallet drain capped only by the
+daily limit — and were removed in `8f4c222`. The current Model 2 route
+(`c8a796b`) is the safe reintroduction. **Rule:** any public, agent-callable
+x402 surface MUST verify a signed `X-Payment` intent before any spend, and must
+never expose `settleX402Call` without that verification.
 
 ### Pipeline (lib/pipeline/)
 
@@ -134,6 +150,6 @@ Design spec: `docs/superpowers/specs/2026-04-24-shippost-minipay-design.md`
 
 - **Mobile-only** — no desktop layout needed
 - **Multi-token decimals** — always use `IERC20Metadata(token).decimals()` in contracts, never hardcode
-- **x402 is custom** — no Coinbase CDP facilitator; all settlement goes through our proxy
+- **Two x402 models** — Model 1 (Celo, we buy services) is custom/simulated through AgentWallet, no facilitator; Model 2 (`/api/x402/groq`, we sell a service) is real x402 via CDP facilitator on Base. See "x402 settlement" above; don't conflate them.
 - **Agent wallet daily cap** — $50/token; `executeX402Call` must enforce before calling external API
 - **Contract Pausable** — kill-switch must remain intact; never remove `whenNotPaused`
