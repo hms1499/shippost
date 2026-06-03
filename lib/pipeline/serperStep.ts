@@ -1,6 +1,7 @@
 import { parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { retryOnce } from './retry';
+import { throwIfAborted } from './abort';
 import type { PipelineContext, PipelineEvent } from './types';
 
 const SERPER_SINK = '0x00000000000000000000000000000000000053E2' as const;
@@ -61,6 +62,9 @@ export async function runSerperStep(
   }
 
   emit({ type: 'step_output', step: 'serper', output: { organic, newsSnippet } });
+
+  // Don't settle if the deadline fired while fetching — the run is already failed.
+  throwIfAborted(ctx.signal);
 
   try {
     const txHash = await settleX402Call({

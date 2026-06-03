@@ -23,4 +23,8 @@ export interface PipelineContext {
   topic: string;
   audience: 'beginner' | 'intermediate' | 'advanced';
   agentWallet: Address;
+  // Aborts when the route's internal deadline fires. Steps MUST check this
+  // before any x402 settle so a timed-out (already-`fatal`, refundable) run
+  // never spends from AgentWallet.
+  signal?: AbortSignal;
 }

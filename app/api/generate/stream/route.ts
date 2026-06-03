@@ -43,13 +43,15 @@ export const maxDuration = 300;
 // AbortController plumbed through every step — a separate, larger change.)
 const PIPELINE_DEADLINE_MS = 150_000;
 
-function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+function withDeadline<T>(p: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`generation exceeded ${ms / 1000}s deadline`)),
-      ms,
-    );
+    timer = setTimeout(() => {
+      // Signal the orphaned pipeline to stop before it can settle (spend) for a
+      // run we're about to declare `fatal`/refundable.
+      onTimeout?.();
+      reject(new Error(`generation exceeded ${ms / 1000}s deadline`));
+    }, ms);
   });
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
 }
@@ -179,12 +181,15 @@ export async function POST(req: Request) {
 
       try {
         const contracts = getContracts(body.chainId);
+        // Aborts when the deadline fires; pipeline steps check it before settling.
+        const ac = new AbortController();
         const baseCtx = {
           chainId: body.chainId,
           threadId: BigInt(body.threadId),
           topic: body.topic ?? body.eventDescription ?? '',
           audience: body.audience ?? 'beginner',
           agentWallet: contracts.AgentWallet,
+          signal: ac.signal,
         } as const;
 
         let tweets: string[];
@@ -193,7 +198,7 @@ export async function POST(req: Request) {
         let marketSnippet: string | null = null;
 
         if (body.mode === 0) {
-          const out = await withDeadline(runModeA(baseCtx, emit), PIPELINE_DEADLINE_MS);
+          const out = await withDeadline(runModeA(baseCtx, emit), PIPELINE_DEADLINE_MS, () => ac.abort());
           tweets = out.tweets;
           totalCostUsd = MODE_A_TOTAL_COST_USD;
         } else {
@@ -207,6 +212,7 @@ export async function POST(req: Request) {
               emit,
             ),
             PIPELINE_DEADLINE_MS,
+            () => ac.abort(),
           );
           tweets = out.tweets;
           totalCostUsd = out.totalCostUsd;

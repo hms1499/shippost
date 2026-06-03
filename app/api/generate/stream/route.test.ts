@@ -243,6 +243,47 @@ describe('POST /api/generate/stream', () => {
     });
   });
 
+  describe('deadline abort (no x402 spend after the run is declared failed)', () => {
+    it('passes a live, non-aborted AbortSignal into the pipeline ctx', async () => {
+      const { client } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      let captured: { signal?: AbortSignal } | undefined;
+      runModeA.mockImplementation((ctx: { signal?: AbortSignal }) => {
+        captured = ctx;
+        return Promise.resolve({ tweets: ['a', 'b'] });
+      });
+
+      await readSSE(await POST(postReq(bodyA)));
+
+      expect(captured?.signal).toBeInstanceOf(AbortSignal);
+      expect(captured?.signal?.aborted).toBe(false);
+    });
+
+    it('aborts that signal when the internal deadline fires, and emits fatal', async () => {
+      vi.useFakeTimers();
+      try {
+        const { client } = makeSupabase();
+        getSupabaseServer.mockReturnValue(client);
+        let captured: { signal?: AbortSignal } | undefined;
+        // Pipeline hangs forever — only the internal deadline can end the run.
+        runModeA.mockImplementation((ctx: { signal?: AbortSignal }) => {
+          captured = ctx;
+          return new Promise<never>(() => {});
+        });
+
+        const res = await POST(postReq(bodyA));
+        const ssePromise = readSSE(res);
+        await vi.advanceTimersByTimeAsync(150_000);
+        const sse = await ssePromise;
+
+        expect(captured?.signal?.aborted).toBe(true);
+        expect(sse).toContain('"type":"fatal"');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('degraded mode (Supabase down)', () => {
     it('still serves the generation when the DB client cannot be created', async () => {
       // getSupabaseServer throws → getSupabaseSafe() returns null → the route

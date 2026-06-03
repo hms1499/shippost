@@ -5,6 +5,7 @@ import { settleX402Call } from '@/lib/agent/orchestrator';
 import { getSettleMode, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
 import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
+import { throwIfAborted } from './abort';
 import type { PipelineContext } from './types';
 
 export interface DraftInput {
@@ -24,6 +25,8 @@ export interface DraftResult {
 // both modes: legacy settles after boundThread here; x402 settles inside the
 // proxy only after it returns a validated thread.
 export async function generateDraft(ctx: PipelineContext, input: DraftInput): Promise<DraftResult> {
+  throwIfAborted(ctx.signal);
+
   if (getSettleMode(ctx.chainId) === 'x402') {
     const { tweets, settlementTxHash } = await payGroqViaX402({
       chainId: ctx.chainId,
@@ -53,6 +56,9 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
   if (!raw.trim()) throw new Error('Groq returned empty content');
 
   const tweets = boundThread(parseThread(raw));
+  // Re-check: the deadline may have fired while Groq was responding. Never
+  // settle (spend) after the run is already considered failed.
+  throwIfAborted(ctx.signal);
   const txHash = await settleX402Call({
     chainId: ctx.chainId,
     serviceAddress: GROQ_SINK,

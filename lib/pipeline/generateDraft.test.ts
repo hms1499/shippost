@@ -53,4 +53,33 @@ describe('generateDraft', () => {
     await expect(generateDraft(ctx, msgs)).rejects.toThrow();
     expect(settleX402Call).not.toHaveBeenCalled();
   });
+
+  it('legacy mode: aborted-before-start does no work and never settles', async () => {
+    getSettleMode.mockReturnValue('legacy');
+    create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
+    const ac = new AbortController();
+    ac.abort();
+    await expect(generateDraft({ ...ctx, signal: ac.signal }, msgs)).rejects.toThrow(/abort/i);
+    expect(create).not.toHaveBeenCalled();
+    expect(settleX402Call).not.toHaveBeenCalled();
+  });
+
+  it('legacy mode: abort DURING Groq call still prevents settle (no spend after deadline)', async () => {
+    getSettleMode.mockReturnValue('legacy');
+    const ac = new AbortController();
+    create.mockImplementation(async () => {
+      ac.abort(); // deadline fires while the model is responding
+      return { choices: [{ message: { content: '1/ a\n\n2/ b' } }] };
+    });
+    await expect(generateDraft({ ...ctx, signal: ac.signal }, msgs)).rejects.toThrow(/abort/i);
+    expect(settleX402Call).not.toHaveBeenCalled();
+  });
+
+  it('x402 mode: aborted signal never pays via the proxy', async () => {
+    getSettleMode.mockReturnValue('x402');
+    const ac = new AbortController();
+    ac.abort();
+    await expect(generateDraft({ ...ctx, signal: ac.signal }, msgs)).rejects.toThrow(/abort/i);
+    expect(payGroqViaX402).not.toHaveBeenCalled();
+  });
 });

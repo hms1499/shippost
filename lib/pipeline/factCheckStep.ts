@@ -3,6 +3,7 @@ import { parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
 import { retryOnce } from './retry';
+import { throwIfAborted } from './abort';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
 import type { PipelineContext, PipelineEvent } from './types';
 
@@ -51,6 +52,9 @@ export async function runFactCheckStep(
 
   const tweets = parseThread(raw);
   emit({ type: 'step_output', step: 'factCheck', output: tweets });
+
+  // Don't settle if the deadline fired while the model was responding.
+  throwIfAborted(ctx.signal);
 
   try {
     const txHash = await settleX402Call({
