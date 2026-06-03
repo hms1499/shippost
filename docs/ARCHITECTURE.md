@@ -1,287 +1,347 @@
-# ShipPost — Kiến trúc (bản đọc để hiểu lại)
+# ShipPost — Kiến trúc
 
-> Tài liệu này giải thích *vì sao* hệ thống được dựng như vậy, không chỉ *cái gì* ở đâu.
-> Mọi tham chiếu dạng `file:line` đều bấm vào nhảy thẳng tới code. Nếu code và tài liệu
-> này lệch nhau, code là nguồn sự thật — hãy cập nhật lại file này.
-
-ShipPost là app **trả-tiền-theo-lượt** viết thread X bằng AI, chạy như MiniApp trong ví
-MiniPay của Opera. Người dùng trả **$0.05 cUSD/USDT/USDC mỗi thread**. Một ví agent
-(ERC-8004) thực hiện 1–4 micro-payment x402 tới các dịch vụ AI (Groq, Serper, CoinGecko)
-để sinh ra một thread sẵn-sàng-đăng.
+> Tài liệu viết theo kiểu **phóng to dần** (progressive disclosure): đọc từ trên xuống, dừng
+> ở tầng nào đủ hiểu thì dừng.
+>
+> | Tầng | Cho ai | Đọc gì |
+> |---|---|---|
+> | **0 — TL;DR** | mọi người, 30 giây | hệ thống làm gì, gồm mấy mảnh |
+> | **1 — Bức tranh lớn** | PM, người mới, fullstack | 2 lớp + một lượt generate chạy ra sao |
+> | **2 — Từng phần** | dev sắp sửa code mảng đó | mỗi mảng: làm gì · gọi ai · invariant chính |
+> | **3 — Đào sâu** | review bảo mật, sửa lõi | các bất biến nhạy cảm, từng bước một |
+>
+> Sơ đồ dùng [Mermaid](https://mermaid.js.org) (render trên GitHub; VS Code cần extension
+> "Markdown Preview Mermaid Support"). Tham chiếu code theo **tên symbol** để `grep` ra được và
+> không lệch khi số dòng đổi. **Code là nguồn sự thật** — lệch thì sửa file này.
 
 ---
 
-## 1. Bức tranh tổng: hai lớp tách bạch
+# Tầng 0 — TL;DR (30 giây)
+
+ShipPost là app **trả-tiền-theo-lượt** viết thread X bằng AI, chạy như MiniApp trong ví MiniPay
+của Opera. Người dùng trả **$0.05** (cUSD/USDT/USDC) → một **ví agent** (ERC-8004) tự bỏ tiền
+gọi vài dịch vụ AI (Groq, Serper, CoinGecko) → trả về một thread sẵn-sàng-đăng.
+
+Bốn nhân vật, đọc theo số ①→⑥:
+
+```mermaid
+flowchart TB
+    User["👤 Người dùng<br/>(MiniPay)"]
+    Chain["⛓️ Contracts trên Celo<br/>ShipPostPayment + AgentWallet"]
+    Backend["🖥️ Backend<br/>/api/generate/stream"]
+    AI["🤖 Groq · Serper · CoinGecko"]
+
+    User -->|"① trả $0.05"| Chain
+    User -->|"② xin viết thread"| Backend
+    Backend -->|"③ verify: đã trả chưa?"| Chain
+    Backend -->|"④ gọi AI viết thread"| AI
+    Chain -->|"⑤ ví agent chi tiền cho AI"| AI
+    Backend -->|"⑥ trả thread về"| User
+```
+
+**Một câu để nhớ:** blockchain ở đây **không chạy AI** — nó là *sổ kế toán bất biến* cho cả thu
+lẫn chi; AI chạy off-chain trong backend.
+
+---
+
+# Tầng 1 — Bức tranh lớn
+
+## Hai lớp tách bạch
 
 Toàn hệ thống chia làm **2 lớp**, nối nhau bằng đúng một thứ: `payTxHash` (bằng chứng đã trả).
 
-```
-NGƯỜI DÙNG (MiniPay webview)
-   │ trả 0.05 cUSD  (payForThread)
-   ▼
-┌────────────────────────────────────────────────┐
-│ LỚP 1 — On-chain (Celo)                          │
-│  ShipPostPayment.payForThread(token, mode)        │
-│   ├─ 50% → AgentWallet                            │
-│   ├─ 40% → treasury                               │
-│   └─ 10% → reservePool                            │
-│  emit ThreadRequested(user, threadId, mode, …)    │
-└────────────────────────────────────────────────┘
-   │ payTxHash  (client gửi lên backend)
-   ▼
-┌────────────────────────────────────────────────┐
-│ LỚP 2 — Backend (Next.js, SSE)                   │
-│  POST /api/generate/stream                        │
-│   1. verifyPayment(payTxHash)   ← cổng chặn 402   │
-│   2. insert thread 'pending'    ← chống replay    │
-│   3. pipeline → mỗi step:                          │
-│        gọi API thật → settleX402Call()             │
-│        (rút cUSD từ AgentWallet, cap-enforced)     │
-│   4. emit tweets → cập nhật 'completed'            │
-└────────────────────────────────────────────────┘
-```
-
-**Tư tưởng cốt lõi:** blockchain ở đây **không chạy AI**. Nó là *sổ kế toán bất biến*
-cho cả thu (payForThread) lẫn chi (executeX402Call). Việc gọi AI diễn ra off-chain trong
-backend. Tách rời như vậy nên contract đơn giản, rẻ, và không cần tin backend; backend
-thì phải chứng minh lại mọi thứ từ chain.
-
----
-
-## 2. Lớp 1 — Hai smart contract (`contracts/`)
-
-Cả hai deploy trên Celo Sepolia testnet (chainId 11142220) và Celo mainnet (42220).
-Alfajores đã bị Celo khai tử — dùng Celo Sepolia cho testnet.
-
-### 2.1 `ShipPostPayment.sol` — máy chia tiền
-
-Trái tim là `payForThread` (`contracts/ShipPostPayment.sol:92`):
-
-```solidity
-uint256 amount = requiredAmount(token);                 // giá theo decimals
-IERC20(token).transferFrom(msg.sender, address(this), amount);
-// chia 50/40/10 ngay trong cùng 1 tx
-emit ThreadRequested(msg.sender, threadId, mode, token, amount);
-```
-
-Ba quyết định thiết kế đáng nhớ:
-
-1. **Đa token, không hardcode decimals** (`:85`). `requiredAmount` đọc
-   `IERC20Metadata(token).decimals()` rồi tính `5 * 10^(d-2)` = $0.05. cUSD=18,
-   USDT/USDC=6 — cùng một hàm phục vụ cả hai. Đây là *key constraint* của dự án.
-2. **Chia tiền tức thì, không giữ quỹ.** `reserveShare = amount - agentShare - treasuryShare`
-   (`:105`) dùng phép trừ thay vì nhân basis-point lần nữa → wei lẻ do làm tròn luôn rơi
-   vào reserve, **không thất thoát 1 wei**.
-3. **Event là API thật.** `ThreadRequested` chính là cái backend đọc ngược để verify.
-   Contract không gọi backend.
-
-Phần vận hành an toàn: `Pausable` (kill-switch), `Ownable`, `ReentrancyGuard`, whitelist
-token (`allowedTokens`), và các setter `setAgentWallet/setTreasury/setReservePool` — bỏ
-`immutable` để đổi địa chỉ payout mà không phải redeploy (`:61`).
-
-### 2.2 `AgentWallet.sol` — ví agent có hạn mức (ERC-8004)
-
-Cốt lõi là **daily spend cap** trong `executeX402Call` (`contracts/AgentWallet.sol:57`):
-
-```solidity
-uint256 day = block.timestamp / 1 days;                 // cửa sổ 24h UTC
-require(spentOnDay[day][token] + amount <= dailySpendCap[token], "CAP_EXCEEDED");
-spentOnDay[day][token] += amount;
-IERC20(token).transfer(service, amount);
-```
-
-→ Dù key orchestrator bị lộ, kẻ tấn công **chỉ rút được tối đa $50/token/ngày**.
-Blast radius bị giới hạn bằng *code*, không bằng niềm tin.
-
-Chi tiết tinh tế về `Pausable` (`:9-14`, `:72`): pause đóng băng `executeX402Call` và
-`approveFacilitator`, **nhưng `emergencyWithdraw` cố tình vẫn chạy khi paused** — kill-switch
-để chặn *chi sai*, không phải để *nhốt tiền*; owner phải luôn rút được ra.
-
----
-
-## 3. Lớp 2 — Backend: `/api/generate/stream`
-
-Đây là phần đáng học nhất, vì là bài tập "thiết kế khi mọi byte trong request body đều
-là thù địch". `app/api/generate/stream/route.ts` spends cUSD thật mỗi lượt.
-
-### 3.1 Bước 1 — `verifyPayment`: cổng trước mọi việc tốn tiền
-
-`route.ts:100` gọi `verifyPayment` (`lib/agent/orchestrator.ts:67`) TRƯỚC khi mở stream
-hay tiêu x402. Không tin một field nào trong body:
-
-1. Lấy receipt của `payTxHash`, đòi `status === 'success'`.
-2. **Quét log do *chính contract của mình* phát ra** (`:96` skip nếu `log.address` khác
-   `ShipPostPayment`) — không tin `receipt.to` để chịu được router/multicall.
-3. Khớp `threadId`, `user`, `token`, `mode` với event.
-4. **Defense in depth** (`:136`): đọc lại `requiredAmount` on-chain, đòi `evt.amount === required`.
-   Event giả mạo cũng không qua.
-
-Trả về **số tiền on-chain** để backend lưu cái đó — **không bao giờ** lưu `amountPaidRaw`
-từ client (`:39-42`). Refund sau này tính theo on-chain (`getOnChainPaidAmount`, `:43`),
-không theo DB. Bất kỳ sai khớp nào → **402**, zero spend.
-
-### 3.2 Bước 2 — Insert 'pending': chống replay
-
-`route.ts:127` insert **trước** khi mở stream. Unique index `(chain_id, onchain_thread_id)`:
-- Trùng → Postgres `23505` → **409**, không tiêu x402.
-- Lỗi DB khác → **503 fail-closed**, cũng không tiêu x402.
-- Supabase chết hẳn → **degraded mode** có chủ đích (`:122-126`): vẫn phục vụ, mất replay-guard,
-  để DB outage không làm tê liệt generation. `verifyPayment` vẫn giới hạn lạm dụng về đúng
-  người trả thật + cap.
-
-### 3.3 Bước 3 — Pipeline + invariant "settle gates delivery"
-
-Mô hình step ở `lib/pipeline/`. Hai mode:
-
-| | Mode A (Educational) | Mode B (Hot Take) |
+| Lớp | Gồm gì | Trách nhiệm |
 |---|---|---|
-| Steps | `groqStep` | `serper → coingecko → groq → factCheck` |
-| Hard/soft | groq = hard | serper/coingecko/factCheck = **soft-fail**, groq = **hard** |
-| File | `runModeA.ts` | `runModeB.ts` |
+| **Lớp 1 — On-chain (Celo)** | `ShipPostPayment` + `AgentWallet` | Thu tiền (`payForThread`) và chi tiền (`executeX402Call`), để lại event/tx bất biến |
+| **Lớp 2 — Backend (Next.js SSE)** | `/api/generate/stream` + pipeline | Verify thanh toán, gọi AI off-chain, settle x402, stream kết quả về client |
 
-Invariant cốt lõi nằm ở **thứ tự emit** (`groqStep.ts:26-33`, `runModeB.ts:85-92`):
+Vì sao tách: contract đơn giản → rẻ và an toàn; backend không được tin → phải *chứng minh lại*
+mọi thứ từ chain. (Frontend và Data nằm trong Lớp 2 về mặt khái niệm — xem Tầng 2.)
 
+## Một lượt generate chạy ra sao (đọc từ trên xuống)
+
+```mermaid
+sequenceDiagram
+    actor U as 👤 Người dùng
+    participant P as ShipPostPayment
+    participant A as AgentWallet
+    participant S as /api/generate/stream
+    participant AI as Groq/Serper/CoinGecko
+    participant DB as Supabase
+
+    U->>P: payForThread(token, mode) — $0.05
+    P->>P: chia 50/40/10 trong 1 tx
+    P-->>U: emit ThreadRequested(threadId) + payTxHash
+
+    U->>S: POST { payTxHash, threadId, topic... }
+    S->>P: verifyPayment — đọc event, khớp mọi field
+    Note over S,P: sai khớp ⇒ 402, KHÔNG tiêu xu nào
+    S->>DB: insert thread 'pending' (unique guard)
+    Note over S,DB: trùng ⇒ 409 · DB lỗi ⇒ 503 (fail-closed)
+
+    loop mỗi pipeline step
+        S->>AI: gọi API thật
+        AI-->>S: kết quả
+        S->>A: settleX402Call (cap-enforced)
+        A->>AI: chi cUSD tới sink
+        Note over S: ⚠️ CHỈ sau khi settle xong mới emit tweets
+        S-->>U: SSE: step_settled + step_output
+    end
+
+    S->>DB: update 'completed'
+    S-->>U: SSE: done
 ```
-generateDraft(...)   ← gọi Groq + settleX402Call BÊN TRONG, có boundThread validate
-   ↓ (CHỈ khi settle xác nhận)
-emit step_settled    ← báo đã trả x402
-emit step_output     ← MỚI giao tweets
-```
 
-Không bao giờ emit nội dung trước khi settle — nếu không là lỗ "free content + refund".
-Output rỗng/rác → `boundThread` throw *trước* settle → không tiêu tiền.
-
-Triết lý soft vs hard (`runModeB.ts`): Serper/CoinGecko/FactCheck lỗi → emit `step_failed`
-(không terminal) + chạy tiếp với context null, người dùng *thấy* chất lượng giảm thay vì
-âm thầm trả full giá. Groq lỗi → `throw` → cả run fail → refundable. CoinGecko free nên
-**không settle** (`wrappedEmit` ở `:28` bỏ qua khi cộng `totalCost`).
-
-### 3.4 Bước 4 — Deadline nội bộ: mọi lỗi đều refundable
-
-`route.ts:35` đặt `maxDuration = 300`, nhưng pipeline tự đặt `PIPELINE_DEADLINE_MS = 150_000`
-(`:44`). Lý do (`:38-43`): platform SIGKILL ở 300s là kill cứng, không emit `fatal`, thread
-kẹt `'pending'` — trạng thái tệ nhất (đã trả, không có content, không tự refund được). Tự
-race timeout sớm hơn → đi qua `catch` bình thường → thread `'failed'` + emit `fatal` →
-**refundable**. Nguyên tắc: *mọi failure đều là một trạng thái sạch, refund được.*
-
-`waitForTransactionReceipt` cũng bounded 90s (`orchestrator.ts:35`) — RPC chết không treo
-cả generation.
+> **Dừng ở đây là đủ cho hầu hết người đọc.** Cần biết một mảng cụ thể làm gì → Tầng 2.
+> Cần hiểu *vì sao* một bất biến tồn tại → Tầng 3.
 
 ---
 
-## 4. Hai mô hình x402 (ĐỪNG nhầm lẫn)
+# Tầng 2 — Từng phần (vừa phải)
 
-Codebase có **hai cơ chế khác bản chất**, cùng tên "x402", chảy tiền ngược chiều nhau.
+Mỗi mục theo công thức: **làm gì · gọi ai · invariant chính**.
+
+## 2.1 On-chain — `contracts/`
+
+Hai contract, deploy trên Celo Sepolia testnet (11142220) và Celo mainnet (42220). Alfajores đã
+bị Celo khai tử — dùng Celo Sepolia cho testnet.
+
+**`ShipPostPayment`** — máy chia tiền. `payForThread` kéo $0.05 từ user, chia tức thì rồi emit:
+
+```mermaid
+flowchart LR
+    U["👤 user"] -->|"transferFrom $0.05"| C["ShipPostPayment"]
+    C -->|"agentBp 5000 = 50%"| A["AgentWallet"]
+    C -->|"treasuryBp 4000 = 40%"| T[("treasury")]
+    C -->|"phần còn lại = 10%"| R[("reservePool")]
+    C -.->|"emit"| E["ThreadRequested(user, threadId, mode, token, amount)"]
+```
+
+- **Làm gì:** thu tiền, chia 50/40/10, phát `ThreadRequested`.
+- **Invariant:** đa token không hardcode decimals (`requiredAmount` đọc `decimals()`); wei lẻ luôn
+  rơi vào reserve (dùng phép trừ); `ThreadRequested` chính là API mà backend đọc ngược để verify.
+
+**`AgentWallet`** — ví agent ERC-8004, giữ stablecoin để chi x402.
+- **Làm gì:** `executeX402Call` chuyển tiền cho dịch vụ, kèm **daily spend cap** $50/token/ngày.
+- **Gọi bởi:** chỉ owner (orchestrator EOA của backend).
+- **Invariant:** cap chặn blast-radius nếu key lộ; `Pausable` là kill-switch (nhưng
+  `emergencyWithdraw` cố tình vẫn chạy khi paused — chi tiết Tầng 3).
+
+## 2.2 Backend — `/api/generate/stream`
+
+Trái tim Lớp 2. `POST` (`app/api/generate/stream/route.ts`) spends cUSD thật mỗi lượt, nên coi
+body là **thù địch**. Ba cổng gác trước khi tiêu xu nào:
+
+```mermaid
+flowchart TB
+    Body["POST body (KHÔNG tin)"] --> V{"① verifyPayment<br/>khớp event on-chain?"}
+    V -->|"sai"| R402["402 — zero spend"]
+    V -->|"đúng"| Ins{"② insert 'pending'<br/>(unique guard)"}
+    Ins -->|"trùng 23505"| R409["409 — đã generate rồi"]
+    Ins -->|"DB lỗi khác"| R503["503 — fail-closed"]
+    Ins -->|"OK / Supabase down (degraded)"| Run["③ chạy pipeline<br/>(deadline 150s)"]
+    Run --> OK["update 'completed' → done"]
+    Run -->|"lỗi / timeout"| Fail["update 'failed' → fatal → refundable"]
+```
+
+- **Làm gì:** verify thanh toán → chống replay → chạy pipeline → stream SSE.
+- **Gọi ai:** `verifyPayment`/`settleX402Call` (Lớp 1), Supabase, các API AI.
+- **Invariant:**
+  - Verify on-chain **trước** mọi việc tốn tiền; sai → 402, zero spend.
+  - Một payment = một generation (unique index `(chain_id, onchain_thread_id)`).
+  - **Mọi lỗi đều về trạng thái sạch, refund được** (vòng đời dưới).
+
+Vòng đời một thread:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: insert TRƯỚC khi mở stream
+    pending --> completed: tweets emit sau settle ✅
+    pending --> failed: lỗi / timeout 150s ⇒ fatal
+    failed --> refundable: user bấm 1-tap refund
+    completed --> [*]
+    refundable --> [*]: refundThread (idempotent, 1 lần duy nhất)
+```
+
+Pipeline có 2 mode (`runModeA` / `runModeB`) trong `lib/pipeline/`:
+
+```mermaid
+flowchart LR
+    subgraph A["Mode A — Educational"]
+        gA["groqStep<br/>🔴 HARD"]
+    end
+    subgraph B["Mode B — Hot Take"]
+        s["serperStep<br/>🟢 soft"] --> c["coingeckoStep<br/>🟢 soft · free"] --> g["groqStep<br/>🔴 HARD"] --> f["factCheckStep<br/>🟢 soft"]
+    end
+```
+
+🟢 **soft-fail** → emit `step_failed` (không terminal), chạy tiếp với context null. 🔴 **hard-fail**
+(groq) → `throw` → cả run fail → refundable. (Vì sao thứ tự emit quan trọng → Tầng 3.)
+
+## 2.3 x402 — hai mô hình (ĐỪNG nhầm)
+
+Codebase có **hai cơ chế khác bản chất**, cùng tên "x402", chảy tiền **ngược chiều nhau**.
+
+```mermaid
+flowchart LR
+    subgraph M1["Model 1 — Celo · mình MUA dịch vụ"]
+        direction LR
+        AW["AgentWallet<br/>(ví của MÌNH)"] ==>|"cUSD"| Svc["Groq/Serper sink"]
+    end
+    subgraph M2["Model 2 — Base · mình BÁN dịch vụ"]
+        direction LR
+        Caller["Agent gọi<br/>(trả X-Payment)"] ==>|"x402 verified"| Me["/api/x402/groq<br/>→ payTo treasury"]
+    end
+```
 
 | | Model 1 — Celo in-process | Model 2 — `/api/x402/groq` |
 |---|---|---|
 | Vai trò | Mình **MUA** dịch vụ | Mình **BÁN** dịch vụ |
-| Giao thức | Mô phỏng, không có header `X-Payment` | x402 **thật** qua `@x402/next` |
+| Giao thức | Mô phỏng, không có `X-Payment` | x402 **thật** qua `@x402/next` |
 | Ai trả | AgentWallet chi cho service | **Người gọi** trả cho mình |
-| Verify | `verifyPayment` đọc event Celo | `withX402` + CDP facilitator verify `X-Payment` |
 | Settle về | sink/burn (`X402_SINK_ADDRESS`) | `X402_PAY_TO` treasury |
 | Rủi ro nếu hở | Drain AgentWallet | Không — không trả thì không có content |
 | Mạng | Celo (42220 / 11142220) | Base (84532 / mainnet) |
 
-**Model 1** là luồng generate per-thread (mục 3). Mỗi pipeline step gọi `settleX402Call`
-(`orchestrator.ts:7`) → `executeX402Call` cap-enforced trên Celo. Groq/Serper/CoinGecko
-không hỗ trợ x402 thật nên đây là mô phỏng in-process; **không có HTTP proxy route** cho
-luồng này.
+**Model 1** là luồng generate per-thread (mục 2.2): mỗi step gọi `settleX402Call` → `executeX402Call`
+cap-enforced. Groq/Serper/CoinGecko không hỗ trợ x402 thật nên đây là mô phỏng in-process; **không
+có HTTP proxy route**. **Model 2** (`app/api/x402/groq/route.ts`): `withX402` verify `X-Payment`
+*trước* khi handler chạy, settle chỉ sau khi trả 200, **không chạm AgentWallet** → không drain risk.
+Đã proof Base mainnet 2026-06-03 (CDP cần JWT request-scoped, fix ở commit `4c48a08`).
 
-**Model 2** (`app/api/x402/groq/route.ts`) là endpoint x402 thật: `withX402` trả 402 kèm
-payment requirements, verify `X-Payment` của caller qua facilitator *trước* khi handler chạy,
-settle chỉ sau khi handler trả 200 (Groq fail → 502, junk → 422 → không settle). **Không
-chạm AgentWallet.** Không trả ⇒ không content ⇒ không charge → không có drain risk. Đã proof
-trên Base mainnet 2026-06-03. CDP cần JWT request-scoped, không phải static bearer
-(`lib/x402/server.ts`, fix ở commit `4c48a08`).
+Lịch sử: route `/api/x402/*` *đời đầu* là proxy không xác thực gọi thẳng `settleX402Call` (drain
+free) — xóa ở `8f4c222`; Model 2 hiện tại (`c8a796b`) là bản dựng lại an toàn. **Rule:** mọi x402
+surface công khai phải verify `X-Payment` trước khi chi. Xem thêm `docs/x402-explained.md`,
+`docs/x402-flow-diagrams.md`, `docs/x402-mainnet-proof.md`.
 
-**Lịch sử:** route `/api/x402/*` *đời đầu* là proxy không xác thực gọi thẳng `settleX402Call`
-— drain AgentWallet free, chỉ chặn bởi daily cap — đã bị xóa (`8f4c222`). Model 2 hiện tại
-(`c8a796b`) là bản dựng lại an toàn. **Rule:** bất kỳ x402 surface công khai nào cũng phải
-verify `X-Payment` trước khi chi, và không bao giờ expose `settleX402Call` mà thiếu verify đó.
+## 2.4 Frontend — `app/` + `components/` + `hooks/`
 
-Xem thêm: `docs/x402-explained.md`, `docs/x402-flow-diagrams.md`, `docs/x402-mainnet-proof.md`.
+Next.js 14 App Router, **mobile-only** (MiniPay webview), **dark mode** mặc định, budget `<200KB`
+gzipped trên `/`. Luồng client nối tiếp nhau:
 
----
+```mermaid
+flowchart TB
+    m["lib/minipay.ts<br/>phát hiện isMiniPay, auto-connect"] --> b["lib/useBalances.ts<br/>đọc cUSD/USDT/USDC, chọn cao nhất"]
+    b --> p["lib/usePayForThread.ts<br/>gửi tx payForThread (wagmi)"]
+    p --> h["hooks/useThreadGeneration.ts<br/>SSE consumer · state machine"]
+    h --> g["components/GeneratingStatus.tsx<br/>progress theatre + link Celoscan"]
+    g --> t["components/ThreadPreview.tsx<br/>card tweet · sửa inline"]
+    t --> x["components/ShareToX.tsx<br/>deep link twitter://post"]
+```
 
-## 5. Frontend (`app/` + `components/` + `hooks/`)
+- **Invariant:** `useThreadGeneration` chỉ coi `fatal` là kết thúc lỗi; `step_failed` (soft) chỉ
+  hiển thị degraded → khớp triết lý soft/hard ở 2.2.
 
-Next.js 14 App Router, **mobile-only** (MiniPay webview), **dark mode** mặc định. Budget
-bundle `<200KB gzipped` trên `/`. Luồng chính:
+## 2.5 Data — Supabase (`supabase/migrations/`)
 
-1. `lib/minipay.ts` — phát hiện `window.ethereum.isMiniPay`, auto-connect qua injected
-   provider (không WalletConnect).
-2. `lib/useBalances.ts` — đọc balance cUSD/USDT/USDC, mặc định chọn token cao nhất.
-3. `lib/usePayForThread.ts` — gửi tx `payForThread` qua wagmi.
-4. `hooks/useThreadGeneration.ts` — consumer SSE, state machine có kiểu, lái UI.
-5. `components/GeneratingStatus.tsx` — "progress theatre": cost x402 từng step + link Celoscan.
-6. `components/ThreadPreview.tsx` — card tweet, sửa inline.
-7. `components/ShareToX.tsx` — deep link `twitter://post`, fallback web.
+- **Làm gì:** lưu wallet address + metadata thread (no PII); phục vụ history/analytics.
+- **Gọi bởi:** chỉ server-side, **luôn dùng service role** (`getSupabaseServer`) bypass RLS — không
+  có anon client. History/analytics qua edge-runtime routes (`/api/public/*`), trang `/app/history`,
+  `/app/stats`.
+- **Invariant:** `refund_requests` bật RLS không policy permissive (`0005`) → anon bị từ chối.
 
-`hooks/useThreadGeneration.ts` chỉ coi `fatal` là kết thúc lỗi; `step_failed` (soft) chỉ
-hiển thị degraded → khớp với triết lý soft/hard ở mục 3.3.
+## 2.6 Refund — runbook
 
----
+Hai đường settlement, đều gọi `refundThread` (`lib/agent/orchestrator.ts`):
 
-## 6. Dữ liệu (Supabase) — `supabase/migrations/`
+```mermaid
+flowchart TB
+    H["/api/refund<br/>(một-lần, x-admin-key)"] --> RT
+    Q["pnpm refund:process &lt;id&gt;<br/>(queue worker)"] --> CAS{"CAS: pending→processing<br/>đúng 1 row?"} --> RT["refundThread"]
+    RT --> Guard{"threads.refund_tx_hash<br/>đã set?"}
+    Guard -->|"rồi"| Stop["từ chối — đã trả, không gửi lại"]
+    Guard -->|"chưa"| Pay["đọc amount on-chain<br/>balance-check nguồn<br/>transfer → user"]
+```
 
-Server-side only. Schema: `0001_threads.sql`. Lưu wallet address + metadata thread (no PII).
-History/analytics đọc qua edge-runtime API routes (`/api/public/analytics`, `/api/public/threads`),
-trang `/app/history`, `/app/stats`. **Mọi truy cập dùng service role** (`getSupabaseServer()`)
-bypass RLS — không có anon client. `refund_requests` bật RLS không có policy permissive (0005):
-anon bị từ chối, service role không ảnh hưởng.
-
----
-
-## 7. Refund (runbook tóm tắt)
-
-Hai đường settlement, đều gọi `refundThread` (`orchestrator.ts:159`):
-- HTTP một-lần `/api/refund` (`x-admin-key`).
-- Queue worker `pnpm refund:process <requestId>`.
-
-**Invariant:** `threads.refund_tx_hash` là nguồn sự thật duy nhất — đã set ⇒ đã trả, không
-bao giờ gửi lại. Cả hai đường đều từ chối nếu nó đã set.
-
-Tính chất an toàn (đừng regress):
-- **Số tiền refund đọc on-chain** (`getOnChainPaidAmount`), không từ `amount_paid_raw`
-  (client-supplied). Partial bị cap ở số đã trả on-chain.
-- **Lock `refund_requests` là compare-and-swap**: `refund:process` chỉ tiếp tục nếu UPDATE
-  `pending → processing` trả về đúng 1 row. Concurrent an toàn.
-- **Send lỗi không bao giờ tự revert về `pending`** — tx có thể đã broadcast. Row để
-  `processing` + lỗi trong `rejection_reason`. Chỉ reset `pending` sau khi xác nhận on-chain
-  rằng KHÔNG có transfer nào landed (nếu không là đường double-refund).
-
-`refundThread` còn balance-check nguồn refund (`:179`) và báo rõ shortfall thay vì revert
-ERC20 mờ mịt.
-
-> ⚠️ **Accounting caveat** (`orchestrator.ts:149-158`): contract chỉ route 10% vào reserve,
-> nhưng full refund trả 100%. Phần chênh đang lấy từ balance của deployer EOA, **không bền vững**.
-> Fix đúng là một `refund()` on-chain rút từ reserve tích lũy. Đừng scale full-refund trên path này.
+- **Invariant:** `threads.refund_tx_hash` là nguồn sự thật duy nhất — đã set ⇒ không bao giờ gửi lại.
+  Số tiền đọc **on-chain** (`getOnChainPaidAmount`), không từ `amount_paid_raw` (client). Lock là
+  compare-and-swap (`pending → processing` đúng 1 row). Send lỗi **không** tự revert về `pending`
+  (tx có thể đã broadcast) — chỉ reset sau khi xác nhận on-chain không có transfer nào landed.
 
 ---
 
-## 8. Chain config (`lib/`)
+# Tầng 3 — Đào sâu (đọc khi sửa lõi / review bảo mật)
 
-- `lib/chains.ts` — `getChain`, `explorerBase`, `isSupportedChain` (Celoscan/Blockscout).
-- `lib/wagmi.ts` — connectors Celo mainnet (42220) + Celo Sepolia (11142220).
-- `lib/tokens.ts` — địa chỉ + decimals token cho cả hai chain.
-- `lib/contracts.ts` — địa chỉ ShipPostPayment + AgentWallet cho cả hai chain.
+## 3.1 `verifyPayment` — từng bước (`lib/agent/orchestrator.ts`)
 
----
+Body của `/api/generate/stream` hoàn toàn do attacker điều khiển, nên mọi field bị *chứng minh lại*
+chứ không tin:
 
-## 9. Năm bài học thiết kế rút ra
+1. Lấy receipt của `payTxHash`, đòi `status === 'success'`.
+2. **Quét log do *chính contract của mình* phát ra** (skip nếu `log.address` khác `ShipPostPayment`)
+   — không tin `receipt.to`, để chịu được đường router/multicall.
+3. Khớp `threadId`, `user`, `token`, `mode` với event `ThreadRequested`.
+4. **Defense in depth:** đọc lại `requiredAmount` on-chain, đòi `evt.amount === required` — event
+   giả mạo cũng không qua.
 
-1. **On-chain = sổ kế toán bất biến, không phải máy tính.** Thu và chi đều để lại event/tx;
-   AI chạy off-chain.
-2. **Không tin client — verify lại từ chain.** `verifyPayment` + amount đọc on-chain là khuôn
-   mẫu chống forge; mọi field trong body là thù địch.
+Trả về **số tiền on-chain** để backend lưu cái đó; **không bao giờ** lưu `amountPaidRaw` từ client.
+Refund về sau tính theo `getOnChainPaidAmount`, không theo DB.
+
+## 3.2 Settle gates delivery — vì sao thứ tự emit là bất biến
+
+Trong `runGroqStep` và `runModeB`, settle **phải** xong *trước* khi giao nội dung. Đảo thứ tự =
+tái sinh lỗ "free content + refund".
+
+```mermaid
+flowchart TB
+    call["generateDraft: gọi Groq"] --> valid{"boundThread<br/>hợp lệ?"}
+    valid -->|"rỗng/rác"| t1["throw TRƯỚC settle<br/>⇒ KHÔNG tiêu tiền"]
+    valid -->|"OK"| settle["settleX402Call<br/>(rút từ AgentWallet)"]
+    settle --> done{"settle xác nhận?"}
+    done -->|"lỗi/timeout"| t2["throw ⇒ refundable"]
+    done -->|"OK"| emit["emit step_output<br/>✅ GIAO tweets"]
+```
+
+Output rỗng/rác → `boundThread` throw *trước* settle → không tiêu tiền. `waitForTransactionReceipt`
+trong `settleX402Call` bounded 90s — RPC chết không treo cả generation.
+
+## 3.3 Daily cap — chi tiết on-chain (`executeX402Call`)
+
+```mermaid
+flowchart TB
+    Call["executeX402Call(service, token, amount)"] --> Check{"spentOnDay[day][token]<br/>+ amount ≤ cap?"}
+    Check -->|"không"| Revert["revert CAP_EXCEEDED"]
+    Check -->|"có"| Spend["spentOnDay += amount<br/>transfer → service<br/>emit X402PaymentMade"]
+```
+
+`currentDay() = block.timestamp / 1 days` (cửa sổ 24h UTC). Dù key orchestrator lộ, kẻ tấn công chỉ
+rút tối đa $50/token/ngày. `Pausable` đóng băng `executeX402Call` và `approveFacilitator`, **nhưng
+`emergencyWithdraw` cố tình vẫn chạy khi paused** — kill-switch để chặn *chi sai*, không phải để
+*nhốt tiền*; owner phải luôn rút được ra.
+
+## 3.4 Deadline nội bộ — vì sao 150s < 300s
+
+`route.ts` export `maxDuration = 300`, nhưng pipeline tự đặt `PIPELINE_DEADLINE_MS = 150_000`
+(`withDeadline`). Lý do: platform SIGKILL ở 300s là kill cứng, không emit `fatal`, thread kẹt
+`'pending'` — trạng thái tệ nhất (đã trả, không content, không tự refund). Tự race timeout sớm hơn →
+đi qua `catch` bình thường → `'failed'` + `fatal` → **refundable**.
+
+## 3.5 ⚠️ Accounting caveat (tech debt đã biết)
+
+Comment trên `refundThread`: contract chỉ route **10%** vào reserve, nhưng **full refund trả 100%**.
+Phần chênh đang lấy từ balance của deployer EOA → **không bền vững**. Fix đúng là một `refund()`
+on-chain rút từ reserve tích lũy. **Đừng scale full-refund trên path này.**
+
+## 3.6 Năm bài học thiết kế
+
+1. **On-chain = sổ kế toán bất biến, không phải máy tính.** Thu/chi để lại event/tx; AI off-chain.
+2. **Không tin client — verify lại từ chain.** `verifyPayment` + amount on-chain là khuôn mẫu chống forge.
 3. **Giới hạn blast radius bằng code:** daily cap, Pausable, whitelist token, insert fail-closed.
 4. **Settle trước, giao hàng sau** — invariant chống "free content + refund".
 5. **Mọi lỗi phải refundable**, kể cả timeout — deadline nội bộ thay vì để platform kill cứng.
 
 ---
 
-## 10. Lệnh hay dùng
+# Phụ lục
+
+## Chain config (`lib/`)
+
+- `lib/chains.ts` — `getChain`, `explorerBase`, `isSupportedChain` (Celoscan/Blockscout).
+- `lib/wagmi.ts` — connectors Celo mainnet (42220) + Celo Sepolia (11142220).
+- `lib/tokens.ts` — địa chỉ + decimals token cho cả hai chain.
+- `lib/contracts.ts` — địa chỉ ShipPostPayment + AgentWallet cho cả hai chain.
+
+## Lệnh hay dùng
 
 ```bash
 pnpm dev                 # dev server
@@ -292,3 +352,38 @@ pnpm deploy:testnet      # deploy Celo Sepolia (11142220)
 pnpm refund:list         # liệt kê refund_requests đang pending
 pnpm refund:process <id> # settle một refund đã queue
 ```
+
+## Glossary
+
+Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ cái).
+
+| Thuật ngữ | Nghĩa trong ShipPost |
+|---|---|
+| **AgentWallet** | Contract ví của agent, giữ stablecoin để chi x402; chỉ owner (orchestrator) gọi được, có daily cap. |
+| **basis points (bp)** | Phần vạn. `10000 bp = 100%`. Fee split 5000/4000/1000 = 50/40/10%. |
+| **boundThread** | Hàm validate output: thread rỗng/rác thì `throw` (xảy ra *trước* settle → không tiêu tiền). |
+| **Celo** | Blockchain EVM (mainnet 42220, Sepolia testnet 11142220) — nơi 2 contract chạy. |
+| **Celoscan / Blockscout** | Block explorer để tra cứu tx; link sinh từ `explorerBase()`. |
+| **cUSD / USDT / USDC** | Ba stablecoin được whitelist. cUSD có 18 decimals, USDT/USDC có 6 → không hardcode. |
+| **daily spend cap** | Hạn mức chi mỗi token mỗi 24h (UTC) trong `AgentWallet`; mặc định ~$50. Giới hạn blast-radius nếu key lộ. |
+| **degraded mode** | Khi Supabase chết: vẫn phục vụ generate nhưng mất replay-guard (có chủ đích, không phải bug). |
+| **ERC-8004** | Chuẩn ví cho agent tự trị; `AgentWallet` thiết kế tương thích. |
+| **facilitator (CDP)** | Dịch vụ Coinbase Developer Platform verify + settle x402 **thật** (chỉ dùng ở Model 2 / Base). |
+| **Mode A / Mode B** | A = Educational (`groqStep`); B = Hot Take (`serper → coingecko → groq → factCheck`). |
+| **MiniPay** | Ví stablecoin của Opera (webview di động). App chạy như **MiniApp** bên trong nó. |
+| **orchestrator** | EOA backend, là **owner** của `AgentWallet` — chiếc "chìa khoá vương miện"; ký `executeX402Call`. |
+| **payTxHash** | Hash của tx `payForThread`; **bằng chứng đã trả** mà backend verify lại on-chain. |
+| **pipeline step** | Một bước trong `lib/pipeline/`: gọi API thật + settle, phát ra một `PipelineEvent`. |
+| **replay guard** | Chống dùng lại 1 payment 2 lần — unique index `(chain_id, onchain_thread_id)` trên `threads`. |
+| **reservePool / treasury** | Ví nhận 10% / 40% của mỗi khoản thanh toán. |
+| **RLS** | Row Level Security (Postgres/Supabase). `refund_requests` bật RLS, không policy → anon bị chặn. |
+| **service role** | Key Supabase **bypass RLS**; chỉ dùng server-side (`getSupabaseServer`). Không có anon client. |
+| **settle / settlement** | Chuyển stablecoin on-chain để "thanh toán" một lần gọi dịch vụ (`settleX402Call` → `executeX402Call`). |
+| **sink** | Địa chỉ nhận tiền x402 ở Model 1; `X402_SINK_ADDRESS` chưa set = burn về `0x..dead` (demo). |
+| **soft-fail / hard-fail** | soft = bước lỗi vẫn chạy tiếp (degraded); hard = lỗi làm cả run `fatal` → refundable. |
+| **SSE** | Server-Sent Events — kênh stream một chiều backend → client (progress + tweets). |
+| **thread / threadId** | "Thread" = chuỗi tweet sinh ra; `threadId` = id on-chain lấy từ event `ThreadRequested`. |
+| **ThreadRequested** | Event `ShipPostPayment` phát khi trả tiền; là "API" mà `verifyPayment` đọc ngược. |
+| **wagmi / viem** | Thư viện client EVM ở frontend (`wagmi`) và backend (`viem`). |
+| **x402** | Cơ chế trả-tiền-theo-lần-gọi bằng stablecoin (HTTP 402). Lưu ý **2 model** khác nhau — xem §2.3. |
+| **withX402** | Wrapper `@x402/next` cho Model 2: trả 402, verify `X-Payment`, settle sau khi handler trả 200. |
