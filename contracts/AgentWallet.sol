@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
@@ -13,6 +14,8 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 /// can be recovered via `emergencyWithdraw` (which deliberately remains
 /// callable while paused so the owner can drain).
 contract AgentWallet is Ownable, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
     mapping(address => uint256) public dailySpendCap;
 
     mapping(uint256 => mapping(address => uint256)) public spentOnDay;
@@ -64,7 +67,7 @@ contract AgentWallet is Ownable, ReentrancyGuard, Pausable {
         require(spentOnDay[day][token] + amount <= dailySpendCap[token], "CAP_EXCEEDED");
         spentOnDay[day][token] += amount;
 
-        require(IERC20(token).transfer(service, amount), "TRANSFER_FAIL");
+        IERC20(token).safeTransfer(service, amount);
 
         emit X402PaymentMade(service, token, amount, threadId);
     }
@@ -72,13 +75,15 @@ contract AgentWallet is Ownable, ReentrancyGuard, Pausable {
     /// @notice Owner can withdraw tokens in emergency. Intentionally callable
     /// while paused — the kill-switch must not lock funds inside the wallet.
     function emergencyWithdraw(address token, uint256 amount, address to) external onlyOwner nonReentrant {
-        require(IERC20(token).transfer(to, amount), "WITHDRAW_FAIL");
+        IERC20(token).safeTransfer(to, amount);
         emit EmergencyWithdraw(token, amount, to);
     }
 
     /// @notice Approve facilitator to pull up to `amount`. Disabled while paused.
+    /// Uses forceApprove so non-standard tokens (USDT) that require resetting the
+    /// allowance to 0 first, or that return no bool, are handled correctly.
     function approveFacilitator(address token, uint256 amount) external onlyOwner whenNotPaused {
         require(x402Facilitator != address(0), "NO_FACILITATOR");
-        require(IERC20(token).approve(x402Facilitator, amount), "APPROVE_FAIL");
+        IERC20(token).forceApprove(x402Facilitator, amount);
     }
 }

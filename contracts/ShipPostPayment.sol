@@ -6,8 +6,11 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     address public agentWallet;
     address public treasury;
     address public reservePool;
@@ -98,15 +101,15 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
         require(allowedTokens[token], "TOKEN_NOT_ALLOWED");
         uint256 amount = requiredAmount(token);
 
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 agentShare = (amount * agentBp) / 10000;
         uint256 treasuryShare = (amount * treasuryBp) / 10000;
         uint256 reserveShare = amount - agentShare - treasuryShare;
 
-        require(IERC20(token).transfer(agentWallet, agentShare), "TRANSFER_AGENT");
-        require(IERC20(token).transfer(treasury, treasuryShare), "TRANSFER_TREASURY");
-        require(IERC20(token).transfer(reservePool, reserveShare), "TRANSFER_RESERVE");
+        IERC20(token).safeTransfer(agentWallet, agentShare);
+        IERC20(token).safeTransfer(treasury, treasuryShare);
+        IERC20(token).safeTransfer(reservePool, reserveShare);
 
         threadCounter++;
         threadId = threadCounter;

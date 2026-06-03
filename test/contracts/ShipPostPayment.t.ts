@@ -234,4 +234,31 @@ describe('ShipPostPayment', () => {
     }
     expect(reverted).to.equal(true);
   });
+
+  it('settles a USDT-style no-return token via SafeERC20', async () => {
+    const { viem } = await network.create();
+    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+
+    // USDT on many chains returns NO bool from transfer/transferFrom. Raw
+    // IERC20 calls revert on ABI-decode; SafeERC20 tolerates empty returndata.
+    const usdt = await viem.deployContract('MockNoReturnERC20', ['Tether USD', 'USDT', 6]);
+    const payment = await viem.deployContract('ShipPostPayment', [
+      agentWallet.account.address,
+      treasury.account.address,
+      reservePool.account.address,
+    ]);
+    await payment.write.setAllowedToken([usdt.address, true]);
+
+    await usdt.write.mint([user.account.address, 1_000_000n]);
+    const fiveCent = 50_000n; // 0.05 USDT
+    await usdt.write.approve([payment.address, fiveCent], { account: user.account });
+
+    await payment.write.payForThread([usdt.address, 1], { account: user.account });
+
+    // 50/40/10 split of 50_000
+    expect(await usdt.read.balanceOf([agentWallet.account.address])).to.equal(25_000n);
+    expect(await usdt.read.balanceOf([treasury.account.address])).to.equal(20_000n);
+    expect(await usdt.read.balanceOf([reservePool.account.address])).to.equal(5_000n);
+    expect(await payment.read.threadCounter()).to.equal(1n);
+  });
 });

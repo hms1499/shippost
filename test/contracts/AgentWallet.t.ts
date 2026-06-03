@@ -137,6 +137,31 @@ describe('AgentWallet', () => {
     await wallet.write.unpause();
   });
 
+  it('handles USDT-style no-return token in executeX402Call / emergencyWithdraw / approveFacilitator', async () => {
+    const { viem } = await network.create();
+    const publicClient = await viem.getPublicClient();
+    const [owner, service, facilitator] = await viem.getWalletClients();
+
+    const usdt = await viem.deployContract('MockNoReturnERC20', ['Tether USD', 'USDT', 6]);
+    const wallet = await viem.deployContract('AgentWallet', []);
+    await usdt.write.mint([wallet.address, 1_000_000n]);
+    await wallet.write.setDailySpendCap([usdt.address, 100_000n]);
+
+    // executeX402Call must not revert on the missing bool return.
+    const hash = await wallet.write.executeX402Call([service.account.address, usdt.address, 10_000n, 7n]);
+    await publicClient.waitForTransactionReceipt({ hash });
+    expect(await usdt.read.balanceOf([service.account.address])).to.equal(10_000n);
+
+    // approveFacilitator (forceApprove) must work with a no-return approve.
+    await wallet.write.setFacilitator([facilitator.account.address]);
+    await wallet.write.approveFacilitator([usdt.address, 50_000n]);
+    expect(await usdt.read.allowance([wallet.address, facilitator.account.address])).to.equal(50_000n);
+
+    // emergencyWithdraw must work too.
+    await wallet.write.emergencyWithdraw([usdt.address, 5_000n, owner.account.address]);
+    expect(await usdt.read.balanceOf([owner.account.address])).to.equal(5_000n);
+  });
+
   it('resets daily allowance after day rollover', async () => {
     const { viem } = await network.create();
     const publicClient = await viem.getPublicClient();
