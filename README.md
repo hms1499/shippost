@@ -45,6 +45,50 @@ ShipPost is a pay-per-use AI thread writer running as a MiniApp inside Opera's M
 
 ## Architecture
 
+### Two-layer model
+
+ShipPost spans **two chains on purpose** — each is a separate layer with one chain,
+not a "multi-chain" app. The mental model is one sentence: **users pay on Celo; the
+agent pays AI services via x402 on Base.**
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  LAYER 1 · Payment          chain: Celo (42220)   token: cUSD/USDT/USDC  │
+│  why this chain: MiniPay lives on Celo                                   │
+│                                                                          │
+│   User (MiniPay)  ──$0.05──►  ShipPostPayment.sol                        │
+│                                  └─ split 50 / 40 / 10                    │
+│                                     → AgentWallet · treasury · reserve    │
+└────────────────────────────────────────────────────────────────────────┘
+                         │  thread request (payment verified on-chain)
+                         ▼
+               /api/generate/stream   ·   pipeline orchestrator
+                         │  agent pays per AI call
+                         ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  LAYER 2 · Agent x402 spend  chain: Base (8453)    token: USDC           │
+│  why this chain: x402's home turf — Coinbase CDP facilitator             │
+│                                                                          │
+│   Agent EOA  ──sign EIP-3009──►  /api/x402/groq                          │
+│                                     └─ CDP facilitator verifies + settles │
+│                                        → 0.001 USDC → treasury  (gasless) │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+The two layers are independent: which chain the user paid on does **not** dictate
+where the agent settles its AI spend. Config reflects this split —
+`lib/chains.ts` / `tokens.ts` / `contracts.ts` are Celo-only (Layer 1);
+`lib/x402/config.ts` is Base-only (Layer 2).
+
+> **Current state (honest):** Layer 2 is **proven live on Base mainnet**
+> ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1),
+> see [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md)). Production MiniPay
+> threads still settle on Celo via the legacy path; routing every thread through
+> Layer 2 (decoupling the settle decision from the payment chain) is a tracked
+> next step, not a flag flip.
+
+### Component view
+
 ```
 MiniPay (Android)
     └─ ShipPost frontend (Next.js 14, App Router)
