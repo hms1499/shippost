@@ -66,6 +66,8 @@ MiniPay (Android)
 
 Groq, Serper, and CoinGecko don't support x402 natively. Each `/api/x402/*` route verifies the payment intent, calls the real API with our backend keys, then settles by pulling stablecoin from AgentWallet.
 
+**Real x402 on Base mainnet:** the Groq step settles real USDC through the Coinbase CDP facilitator — proven live on Base mainnet ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1)). MiniPay user payments still settle on Celo via the legacy path. See [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md).
+
 ### Pipeline
 
 `lib/pipeline/` — step abstraction used by the SSE endpoint. Each step fires one x402 call and emits a `PipelineEvent` with `{ step, status, cost }` streamed to the `useThreadGeneration` hook.
