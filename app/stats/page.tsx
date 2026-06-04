@@ -9,12 +9,14 @@ import { InkText } from '@/components/InkText';
 import { InkDivider } from '@/components/InkDivider';
 import { FolioMark } from '@/components/FolioMark';
 import { explorerBase } from '@/lib/chains';
+import { getContracts } from '@/lib/contracts';
 
 interface Stats {
   threads: number;
   uniqueWallets: number;
   volumeUsd: string;
   x402Count: number;
+  agentSpendUsd: string;
   repeatUsers: number;
 }
 
@@ -126,20 +128,28 @@ export default function StatsPage() {
         {stats && (
           <Card ornament className="relative p-5">
             <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-              {/* Vertical ledger rule — separates the 2-col area; stops above
-                  the bottom row which spans full width. */}
+              {/* Vertical ledger rule — separates the 2-col grid; stops above
+                  the audit link footer. */}
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-5 bottom-[4.25rem] left-1/2 w-px bg-[hsl(var(--ink-faded)/0.3)]"
+                className="pointer-events-none absolute top-5 bottom-[3.5rem] left-1/2 w-px bg-[hsl(var(--ink-faded)/0.3)]"
               />
               <Metric label="threads composed" value={stats.threads} />
               <Metric label="unique scribes" value={stats.uniqueWallets} />
               <Metric label="volume on chain" value={`$${stats.volumeUsd}`} />
               <Metric label="x402 settlements" value={stats.x402Count} />
-              <div className="col-span-2 pt-3 border-t border-[hsl(var(--ink-faded)/0.3)]">
-                <Metric label="repeat scribes" value={stats.repeatUsers} />
-              </div>
+              <Metric label="agent x402 spend" value={`$${stats.agentSpendUsd}`} />
+              <Metric label="repeat scribes" value={stats.repeatUsers} />
             </div>
+            <a
+              href={`${explorer}/address/${getContracts(chainId).AgentWallet}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+            >
+              Audit the agent wallet on-chain
+              <ArrowRight size={11} aria-hidden />
+            </a>
           </Card>
         )}
       </section>
