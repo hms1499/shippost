@@ -83,3 +83,21 @@ describe('generateDraft', () => {
     expect(payGroqViaX402).not.toHaveBeenCalled();
   });
 });
+
+describe('generateTweets', () => {
+  it('calls Groq, parses + bounds, and never settles', async () => {
+    const { generateTweets } = await import('./generateDraft');
+    create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
+    const tweets = await generateTweets(msgs);
+    expect(create).toHaveBeenCalledOnce();
+    expect(tweets.length).toBeGreaterThan(0);
+    expect(settleX402Call).not.toHaveBeenCalled();
+  });
+
+  it('throws on empty Groq output (and never settles)', async () => {
+    const { generateTweets } = await import('./generateDraft');
+    create.mockResolvedValue({ choices: [{ message: { content: '   ' } }] });
+    await expect(generateTweets(msgs)).rejects.toThrow();
+    expect(settleX402Call).not.toHaveBeenCalled();
+  });
+});
