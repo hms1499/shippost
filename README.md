@@ -95,10 +95,8 @@ MiniPay (Android)
            ├─ ShipPostPayment.sol  ← pulls $0.05, splits 50/40/10 to agent/treasury/reserve
            ├─ AgentWallet.sol      ← ERC-8004, $10/day spend cap, executes x402 calls
            └─ /api/generate/stream (SSE)
-                  ├─ /api/x402/groq        ← proxies Groq, settles via AgentWallet
-                  ├─ /api/x402/serper      ← proxies Serper search
-                  ├─ /api/x402/coingecko   ← proxies CoinGecko price
-                  └─ /api/x402/fact-check  ← Groq fact verification pass
+                  └─ in-process pipeline: groq · serper · coingecko · fact-check
+                     steps — each settles via AgentWallet (Model 1, no HTTP route)
 ```
 
 ### On-chain
@@ -106,11 +104,11 @@ MiniPay (Android)
 - **`ShipPostPayment.sol`** — `payForThread(token, mode)` pulls exactly $0.05, splits to three addresses, emits `ThreadRequested`. Token whitelist enforced. Decimal-safe via `IERC20Metadata(token).decimals()`.
 - **`AgentWallet.sol`** — ERC-8004 compatible. Owner is the orchestrator EOA. `executeX402Call` enforces the $10/day spend cap per token and emits `X402PaymentMade`.
 
-### x402 proxy
+### x402 settlement — two models
 
-Groq, Serper, and CoinGecko don't support x402 natively. Each `/api/x402/*` route verifies the payment intent, calls the real API with our backend keys, then settles by pulling stablecoin from AgentWallet.
+**Model 1 — per-thread generate (Celo).** Groq, Serper, and CoinGecko don't support x402 natively, so each pipeline step *simulates* x402 in-process by pulling stablecoin from AgentWallet via `settleX402Call`. There are **no public `/api/x402/*` proxy routes** for these — the earlier unauthenticated proxies were removed in `8f4c222` (free-drain risk).
 
-**Real x402 on Base mainnet:** the Groq step settles real USDC through the Coinbase CDP facilitator — proven live on Base mainnet ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1)). MiniPay user payments still settle on Celo via the legacy path. See [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md).
+**Model 2 — `/api/x402/groq` (Base).** A genuine x402 endpoint: the *caller* pays *us* in USDC through the Coinbase CDP facilitator, settling to the treasury. It does **not** touch AgentWallet. Proven live on Base mainnet ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1)). See [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §2.3.
 
 ### Pipeline
 
