@@ -19,24 +19,26 @@ interface Mode {
   Icon: React.ComponentType<{ size?: number; className?: string }>;
   blurb: string;
   cost: string;
+  badge?: string;
 }
 
 const MODES: Mode[] = [
   {
-    id: 'educational',
-    numeral: 'I',
-    label: 'Educational Thread',
-    Icon: IllumGraduationCap,
-    blurb: 'Explain one concept, end-to-end. e.g. "How EIP-712 typed signatures work".',
-    cost: '$0.001',
-  },
-  {
     id: 'hot-take',
-    numeral: 'II',
+    numeral: 'I',
     label: 'Hot Take',
     Icon: IllumFlame,
     blurb: 'React to news or a tweet with data. Search + market + fact-check inline.',
     cost: '$0.003',
+    badge: 'grounded · fact-checked · live data',
+  },
+  {
+    id: 'educational',
+    numeral: 'II',
+    label: 'Educational Thread',
+    Icon: IllumGraduationCap,
+    blurb: 'Explain one concept, end-to-end. e.g. "How EIP-712 typed signatures work".',
+    cost: '$0.001',
   },
 ];
 
@@ -96,6 +98,11 @@ export function ModePicker({ onSelect }: Props) {
                     <h3 className="font-display italic text-xl leading-tight">
                       {m.label}
                     </h3>
+                    {m.badge && (
+                      <span className="mt-1 inline-block rounded-full border border-[hsl(var(--ink-faded)/0.4)] px-2 py-0.5 text-[9px] uppercase tracking-wide text-[hsl(var(--ink-faded))]">
+                        {m.badge}
+                      </span>
+                    )}
                     <p className="text-sm text-muted-foreground italic mt-1 leading-snug">
                       {m.blurb}
                     </p>
