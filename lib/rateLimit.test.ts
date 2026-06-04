@@ -104,6 +104,49 @@ describe('checkRateLimit', () => {
   });
 });
 
+describe('checkPreviewAllowed', () => {
+  it('fails CLOSED (unavailable) when Upstash env is missing', async () => {
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'unavailable' });
+  });
+
+  it('allows when both per-wallet and global pass', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock.mockResolvedValue({ success: true, limit: 3, remaining: 2, reset: 0 });
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: true });
+  });
+
+  it('blocks with reason "rate" when the per-wallet limit is exhausted', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock.mockResolvedValueOnce({ success: false, limit: 3, remaining: 0, reset: 0 });
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'rate' });
+  });
+
+  it('blocks with reason "global" when the daily cap is hit', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock
+      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 1, reset: 0 })
+      .mockResolvedValueOnce({ success: false, limit: 500, remaining: 0, reset: 0 });
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'global' });
+  });
+
+  it('fails CLOSED when the limiter throws', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock.mockRejectedValue(new Error('redis down'));
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'unavailable' });
+  });
+});
+
 describe('getClientIp', () => {
   it('returns the first IP from x-forwarded-for', async () => {
     const { getClientIp } = await load();

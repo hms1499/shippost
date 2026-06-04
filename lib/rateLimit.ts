@@ -1,7 +1,7 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-export type LimiterName = 'url-preview' | 'refund-request';
+export type LimiterName = 'url-preview' | 'refund-request' | 'free-preview' | 'free-preview-global';
 
 export interface RateLimitResult {
   success: boolean;
@@ -10,11 +10,16 @@ export interface RateLimitResult {
   reset: number; // unix ms when the window resets
 }
 
+// Global daily cap protects the Serper free tier (env-tunable).
+const PREVIEW_DAILY_CAP = Number(process.env.PREVIEW_DAILY_CAP) || 500;
+
 // Per-route sliding-window budgets. url-preview is stricter because it makes an
 // outbound server-side fetch.
 const LIMITS: Record<LimiterName, { tokens: number; window: `${number} s` }> = {
   'url-preview': { tokens: 10, window: '60 s' },
   'refund-request': { tokens: 5, window: '60 s' },
+  'free-preview': { tokens: 3, window: '600 s' },
+  'free-preview-global': { tokens: PREVIEW_DAILY_CAP, window: '86400 s' },
 };
 
 // Fail-open result: returned whenever rate limiting is unavailable so a limiter
@@ -86,4 +91,32 @@ export function getClientIp(req: Request): string {
     if (first) return first;
   }
   return 'unknown';
+}
+
+export interface PreviewGate {
+  allowed: boolean;
+  reason?: 'rate' | 'global' | 'unavailable';
+}
+
+// Preview consumes shared third-party quota, so unlike checkRateLimit this
+// fails CLOSED: if the limiter can't be reached we deny rather than allow.
+// Per-wallet is checked first so one abuser hits their own ceiling before
+// eating into the global daily budget.
+export async function checkPreviewAllowed(walletAddress: string): Promise<PreviewGate> {
+  const perWallet = getLimiter('free-preview');
+  const global = getLimiter('free-preview-global');
+  if (!perWallet || !global) return { allowed: false, reason: 'unavailable' };
+  try {
+    const w = await perWallet.limit(`wallet:${walletAddress.toLowerCase()}`);
+    if (!w.success) return { allowed: false, reason: 'rate' };
+    const g = await global.limit('global');
+    if (!g.success) return { allowed: false, reason: 'global' };
+    return { allowed: true };
+  } catch (e) {
+    console.error(
+      '[rateLimit] preview gate error — failing closed:',
+      e instanceof Error ? e.message : e,
+    );
+    return { allowed: false, reason: 'unavailable' };
+  }
 }
