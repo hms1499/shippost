@@ -51,7 +51,7 @@ Never change or assume these without explicit sign-off:
 - **Settle gates delivery.** Never move a `step_output` emit before its `settleX402Call` — that reintroduces free-content-plus-refund.
 - **Two unrelated x402 models — don't conflate them.** Model 1 (Celo, we *buy* services, custom/simulated through AgentWallet) vs Model 2 (`/api/x402/groq`, we *sell* a service, real x402 via CDP facilitator on Base). See [`.claude/docs/x402.md`](.claude/docs/x402.md). **Rule:** any public agent-callable x402 surface MUST verify a signed `X-Payment` before any spend, and must never expose `settleX402Call` unguarded.
 - **`threads.refund_tx_hash` is the single source of truth for payouts** — once set, never send again. Refund amount is read on-chain, never from client-supplied fields. See [`.claude/docs/refunds.md`](.claude/docs/refunds.md).
-- **Contracts:** keep the `Pausable` kill-switch (`whenNotPaused`) intact; enforce the AgentWallet $50/token/day cap in `executeX402Call`; use `IERC20Metadata(token).decimals()` — never hardcode (cUSD=18, USDT/USDC=6); token whitelist only.
+- **Contracts:** keep the `Pausable` kill-switch (`whenNotPaused`) intact; enforce the AgentWallet $10/token/day (mainnet; $50 testnet) cap in `executeX402Call`; use `IERC20Metadata(token).decimals()` — never hardcode (cUSD=18, USDT/USDC=6); token whitelist only.
 - **Supabase is service-role only** (`getSupabaseServer()`, bypasses RLS); there is no anon client. No PII is stored.
 - **Local-only:** `scripts/` and `tools/` are ops utilities, not deployed — keep them out of lint/CI/deploy scope.
 

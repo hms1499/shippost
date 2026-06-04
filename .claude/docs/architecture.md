@@ -18,7 +18,7 @@ The canonical, detailed walkthrough is **[`docs/ARCHITECTURE.md`](../../docs/ARC
 ## Contract invariants (quick reference)
 
 - **`ShipPostPayment`** — token whitelist only; SafeERC20 transfers (USDT-compatible); decimals via `IERC20Metadata(token).decimals()` (cUSD=18, USDT/USDC=6) — never hardcode; wei remainder falls into reserve. `ThreadRequested` is the event `verifyPayment` reads back.
-- **`AgentWallet`** — owner-only (orchestrator EOA); `executeX402Call` enforces $50/token/day cap; `Pausable` is the kill-switch, but `emergencyWithdraw` intentionally still runs when paused (block bad *spend*, never trap funds).
+- **`AgentWallet`** — owner-only (orchestrator EOA); `executeX402Call` enforces the $10/token/day cap (mainnet; $50 testnet); `Pausable` is the kill-switch, but `emergencyWithdraw` intentionally still runs when paused (block bad *spend*, never trap funds).
 
 ## Chain config (`lib/`)
 

@@ -122,7 +122,7 @@ flowchart LR
   rơi vào reserve (dùng phép trừ); `ThreadRequested` chính là API mà backend đọc ngược để verify.
 
 **`AgentWallet`** — ví agent ERC-8004, giữ stablecoin để chi x402.
-- **Làm gì:** `executeX402Call` chuyển tiền cho dịch vụ, kèm **daily spend cap** $50/token/ngày.
+- **Làm gì:** `executeX402Call` chuyển tiền cho dịch vụ, kèm **daily spend cap** $10/token/ngày (mainnet; $50 testnet).
 - **Gọi bởi:** chỉ owner (orchestrator EOA của backend).
 - **Invariant:** cap chặn blast-radius nếu key lộ; `Pausable` là kill-switch (nhưng
   `emergencyWithdraw` cố tình vẫn chạy khi paused — chi tiết Tầng 3).
@@ -305,7 +305,7 @@ flowchart TB
 ```
 
 `currentDay() = block.timestamp / 1 days` (cửa sổ 24h UTC). Dù key orchestrator lộ, kẻ tấn công chỉ
-rút tối đa $50/token/ngày. `Pausable` đóng băng `executeX402Call` và `approveFacilitator`, **nhưng
+rút tối đa $10/token/ngày (mainnet; $50 testnet). `Pausable` đóng băng `executeX402Call` và `approveFacilitator`, **nhưng
 `emergencyWithdraw` cố tình vẫn chạy khi paused** — kill-switch để chặn *chi sai*, không phải để
 *nhốt tiền*; owner phải luôn rút được ra.
 
@@ -365,7 +365,7 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | **Celo** | Blockchain EVM (mainnet 42220, Sepolia testnet 11142220) — nơi 2 contract chạy. |
 | **Celoscan / Blockscout** | Block explorer để tra cứu tx; link sinh từ `explorerBase()`. |
 | **cUSD / USDT / USDC** | Ba stablecoin được whitelist. cUSD có 18 decimals, USDT/USDC có 6 → không hardcode. |
-| **daily spend cap** | Hạn mức chi mỗi token mỗi 24h (UTC) trong `AgentWallet`; mặc định ~$50. Giới hạn blast-radius nếu key lộ. |
+| **daily spend cap** | Hạn mức chi mỗi token mỗi 24h (UTC) trong `AgentWallet`; mặc định $10 trên mainnet ($50 testnet). Giới hạn blast-radius nếu key lộ. |
 | **degraded mode** | Khi Supabase chết: vẫn phục vụ generate nhưng mất replay-guard (có chủ đích, không phải bug). |
 | **ERC-8004** | Chuẩn ví cho agent tự trị; `AgentWallet` thiết kế tương thích. |
 | **facilitator (CDP)** | Dịch vụ Coinbase Developer Platform verify + settle x402 **thật** (chỉ dùng ở Model 2 / Base). |
