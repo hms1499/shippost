@@ -33,69 +33,55 @@ const EMPTY: CoinGeckoResult = {
   marketCapUsd: null,
 };
 
+// Pure CoinGecko lookup — no emit. Returns EMPTY when no $cashtag is found or
+// the coin can't be resolved. Used by the paid step and the free preview.
+export async function fetchCoinGecko(topicText: string): Promise<CoinGeckoResult> {
+  const sym = extractSymbol(topicText);
+  if (!sym) return EMPTY;
+  const id = await resolveCoinId(sym);
+  if (!id) return { ...EMPTY, symbol: sym.toUpperCase() };
+  // No x402 settle in this step, so retrying the fetch is fully safe.
+  const entry = await retryOnce(async () => {
+    const res = await fetch(
+      `${CG_BASE}/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
+    );
+    if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
+    const j = (await res.json()) as Record<
+      string,
+      { usd?: number; usd_24h_change?: number; usd_market_cap?: number }
+    >;
+    return j[id];
+  });
+  return {
+    symbol: sym.toUpperCase(),
+    priceUsd: entry?.usd ?? null,
+    change24hPct: entry?.usd_24h_change ?? null,
+    marketCapUsd: entry?.usd_market_cap ?? null,
+  };
+}
+
 export async function runCoinGeckoStep(
   ctx: PipelineContext,
   emit: (e: PipelineEvent) => void,
 ): Promise<CoinGeckoResult> {
   emit({ type: 'step_started', step: 'coingecko' });
 
-  const sym = extractSymbol(ctx.topic);
-  if (!sym) {
-    emit({ type: 'step_output', step: 'coingecko', output: EMPTY });
-    emit({
-      type: 'step_settled',
-      step: 'coingecko',
-      txHash: NULL_TX,
-      costAmount: '0.000',
-      tokenSymbol: 'cUSD',
-    });
-    return EMPTY;
-  }
-
+  let result: CoinGeckoResult;
   try {
-    const id = await resolveCoinId(sym);
-    if (!id) {
-      const r: CoinGeckoResult = { ...EMPTY, symbol: sym.toUpperCase() };
-      emit({ type: 'step_output', step: 'coingecko', output: r });
-      emit({
-        type: 'step_settled',
-        step: 'coingecko',
-        txHash: NULL_TX,
-        costAmount: '0.000',
-        tokenSymbol: 'cUSD',
-      });
-      return r;
-    }
-    // No x402 settle in this step, so retrying the fetch is fully safe.
-    const entry = await retryOnce(async () => {
-      const res = await fetch(
-        `${CG_BASE}/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
-      );
-      if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
-      const j = (await res.json()) as Record<
-        string,
-        { usd?: number; usd_24h_change?: number; usd_market_cap?: number }
-      >;
-      return j[id];
-    });
-    const result: CoinGeckoResult = {
-      symbol: sym.toUpperCase(),
-      priceUsd: entry?.usd ?? null,
-      change24hPct: entry?.usd_24h_change ?? null,
-      marketCapUsd: entry?.usd_market_cap ?? null,
-    };
-    emit({ type: 'step_output', step: 'coingecko', output: result });
-    emit({
-      type: 'step_settled',
-      step: 'coingecko',
-      txHash: NULL_TX,
-      costAmount: '0.000',
-      tokenSymbol: 'cUSD',
-    });
-    return result;
+    result = await fetchCoinGecko(ctx.topic);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'coingecko failed';
     emit({ type: 'step_failed', step: 'coingecko', error: msg });
     throw e;
   }
+
+  emit({ type: 'step_output', step: 'coingecko', output: result });
+  emit({
+    type: 'step_settled',
+    step: 'coingecko',
+    txHash: NULL_TX,
+    costAmount: '0.000',
+    tokenSymbol: 'cUSD',
+  });
+  return result;
 }
