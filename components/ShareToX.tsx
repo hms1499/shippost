@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { haptic } from '@/lib/haptics';
+import { buildShareText } from '@/lib/shareText';
 
 interface Props {
   tweets: string[];
@@ -39,6 +40,7 @@ function postFirstTweet(text: string): void {
 export function ShareToX({ tweets }: Props) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [credit, setCredit] = useState(true);
 
   async function copyAll() {
     setCopyError(null);
@@ -64,9 +66,19 @@ export function ShareToX({ tweets }: Props) {
         X, use the <b>+</b> button under your own tweet to add each follow-up from the clipboard.
       </p>
 
-      <Button onClick={() => postFirstTweet(first)}>
+      <Button onClick={() => postFirstTweet(buildShareText(first, { attribution: credit }))}>
         Post first tweet in X →
       </Button>
+
+      <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
+        <input
+          type="checkbox"
+          checked={credit}
+          onChange={(e) => setCredit(e.target.checked)}
+          className="accent-[hsl(var(--ink-deep))]"
+        />
+        Add a small &#8220;made with ShipPost&#8221; credit to the first tweet
+      </label>
 
       <Button variant="outline" onClick={copyAll}>
         {copied ? (
