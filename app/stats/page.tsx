@@ -141,15 +141,26 @@ export default function StatsPage() {
               <Metric label="agent x402 spend" value={`$${stats.agentSpendUsd}`} />
               <Metric label="repeat scribes" value={stats.repeatUsers} />
             </div>
-            <a
-              href={`${explorer}/address/${getContracts(chainId).AgentWallet}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
-            >
-              Audit the agent wallet on-chain
-              <ArrowRight size={11} aria-hidden />
-            </a>
+            <div className="mt-4 flex flex-col gap-1">
+              <a
+                href={`${explorer}/address/${getContracts(chainId).AgentWallet}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+              >
+                Audit the agent wallet on-chain
+                <ArrowRight size={11} aria-hidden />
+              </a>
+              <a
+                href={`${explorer}/address/${getContracts(chainId).ShipPostPayment}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+              >
+                Inspect the payment contract on-chain
+                <ArrowRight size={11} aria-hidden />
+              </a>
+            </div>
           </Card>
         )}
       </section>
