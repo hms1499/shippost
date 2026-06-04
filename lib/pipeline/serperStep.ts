@@ -21,38 +21,42 @@ export interface SerperResult {
   newsSnippet: string | null;
 }
 
+// Pure Serper fetch — no emit, no settle. Used by the paid step (which then
+// settles + emits) and by the free preview (which does neither).
+export async function fetchSerper(query: string): Promise<SerperResult> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key) throw new Error('SERPER_API_KEY missing');
+  const data = await retryOnce(async () => {
+    const res = await fetch(SERPER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query, num: 5, gl: 'us', hl: 'en' }),
+    });
+    if (!res.ok) throw new Error(`Serper ${res.status}`);
+    const json = (await res.json()) as {
+      organic?: SerperOrganicResult[];
+      answerBox?: { snippet?: string };
+      knowledgeGraph?: { description?: string };
+    };
+    return {
+      organic: json.organic ?? [],
+      newsSnippet: json.answerBox?.snippet ?? json.knowledgeGraph?.description ?? null,
+    };
+  });
+  return { query, organic: data.organic, newsSnippet: data.newsSnippet };
+}
+
 export async function runSerperStep(
   ctx: PipelineContext & { query: string },
   emit: (e: PipelineEvent) => void,
 ): Promise<SerperResult> {
   emit({ type: 'step_started', step: 'serper' });
 
-  const key = process.env.SERPER_API_KEY;
-  if (!key) throw new Error('SERPER_API_KEY missing');
-
   let organic: SerperOrganicResult[] = [];
   let newsSnippet: string | null = null;
 
   try {
-    // Retry only the fetch (no side effect) — settle stays outside, below.
-    const data = await retryOnce(async () => {
-      const res = await fetch(SERPER_ENDPOINT, {
-        method: 'POST',
-        headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: ctx.query, num: 5, gl: 'us', hl: 'en' }),
-      });
-      if (!res.ok) throw new Error(`Serper ${res.status}`);
-      const json = (await res.json()) as {
-        organic?: SerperOrganicResult[];
-        answerBox?: { snippet?: string };
-        knowledgeGraph?: { description?: string };
-      };
-      return {
-        organic: json.organic ?? [],
-        newsSnippet:
-          json.answerBox?.snippet ?? json.knowledgeGraph?.description ?? null,
-      };
-    });
+    const data = await fetchSerper(ctx.query);
     organic = data.organic;
     newsSnippet = data.newsSnippet;
   } catch (e: unknown) {

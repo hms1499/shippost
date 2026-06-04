@@ -36,3 +36,21 @@ describe('runSerperStep', () => {
     expect(settleX402Call).not.toHaveBeenCalled();
   });
 });
+
+describe('fetchSerper', () => {
+  it('fetches and shapes results without settling', async () => {
+    const { fetchSerper } = await import('./serperStep');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ organic: [{ title: 't', snippet: 's', link: 'l' }], answerBox: { snippet: 'box' } }),
+      })),
+    );
+    const out = await fetchSerper('bitcoin');
+    expect(out.query).toBe('bitcoin');
+    expect(out.organic).toHaveLength(1);
+    expect(out.newsSnippet).toBe('box');
+    expect(settleX402Call).not.toHaveBeenCalled();
+  });
+});
