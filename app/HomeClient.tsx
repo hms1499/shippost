@@ -41,6 +41,7 @@ import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
+import { fetchPreview } from '@/lib/previewClient';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
@@ -66,8 +67,12 @@ const PostShareScreen = dynamic(
   () => import('@/components/PostShareScreen').then((m) => m.PostShareScreen),
   { ssr: false },
 );
+const PreviewLocked = dynamic(
+  () => import('@/components/PreviewLocked').then((m) => m.PreviewLocked),
+  { ssr: false },
+);
 
-type Screen = 'mode' | 'educational' | 'hot-take' | 'generating' | 'preview' | 'post-share';
+type Screen = 'mode' | 'educational' | 'hot-take' | 'preview-locked' | 'generating' | 'preview' | 'post-share';
 
 export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
@@ -90,6 +95,8 @@ export default function HomeClient() {
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
   const [hotTake, setHotTake] = useState<HotTakeSubmitPayload | null>(null);
   const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
+  const [previewData, setPreviewData] = useState<{ firstTweet: string; totalTweets: number } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [refundStatus, setRefundStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [refundError, setRefundError] = useState<string | null>(null);
 
@@ -107,6 +114,8 @@ export default function HomeClient() {
       setSubmitted(null);
       setHotTake(null);
       setDraftTweets(null);
+      setPreviewData(null);
+      setPreviewLoading(false);
       reset();
       resetGen();
     }
@@ -246,6 +255,47 @@ export default function HomeClient() {
   // generic failure.
   const capHit = gen.fatal != null && /CAP_EXCEEDED/i.test(gen.fatal);
 
+  // Try a free preview first; if it's unavailable for any reason, fall straight
+  // through to the existing pay-first flow. A failed preview never blocks paying.
+  const beginFlow = useCallback(
+    async (payload: EducationalSubmitPayload | HotTakeSubmitPayload, mode: 0 | 1) => {
+      if (!address) return;
+      setPreviewLoading(true);
+      const preview = await fetchPreview(
+        mode === 0
+          ? {
+              mode: 0,
+              walletAddress: address,
+              topic: (payload as EducationalSubmitPayload).topic,
+              audience: (payload as EducationalSubmitPayload).audience,
+            }
+          : {
+              mode: 1,
+              walletAddress: address,
+              eventDescription: (payload as HotTakeSubmitPayload).eventDescription,
+              angle: (payload as HotTakeSubmitPayload).angle,
+            },
+      );
+      setPreviewLoading(false);
+      if (preview) {
+        setPreviewData(preview);
+        setScreen('preview-locked');
+      } else {
+        setScreen('generating');
+        await pay(payload.token, mode);
+      }
+    },
+    [address, pay],
+  );
+
+  const unlock = useCallback(async () => {
+    const token = submitted?.token ?? hotTake?.token;
+    if (!token) return;
+    const mode: 0 | 1 = submitted ? 0 : 1;
+    setScreen('generating');
+    await pay(token, mode);
+  }, [submitted, hotTake, pay]);
+
   return (
     <main className="relative min-h-screen flex flex-col items-center gap-6 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       {/* Decorative ink stains, light theme only — pulled to edges so they
@@ -357,8 +407,7 @@ export default function HomeClient() {
               onSubmit={async (p) => {
                 setSubmitted(p);
                 setHotTake(null);
-                setScreen('generating');
-                await pay(p.token, 0);
+                await beginFlow(p, 0);
               }}
               onBack={() => setScreen('mode')}
               disabled={status === 'approving' || status === 'paying'}
@@ -369,11 +418,22 @@ export default function HomeClient() {
               onSubmit={async (p) => {
                 setHotTake(p);
                 setSubmitted(null);
-                setScreen('generating');
-                await pay(p.token, 1);
+                await beginFlow(p, 1);
               }}
               onBack={() => setScreen('mode')}
               disabled={status === 'approving' || status === 'paying'}
+            />
+          )}
+          {screen === 'preview-locked' && previewData && (
+            <PreviewLocked
+              firstTweet={previewData.firstTweet}
+              lockedCount={Math.max(previewData.totalTweets - 1, 0)}
+              onUnlock={unlock}
+              onRegenerate={() => {
+                const payload = submitted ?? hotTake;
+                if (payload) void beginFlow(payload, submitted ? 0 : 1);
+              }}
+              regenerating={previewLoading}
             />
           )}
           {screen === 'generating' && (
