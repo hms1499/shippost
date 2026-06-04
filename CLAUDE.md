@@ -1,155 +1,65 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. It is a routing index — deep detail lives in `.claude/docs/`. Read the linked file before touching the matching domain.
 
-## Project
+## Project Overview
 
-**ShipPost** — pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread. An ERC-8004 agent wallet makes 1–4 x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread. (Flux thumbnail step was scrapped 2026-05-01 — content-only.)
+**ShipPost** — a pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread; an ERC-8004 agent wallet then makes 1–4 x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread. Content-only (the Flux thumbnail step was scrapped 2026-05-01). Competition: Proof of Ship — MiniPay MiniApp (AI Agents).
 
-Competition: Proof of Ship — MiniPay MiniApp (AI Agents) category.
+## Tech Stack
 
-## Commands
+- **Next.js** 14 (App Router) / **React** 18 / **TypeScript** 6 — mobile-only (MiniPay webview), dark mode default
+- **wagmi** 2.19 + **viem** 2.48 + **@tanstack/react-query** 5 — wallet/chain access (no WalletConnect; injected MiniPay provider)
+- **Hardhat** 3.4 + **@openzeppelin/contracts** 5.6 + `hardhat-viem` — Solidity contracts
+- **@x402/{core,evm,fetch,next}** 2.14 + **@coinbase/cdp-sdk** 1.51 — x402 payments (two models — see docs)
+- **@supabase/supabase-js** 2.105 — server-side persistence (service role only)
+- **groq-sdk** 1.1 — LLM; **@upstash/{ratelimit,redis}** — rate limiting
+- **Tailwind** 3.4 + Radix UI + framer-motion 12 + lucide-react — UI
+- **Vitest** 4 (`lib`/`app`) + Hardhat tests (`test/contracts`); **pnpm** package manager
+
+## Dev Commands
 
 ```bash
-pnpm dev                                            # dev server
-pnpm build                                          # production build
-pnpm lint                                           # ESLint via next lint
-pnpm test:contracts                                 # Hardhat tests
-pnpm compile                                        # compile Solidity
-pnpm deploy:testnet                                 # deploy to Celo Sepolia (chainId 11142220)
-hardhat run scripts/deploy.ts --network celo        # deploy to Celo mainnet (chainId 42220)
-pnpm refund:list                                    # admin: list pending refund_requests rows
-pnpm refund:process <requestId> [--amount=0.02]     # admin: settle one queued refund (REFUND_ADMIN_KEY required)
+pnpm dev                       # dev server
+pnpm build                     # production build (pnpm analyze for bundle report)
+pnpm lint                      # ESLint via next lint
+pnpm test:lib                  # Vitest over lib/ and app/
+pnpm test:contracts            # Hardhat tests   (single file: npx hardhat test test/contracts/<file>.t.ts)
+pnpm compile                   # compile Solidity
+pnpm deploy:testnet            # deploy to Celo Sepolia (chainId 11142220)
+hardhat run scripts/deploy.ts --network celo   # deploy to Celo mainnet (42220)
+pnpm refund:list               # admin: list pending refund_requests
+pnpm refund:process <id>       # admin: settle one queued refund (REFUND_ADMIN_KEY required)
 ```
 
-Run a single Hardhat test file:
-```bash
-npx hardhat test test/contracts/ShipPostPayment.t.ts
-```
+## Core Logic Summary
 
-## Architecture
+The paid generation flow (`/api/generate/stream`, SSE) is the heart of the app and spends real cUSD per run, so the request body is treated as hostile:
 
-### On-chain (contracts/)
+1. **Pay** — `ShipPostPayment.payForThread(token, mode)` pulls $0.05 stablecoin and splits it 50% → AgentWallet / 40% → treasury / 10% → reserve, emitting `ThreadRequested`.
+2. **Verify** — the route decodes that log from `payTxHash` and asserts threadId/payer/token/mode + exact amount **before any paid work**.
+3. **Generate** — a pipeline of steps fires 1–4 x402 micro-payments from **AgentWallet** to AI services (Model 1). Mode A (Educational) = `groqStep`; Mode B (Hot Take) = `serperStep → coingeckoStep → groqStep → factCheckStep`.
+4. **Settle gates delivery** — tweets are emitted only *after* the x402 settle confirms; every failure path is a clean, refundable state.
 
-Two contracts, both deployed on Celo Sepolia testnet (Week 1) and Celo mainnet (Week 2+). Note: Alfajores has been deprecated by Celo — use Celo Sepolia (chainId 11142220) for testnet.
+The non-negotiable invariants of this flow are in [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md). Read it before editing anything under `/api/generate` or `lib/pipeline/`.
 
-- **`ShipPostPayment.sol`** — payment splitter. `payForThread(address token, uint8 mode)` pulls 0.05 stablecoin from user, splits 50% → AgentWallet / 40% → treasury / 10% → reserve, emits `ThreadRequested`. Token whitelist only (cUSD/USDT/USDC). Decimal handling: `IERC20Metadata(token).decimals()` — cUSD=18, USDT=6, USDC=6.
-- **`AgentWallet.sol`** — ERC-8004 compatible. Holds stablecoins for x402 spending. Single owner (orchestrator backend EOA), daily spend cap per token (cUSD=$50, USDT/USDC=$50 equiv). `executeX402Call` enforces the cap and emits `X402PaymentMade`.
+## Key Constraints
 
-### x402 settlement — two distinct models (don't conflate)
+Never change or assume these without explicit sign-off:
 
-The codebase has **two unrelated mechanisms** that both go by "x402". They
-flow money in opposite directions:
+- **Payment is verified on-chain before any spend.** Never trust `amountPaidRaw` or any body field; persist the verified amount. See `generate-flow.md`.
+- **Settle gates delivery.** Never move a `step_output` emit before its `settleX402Call` — that reintroduces free-content-plus-refund.
+- **Two unrelated x402 models — don't conflate them.** Model 1 (Celo, we *buy* services, custom/simulated through AgentWallet) vs Model 2 (`/api/x402/groq`, we *sell* a service, real x402 via CDP facilitator on Base). See [`.claude/docs/x402.md`](.claude/docs/x402.md). **Rule:** any public agent-callable x402 surface MUST verify a signed `X-Payment` before any spend, and must never expose `settleX402Call` unguarded.
+- **`threads.refund_tx_hash` is the single source of truth for payouts** — once set, never send again. Refund amount is read on-chain, never from client-supplied fields. See [`.claude/docs/refunds.md`](.claude/docs/refunds.md).
+- **Contracts:** keep the `Pausable` kill-switch (`whenNotPaused`) intact; enforce the AgentWallet $50/token/day cap in `executeX402Call`; use `IERC20Metadata(token).decimals()` — never hardcode (cUSD=18, USDT/USDC=6); token whitelist only.
+- **Supabase is service-role only** (`getSupabaseServer()`, bypasses RLS); there is no anon client. No PII is stored.
+- **Local-only:** `scripts/` and `tools/` are ops utilities, not deployed — keep them out of lint/CI/deploy scope.
 
-**Model 1 — Celo in-process (we BUY services).** Groq, Serper, CoinGecko don't
-support x402 natively, so each pipeline step (lib/pipeline/*Step.ts) wraps the
-real API call and *simulates* x402 by pulling stablecoin from **AgentWallet**
-through `settleX402Call` (lib/agent/orchestrator.ts), which calls
-`executeX402Call` (cap-enforced) on-chain (Celo). There is no `X-Payment`
-header here. This runs **in-process** inside the SSE endpoint
-`/api/generate/stream` — the per-thread generation flow uses only Model 1.
+## Additional Documentation
 
-**Model 2 — real x402 (we SELL a service).** `/api/x402/groq/route.ts` is a
-genuine x402 endpoint via `withX402` (`@x402/next`) + CDP facilitator on Base.
-The **caller** pays *us* (settles to `X402_PAY_TO` treasury, default burn). It
-does **not** touch AgentWallet or `settleX402Call`. `withX402` returns 402 with
-payment requirements and verifies the caller's `X-Payment` via the facilitator
-*before* the handler runs; settlement happens only after the handler returns
-200 (Groq fail → 502, junk thread → 422 → no settle). No payment ⇒ no content ⇒
-no charge, so there is no drain risk. This satisfies the rule below by
-construction. (CDP needs a request-scoped JWT, not a static bearer — see
-`lib/x402/server.ts`, fixed in `4c48a08`. Proven on Base mainnet 2026-06-03.)
+The full architecture walkthrough is the **canonical** source: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — progressive disclosure (Tầng 0→3), diagrams, glossary. The `.claude/docs/` files below are short agent rule-sets that point into it; read them before editing the matching code, and follow the `§` links for the *why*.
 
-History: the *original* `/api/x402/*` routes were unauthenticated proxies that
-called `settleX402Call` directly — a free AgentWallet drain capped only by the
-daily limit — and were removed in `8f4c222`. The current Model 2 route
-(`c8a796b`) is the safe reintroduction. **Rule:** any public, agent-callable
-x402 surface MUST verify a signed `X-Payment` intent before any spend, and must
-never expose `settleX402Call` without that verification.
-
-### Pipeline (lib/pipeline/)
-
-Step abstraction used by the SSE endpoint `/api/generate/stream`. Each step is a function returning a `PipelineStep` that fires an x402 call and emits a `PipelineEvent` with `{ step, status, cost }`.
-
-- **Mode A (Educational):** `groqStep`
-- **Mode B (Hot Take):** `serperStep` → `coingeckoStep` → `groqStep` → `factCheckStep`
-
-`runModeA.ts` / `runModeB.ts` compose steps and stream SSE events to the `useThreadGeneration` hook on the client.
-
-### Generate-flow invariants (don't regress)
-
-`/api/generate/stream` spends real cUSD per run, so the body is treated as hostile. Hard rules:
-
-- **Payment is verified on-chain before any paid work.** `verifyPayment` (lib/agent/orchestrator.ts) decodes the `ThreadRequested` log from `payTxHash` and asserts threadId/payer/token/mode + `amount == requiredAmount`. The route rejects with 402 before opening the stream. Never trust `amountPaidRaw` or any body field — persist the verified amount.
-- **One generation per payment.** The up-front `threads` insert runs *before* the stream; a unique-violation (23505) → 409, any other insert error → 503 fail-closed, both with zero x402 spend. Supabase-down is a documented degraded mode (serves, no replay guard), not a bug to "fix" by failing closed without discussion.
-- **Settle gates delivery.** `step_output` (tweets) is emitted only *after* `settleX402Call` confirms, in both `groqStep` and `runModeB`. Never move the emit before settle — that reintroduces free-content-plus-refund.
-- **Every failure is a clean, refundable state.** Output is `boundThread`-validated (empty/junk → throw before settle, no spend). Receipt waits are bounded (90s). A hung run hits the internal 150s deadline → `fatal` → thread `failed` → refundable, instead of a platform SIGKILL that leaves it stuck `pending`.
-- **Retry, then escape hatch — never auto-refund.** Soft steps retry once (`retryOnce`, scoped to the external call only, never around settle). If still degraded, the preview surfaces a one-tap `kind=partial` refund request. Auto partial-refund was deliberately rejected (accounting complexity + amplifies the refund-funding caveat).
-- **`X402_SINK_ADDRESS`** overrides the default 0x..dead burn sink; unset = burn (demo). The displayed cost derives from `GROQ_COST_CUSD` (single source) and cannot drift from what settles.
-
-### Frontend (app/ + components/ + hooks/)
-
-Next.js 14 App Router, mobile-only (MiniPay webview). **Dark mode default.** Bundle budget: <200KB gzipped on `/`.
-
-Key flow:
-1. `lib/minipay.ts` — detects `window.ethereum.isMiniPay`, auto-connects via injected provider (no WalletConnect)
-2. `lib/useBalances.ts` — reads cUSD/USDT/USDC balances, defaults to highest
-3. `lib/usePayForThread.ts` — sends `payForThread` tx via wagmi
-4. `hooks/useThreadGeneration.ts` — SSE consumer, typed state machine driving the UI
-5. `components/GeneratingStatus.tsx` — progress theatre with live x402 cost per step + Celoscan link
-6. `components/ThreadPreview.tsx` — tweet cards with inline edit
-7. `components/ShareToX.tsx` — `twitter://post` deep link, web fallback
-
-### Data (Supabase)
-
-Server-side only. Schema in `supabase/migrations/0001_threads.sql`. Stores wallet address + thread metadata (no PII). History and analytics pages read via edge-runtime API routes (`/api/public/analytics`, `/api/public/threads`, `/app/history`, `/app/stats`). All access uses the service role (`getSupabaseServer()`), which bypasses RLS — there is no anon client. `refund_requests` has RLS enabled with no permissive policy (0005): anon denied, service role unaffected.
-
-### Refund operations (runbook)
-
-Two settlement paths, both call `refundThread`: the admin HTTP endpoint `/api/refund` (one-off, `x-admin-key`) and the queue worker `pnpm refund:process <requestId>`. **Invariant: `threads.refund_tx_hash` is the single source of truth — once set, that thread is paid out and must never be sent again.** Both paths refuse when it's already set.
-
-Key safety properties (don't regress these):
-- **Refund amount is read on-chain** (`requiredAmount(token)` via `getOnChainPaidAmount`), never from `threads.amount_paid_raw` (client-supplied). Partials are capped at the on-chain paid amount.
-- **The `refund_requests` lock is a compare-and-swap**: `refund:process` only proceeds if its conditional `pending → processing` UPDATE returned exactly one row. Concurrent runs are safe.
-- **A failed send never auto-reverts to `pending`** — the tx may have broadcast. The row is left `processing` with the error in `rejection_reason`.
-
-Recovering a row stuck in `processing` (send failed, on-chain state unknown):
-1. Read `rejection_reason` on the `refund_requests` row.
-2. Check the user's `wallet_address` on Celoscan for an inbound transfer of the refund token around `processed_at`.
-3. If a transfer landed: set `status = completed`, set `refund_tx_hash` on **both** the `refund_requests` row and the parent `threads` row (the idempotency guard depends on the `threads` stamp).
-4. If no transfer landed: fix the root cause (commonly the refund EOA out of funds — `refundThread` balance-checks and names the shortfall), then manually reset `status = pending` and re-run `pnpm refund:process <requestId>`.
-
-Never reset to `pending` without confirming on-chain that no transfer landed — that is the double-refund path.
-
-### Chain config (lib/)
-
-- `lib/chains.ts` — `getChain(chainId)`, `explorerBase(chainId)`, `isSupportedChain(chainId)` for Celoscan / Blockscout links
-- `lib/wagmi.ts` — Celo mainnet (42220) + Celo Sepolia testnet (11142220) connectors
-- `lib/tokens.ts` — token addresses + decimals for both chains
-- `lib/contracts.ts` — ShipPostPayment + AgentWallet addresses for both chains
-
-## Environment variables
-
-See `.env.example`. Key vars:
-- `AGENT_WALLET_PRIVATE_KEY` — orchestrator EOA, stored encrypted in Vercel
-- `GROQ_API_KEY`, `SERPER_API_KEY`
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE`
-- `NEXT_PUBLIC_*_MAINNET` — contract addresses exposed to client
-
-## Plans
-
-Implementation plans are in `docs/superpowers/plans/`. Always use `superpowers:executing-plans` or `superpowers:subagent-driven-development` skill when working from a plan file.
-
-- Week 1: foundation + Celo Sepolia testnet end-to-end
-- Week 2: Celo mainnet + Mode A + Supabase + progress theatre
-- Week 3: Mode B (Hot Take) + history + analytics + error/refund flows
-
-Design spec: `docs/superpowers/specs/2026-04-24-shippost-minipay-design.md`
-
-## Key constraints
-
-- **Mobile-only** — no desktop layout needed
-- **Multi-token decimals** — always use `IERC20Metadata(token).decimals()` in contracts, never hardcode
-- **Two x402 models** — Model 1 (Celo, we buy services) is custom/simulated through AgentWallet, no facilitator; Model 2 (`/api/x402/groq`, we sell a service) is real x402 via CDP facilitator on Base. See "x402 settlement" above; don't conflate them.
-- **Agent wallet daily cap** — $50/token; `executeX402Call` must enforce before calling external API
-- **Contract Pausable** — kill-switch must remain intact; never remove `whenNotPaused`
+- [`.claude/docs/architecture.md`](.claude/docs/architecture.md) — routing map into `docs/ARCHITECTURE.md` by domain, plus contract invariants, chain config, and env quick-reference.
+- [`.claude/docs/x402.md`](.claude/docs/x402.md) — the two x402 settlement models and the verify-before-spend rule (detail: §2.3).
+- [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md) — hostile-body invariants for `/api/generate/stream` (detail: §2.2, Tầng 3).
+- [`.claude/docs/refunds.md`](.claude/docs/refunds.md) — refund safety properties + the recovery procedure for a row stuck in `processing` (detail: §2.6).
