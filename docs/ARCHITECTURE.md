@@ -42,6 +42,9 @@ flowchart TB
 **Một câu để nhớ:** blockchain ở đây **không chạy AI** — nó là *sổ kế toán bất biến* cho cả thu
 lẫn chi; AI chạy off-chain trong backend.
 
+> **Trước khi trả:** user xem **tweet đầu tiên miễn phí** (`/api/preview` — không tốn xu, không
+> đụng ví agent, không ghi DB) rồi mới bấm **Unlock** để chạy luồng ①–⑥ ở trên. Chi tiết §2.7.
+
 ---
 
 # Tầng 1 — Bức tranh lớn
@@ -91,6 +94,10 @@ sequenceDiagram
     S->>DB: update 'completed'
     S-->>U: SSE: done
 ```
+
+> **Luồng preview** (xem-trước miễn phí) là một đường **chỉ-đọc** tách rời sơ đồ trên: không
+> verify, không insert, không settle — chỉ sinh draft rồi trả tweet đầu. Bấm **Unlock** mới vào
+> đúng luồng trả tiền này (sinh thread mới, hoàn toàn). Xem §2.7.
 
 > **Dừng ở đây là đủ cho hầu hết người đọc.** Cần biết một mảng cụ thể làm gì → Tầng 2.
 > Cần hiểu *vì sao* một bất biến tồn tại → Tầng 3.
@@ -178,6 +185,10 @@ flowchart LR
 🟢 **soft-fail** → emit `step_failed` (không terminal), chạy tiếp với context null. 🔴 **hard-fail**
 (groq) → `throw` → cả run fail → refundable. (Vì sao thứ tự emit quan trọng → Tầng 3.)
 
+> Phần *gọi API* của `serperStep`/`coingeckoStep`/`generateDraft` được tách thành helper **thuần**
+> (`fetchSerper`/`fetchCoinGecko`/`generateTweets`) — luồng preview miễn phí (§2.7) tái dùng chúng
+> nhưng bỏ phần `settleX402Call`/emit. Step trả phí vẫn settle như cũ.
+
 ## 2.3 x402 — hai mô hình (ĐỪNG nhầm)
 
 Codebase có **hai cơ chế khác bản chất**, cùng tên "x402", chảy tiền **ngược chiều nhau**.
@@ -258,6 +269,36 @@ flowchart TB
   compare-and-swap (`pending → processing` đúng 1 row). Send lỗi **không** tự revert về `pending`
   (tx có thể đã broadcast) — chỉ reset sau khi xác nhận on-chain không có transfer nào landed.
 
+## 2.7 Free preview — xem tweet đầu miễn phí (`/api/preview`)
+
+User xem **tweet đầu tiên miễn phí** trước khi trả; bấm Unlock mới chạy luồng trả phí (2.2). Preview
+là đường **settle-free** hoàn toàn tách khỏi luồng tính tiền.
+
+```mermaid
+flowchart TB
+    In["POST /api/preview<br/>{ mode, walletAddress, topic/event }"] --> Gate{"checkPreviewAllowed<br/>per-wallet + global"}
+    Gate -->|"deny / unavailable<br/>(fail-closed)"| R200["200 { available:false }<br/>⇒ client rơi về pay-first"]
+    Gate -->|"allow"| Run["runPreview (settle-free)<br/>composes generateTweets/fetchSerper/fetchCoinGecko"]
+    Run -->|"lỗi / timeout 30s"| R502["502"]
+    Run --> Slice["trả CHỈ { firstTweet, totalTweets }"]
+```
+
+- **Làm gì:** sinh draft *không* settle, trả về đúng tweet đầu + tổng số tweet.
+- **Gọi ai:** `runPreview` (`lib/pipeline/runPreview.ts`) dùng helper thuần
+  `generateTweets`/`fetchSerper`/`fetchCoinGecko`; rate gate `checkPreviewAllowed` (`lib/rateLimit.ts`).
+  Client: `fetchPreview` (`lib/previewClient.ts`) → màn `preview-locked` (`components/PreviewLocked.tsx`),
+  điều phối ở `app/HomeClient.tsx` (`beginFlow`/`unlock`).
+- **Invariant:**
+  - **Drain-safe:** preview **không bao giờ** gọi `settleX402Call`, không chạm AgentWallet, không ghi
+    row `threads` — một test source-guard quét chính `runPreview.ts` để ép buộc. Xem §3.6.
+  - **Chống rò:** body trả về *chỉ* `firstTweet` + `totalTweets`, không lộ phần còn lại của thread.
+  - **Rate gate fail-closed:** khác `checkRateLimit` (fail-open), preview **deny khi limiter chết** —
+    vì nó tiêu quota Serper free-tier dùng chung. Per-wallet (3/10ph) + global daily cap
+    (`PREVIEW_DAILY_CAP`, mặc định 500); per-wallet chặn trước.
+  - **Throwaway:** Unlock chạy lại luồng trả phí **nguyên vẹn** → sinh thread **mới** (preview không
+    được tái dùng). Preview hỏng vì bất kỳ lý do gì ⇒ client im lặng rơi về pay-first, **không bao
+    giờ chặn việc trả tiền**.
+
 ---
 
 # Tầng 3 — Đào sâu (đọc khi sửa lõi / review bảo mật)
@@ -322,13 +363,38 @@ Comment trên `refundThread`: contract chỉ route **10%** vào reserve, nhưng 
 Phần chênh đang lấy từ balance của deployer EOA → **không bền vững**. Fix đúng là một `refund()`
 on-chain rút từ reserve tích lũy. **Đừng scale full-refund trên path này.**
 
-## 3.6 Năm bài học thiết kế
+## 3.6 Preview drain-safety — vì sao tách khỏi luồng phí
+
+Preview là điểm dễ tái sinh đúng lỗ **"free content + refund"** mà cả kiến trúc né tránh, nên nó
+được dựng để **không thể** chi tiền:
+
+```mermaid
+flowchart TB
+    rp["runPreview"] --> comp["chỉ gọi helper thuần:<br/>generateTweets · fetchSerper · fetchCoinGecko"]
+    comp --> noSettle["KHÔNG import settleX402Call<br/>KHÔNG chạm AgentWallet<br/>KHÔNG ghi threads"]
+    noSettle --> guard["test source-guard quét chính runPreview.ts<br/>fail nếu thấy 3 thứ trên"]
+```
+
+- Các helper `fetchSerper`/`fetchCoinGecko`/`generateTweets` được **tách** khỏi step trả phí
+  (`serperStep`/`coingeckoStep`/`generateDraft`) đúng để preview gọi được phần *gọi API* mà bỏ phần
+  *settle/emit*. Step trả phí vẫn giữ nguyên `settleX402Call` của nó (§3.2 không đổi).
+- Vì preview không tốn xu, nó **không cần** verify on-chain hay insert thread — nhưng vì thế nó tiêu
+  quota Serper *miễn phí* dùng chung, nên cổng `checkPreviewAllowed` **fail-closed**: limiter chết ⇒
+  deny (đối lập với `checkRateLimit` fail-open ở luồng đã-trả-tiền). Per-wallet chặn trước global để
+  một kẻ lạm dụng chạm trần của *chính nó* trước khi ăn vào ngân sách chung.
+- Unlock **không** tái dùng draft preview — nó chạy lại pipeline trả phí, sinh thread mới. Hệ quả:
+  preview có thể "phí" một lần gọi Groq, nhưng đổi lại đường tính phí **không bao giờ** phụ thuộc
+  state của đường miễn phí.
+
+## 3.7 Sáu bài học thiết kế
 
 1. **On-chain = sổ kế toán bất biến, không phải máy tính.** Thu/chi để lại event/tx; AI off-chain.
 2. **Không tin client — verify lại từ chain.** `verifyPayment` + amount on-chain là khuôn mẫu chống forge.
 3. **Giới hạn blast radius bằng code:** daily cap, Pausable, whitelist token, insert fail-closed.
 4. **Settle trước, giao hàng sau** — invariant chống "free content + refund".
 5. **Mọi lỗi phải refundable**, kể cả timeout — deadline nội bộ thay vì để platform kill cứng.
+6. **Đường miễn phí phải không-thể-chi-tiền:** tách helper thuần, source-guard ép no-settle, rate
+   gate fail-closed, draft throwaway — preview không bao giờ chạm ví agent hay DB (§3.6).
 
 ---
 
@@ -369,11 +435,14 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | **degraded mode** | Khi Supabase chết: vẫn phục vụ generate nhưng mất replay-guard (có chủ đích, không phải bug). |
 | **ERC-8004** | Chuẩn ví cho agent tự trị; `AgentWallet` thiết kế tương thích. |
 | **facilitator (CDP)** | Dịch vụ Coinbase Developer Platform verify + settle x402 **thật** (chỉ dùng ở Model 2 / Base). |
+| **fail-closed (preview gate)** | `checkPreviewAllowed`: limiter chết ⇒ **deny** (ngược `checkRateLimit` fail-open). Bảo vệ quota Serper free-tier dùng chung. Xem §2.7. |
+| **free preview / preview-locked** | Xem tweet đầu miễn phí trước khi trả (`/api/preview` + màn `preview-locked`). Settle-free, không ghi DB; Unlock mới chạy luồng phí (sinh thread mới). Xem §2.7. |
 | **Mode A / Mode B** | A = Educational (`groqStep`); B = Hot Take (`serper → coingecko → groq → factCheck`). |
 | **MiniPay** | Ví stablecoin của Opera (webview di động). App chạy như **MiniApp** bên trong nó. |
 | **orchestrator** | EOA backend, là **owner** của `AgentWallet` — chiếc "chìa khoá vương miện"; ký `executeX402Call`. |
 | **payTxHash** | Hash của tx `payForThread`; **bằng chứng đã trả** mà backend verify lại on-chain. |
 | **pipeline step** | Một bước trong `lib/pipeline/`: gọi API thật + settle, phát ra một `PipelineEvent`. |
+| **PREVIEW_DAILY_CAP** | Trần global số lượt preview miễn phí mỗi ngày (mặc định 500) — bảo vệ Serper free tier. Env tunable, dùng ở `checkPreviewAllowed`. |
 | **replay guard** | Chống dùng lại 1 payment 2 lần — unique index `(chain_id, onchain_thread_id)` trên `threads`. |
 | **reservePool / treasury** | Ví nhận 10% / 40% của mỗi khoản thanh toán. |
 | **RLS** | Row Level Security (Postgres/Supabase). `refund_requests` bật RLS, không policy → anon bị chặn. |
