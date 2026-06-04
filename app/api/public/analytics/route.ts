@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { aggregateAgentSpend } from '@/lib/agentSpend';
 
 export const runtime = 'nodejs';
 export const revalidate = 30;
@@ -32,20 +33,15 @@ export async function GET(req: Request) {
     }
     const repeatUsers = Array.from(walletCounts.values()).filter((n) => n > 1).length;
 
-    const { data: x402 } = await supabase
+    const { data: costRows } = await supabase
       .from('threads')
-      .select('groq_tx_hash,serper_tx_hash,fact_check_tx_hash')
+      .select(
+        'total_cost_usd,groq_tx_hash,serper_tx_hash,coingecko_tx_hash,fact_check_tx_hash,token_symbol',
+      )
       .eq('chain_id', chainId)
       .eq('status', 'completed');
 
-    const x402Count = (x402 ?? []).reduce(
-      (acc, r) =>
-        acc +
-        (r.groq_tx_hash ? 1 : 0) +
-        (r.serper_tx_hash ? 1 : 0) +
-        (r.fact_check_tx_hash ? 1 : 0),
-      0,
-    );
+    const agent = aggregateAgentSpend(costRows ?? []);
 
     const volumeUsd = (threads ?? 0) * 0.05;
 
@@ -53,7 +49,9 @@ export async function GET(req: Request) {
       threads: threads ?? 0,
       uniqueWallets: walletCounts.size,
       volumeUsd: volumeUsd.toFixed(2),
-      x402Count,
+      x402Count: agent.x402CallCount,
+      agentSpendUsd: agent.agentSpendUsd,
+      byToken: agent.byToken,
       repeatUsers,
     });
   } catch (e: unknown) {
