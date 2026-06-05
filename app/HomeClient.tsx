@@ -42,6 +42,11 @@ import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
 import { fetchPreview } from '@/lib/previewClient';
+import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
+import { useIsDesktop } from '@/lib/useIsDesktop';
+import { FolioSpread } from '@/components/FolioSpread';
+import { ComposeSummary } from '@/components/ComposeSummary';
+import { RightLeafPlaceholder } from '@/components/RightLeafPlaceholder';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
@@ -72,8 +77,6 @@ const PreviewLocked = dynamic(
   { ssr: false },
 );
 
-type Screen = 'mode' | 'educational' | 'hot-take' | 'preview-locked' | 'generating' | 'preview' | 'post-share';
-
 export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -87,6 +90,8 @@ export default function HomeClient() {
   const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
   const isMiniPay = useIsMiniPay();
+  const isDesktop = useIsDesktop();
+  const spread = !isMiniPay && isDesktop;
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const onSupportedChain = chainId === TARGET_CHAIN_ID;
@@ -296,6 +301,214 @@ export default function HomeClient() {
     await pay(token, mode);
   }, [submitted, hotTake, pay]);
 
+  const formNode =
+    screen === 'mode' ? (
+      <ModePicker
+        onSelect={(m) => {
+          if (m === 'educational') setScreen('educational');
+          if (m === 'hot-take') setScreen('hot-take');
+        }}
+      />
+    ) : screen === 'educational' ? (
+      <EducationalInput
+        onSubmit={async (p) => {
+          setSubmitted(p);
+          setHotTake(null);
+          await beginFlow(p, 0);
+        }}
+        onBack={() => setScreen('mode')}
+        disabled={status === 'approving' || status === 'paying'}
+      />
+    ) : screen === 'hot-take' ? (
+      <HotTakeInput
+        onSubmit={async (p) => {
+          setHotTake(p);
+          setSubmitted(null);
+          await beginFlow(p, 1);
+        }}
+        onBack={() => setScreen('mode')}
+        disabled={status === 'approving' || status === 'paying'}
+      />
+    ) : null;
+
+  const resultNode =
+    screen === 'preview-locked' && previewData ? (
+      <PreviewLocked
+        firstTweet={previewData.firstTweet}
+        lockedCount={Math.max(previewData.totalTweets - 1, 0)}
+        onUnlock={unlock}
+        onRegenerate={() => {
+          const payload = submitted ?? hotTake;
+          if (payload) void beginFlow(payload, submitted ? 0 : 1);
+        }}
+        regenerating={previewLoading}
+      />
+    ) : screen === 'generating' ? (
+      <GeneratingStatus
+        gen={gen}
+        payStatus={status}
+        payTxHash={txHash}
+        threadId={threadId}
+        chainExplorerBase={explorerBase(chainId)}
+        agentWalletAddress={getContracts(chainId).AgentWallet}
+      />
+    ) : screen === 'preview' && draftTweets ? (
+      <Stagger className="w-full max-w-md flex flex-col gap-4">
+        {degradedSteps.length > 0 && (
+          <StaggerItem>
+            <div className="rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3 flex flex-col gap-2.5">
+              <p className="text-sm text-muted-foreground">
+                Built without live data ({degradedSteps.join(', ')}). Still
+                usable — or request a refund if it falls short.
+              </p>
+              {refundStatus === 'sent' ? (
+                <p className="text-xs text-muted-foreground">
+                  Refund requested. Operator will process within 24h.
+                </p>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => requestRefund('partial')}
+                  disabled={refundStatus === 'sending'}
+                >
+                  {refundStatus === 'sending' ? 'Sending…' : 'Request a refund'}
+                </Button>
+              )}
+              {refundStatus === 'error' && refundError && (
+                <p className="text-xs text-destructive">{refundError}</p>
+              )}
+            </div>
+          </StaggerItem>
+        )}
+        <StaggerItem>
+          <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
+        </StaggerItem>
+        <StaggerItem>
+          <ShareToX tweets={draftTweets} />
+        </StaggerItem>
+        <StaggerItem>
+          <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
+        </StaggerItem>
+      </Stagger>
+    ) : screen === 'post-share' && activeToken ? (
+      <PostShareScreen
+        paidAmountUsd={Number(
+          formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
+        ).toFixed(3)}
+        agentSpentUsd={gen.totalCostUsd ?? '0.001'}
+        tokenSymbol={activeToken.symbol}
+        payTxHash={txHash}
+        agentWalletAddress={getContracts(chainId).AgentWallet}
+        explorerBase={explorerBase(chainId)}
+        onWriteAnother={() => {
+          reset();
+          resetGen();
+          setDraftTweets(null);
+          setSubmitted(null);
+          setHotTake(null);
+          setScreen('mode');
+        }}
+      />
+    ) : null;
+
+  const errorSurfaces = (
+    <>
+      {error && /approve/i.test(error) && (
+        <ErrorSurface
+          kind="approve-rejected"
+          onRetry={() => {
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
+            reset();
+            resetGen();
+            setDraftTweets(null);
+            setSubmitted(null);
+            setHotTake(null);
+            setScreen(back);
+          }}
+        />
+      )}
+      {error && !/approve/i.test(error) && /revert|reject|fail/i.test(error) && (
+        <ErrorSurface
+          kind="pay-failed"
+          onRetry={() => {
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
+            reset();
+            resetGen();
+            setDraftTweets(null);
+            setSubmitted(null);
+            setHotTake(null);
+            setScreen(back);
+          }}
+        />
+      )}
+      {screen === 'generating' && gen.fatal === 'slow' && !gen.isDone && (
+        <ErrorSurface
+          kind="slow"
+          onRefundRequest={() => requestRefund('slow-cancel')}
+          refundStatus={refundStatus}
+          refundError={refundError}
+        />
+      )}
+      {screen === 'generating' && capHit && (
+        <ErrorSurface
+          kind="cap-hit"
+          onRefundRequest={() => requestRefund('full')}
+          refundStatus={refundStatus}
+          refundError={refundError}
+        />
+      )}
+      {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
+        <ErrorSurface
+          kind="full-fail"
+          onRefundRequest={() => requestRefund('full')}
+          refundStatus={refundStatus}
+          refundError={refundError}
+        />
+      )}
+      {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
+        <ErrorSurface
+          kind="partial"
+          onRefundRequest={() => requestRefund('partial')}
+          refundStatus={refundStatus}
+          refundError={refundError}
+        />
+      )}
+      {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            reset();
+            resetGen();
+            setDraftTweets(null);
+            setSubmitted(null);
+            setHotTake(null);
+            setScreen('mode');
+          }}
+        >
+          Write another
+        </Button>
+      )}
+    </>
+  );
+
+  const composeSummary = submitted ? (
+    <ComposeSummary
+      mode={0}
+      topic={submitted.topic}
+      audience={submitted.audience}
+      tokenSymbol={submitted.token.symbol}
+    />
+  ) : hotTake ? (
+    <ComposeSummary
+      mode={1}
+      eventDescription={hotTake.eventDescription}
+      angle={hotTake.angle}
+      tokenSymbol={hotTake.token.symbol}
+    />
+  ) : null;
+
   return (
     <main className="relative min-h-screen flex flex-col items-center gap-6 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       {/* Decorative ink stains, light theme only — pulled to edges so they
@@ -311,7 +524,7 @@ export default function HomeClient() {
         className="pointer-events-none absolute top-[60vh] right-4 text-[hsl(var(--ink-deep))] opacity-[0.05] dark:hidden rotate-[18deg]"
       />
 
-      <header className="w-full max-w-md flex flex-col gap-3">
+      <header className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col gap-3`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col leading-none">
             <InkText
@@ -392,197 +605,31 @@ export default function HomeClient() {
       ) : (
         <>
           <WalletStatus />
-          <AnimatePresence mode="wait">
-            <ScreenTransition key={screen}>
-          {screen === 'mode' && (
-            <ModePicker
-              onSelect={(m) => {
-                if (m === 'educational') setScreen('educational');
-                if (m === 'hot-take') setScreen('hot-take');
-              }}
+          {spread ? (
+            <FolioSpread
+              leftKey={isInputScreen(screen) ? screen : 'summary'}
+              rightKey={isOutputScreen(screen) ? screen : 'placeholder'}
+              left={isInputScreen(screen) ? formNode : composeSummary}
+              right={
+                isOutputScreen(screen) ? (
+                  <div className="w-full flex flex-col items-center gap-4">
+                    {resultNode}
+                    {errorSurfaces}
+                  </div>
+                ) : (
+                  <RightLeafPlaceholder />
+                )
+              }
             />
-          )}
-          {screen === 'educational' && (
-            <EducationalInput
-              onSubmit={async (p) => {
-                setSubmitted(p);
-                setHotTake(null);
-                await beginFlow(p, 0);
-              }}
-              onBack={() => setScreen('mode')}
-              disabled={status === 'approving' || status === 'paying'}
-            />
-          )}
-          {screen === 'hot-take' && (
-            <HotTakeInput
-              onSubmit={async (p) => {
-                setHotTake(p);
-                setSubmitted(null);
-                await beginFlow(p, 1);
-              }}
-              onBack={() => setScreen('mode')}
-              disabled={status === 'approving' || status === 'paying'}
-            />
-          )}
-          {screen === 'preview-locked' && previewData && (
-            <PreviewLocked
-              firstTweet={previewData.firstTweet}
-              lockedCount={Math.max(previewData.totalTweets - 1, 0)}
-              onUnlock={unlock}
-              onRegenerate={() => {
-                const payload = submitted ?? hotTake;
-                if (payload) void beginFlow(payload, submitted ? 0 : 1);
-              }}
-              regenerating={previewLoading}
-            />
-          )}
-          {screen === 'generating' && (
-            <GeneratingStatus
-              gen={gen}
-              payStatus={status}
-              payTxHash={txHash}
-              threadId={threadId}
-              chainExplorerBase={explorerBase(chainId)}
-              agentWalletAddress={getContracts(chainId).AgentWallet}
-            />
-          )}
-          {screen === 'preview' && draftTweets && (
-            <Stagger className="w-full max-w-md flex flex-col gap-4">
-              {degradedSteps.length > 0 && (
-                <StaggerItem>
-                <div className="rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3 flex flex-col gap-2.5">
-                  <p className="text-sm text-muted-foreground">
-                    Built without live data ({degradedSteps.join(', ')}). Still
-                    usable — or request a refund if it falls short.
-                  </p>
-                  {refundStatus === 'sent' ? (
-                    <p className="text-xs text-muted-foreground">
-                      Refund requested. Operator will process within 24h.
-                    </p>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="self-start"
-                      onClick={() => requestRefund('partial')}
-                      disabled={refundStatus === 'sending'}
-                    >
-                      {refundStatus === 'sending' ? 'Sending…' : 'Request a refund'}
-                    </Button>
-                  )}
-                  {refundStatus === 'error' && refundError && (
-                    <p className="text-xs text-destructive">{refundError}</p>
-                  )}
-                </div>
-                </StaggerItem>
-              )}
-              <StaggerItem>
-                <ThreadPreview tweets={draftTweets} onChange={setDraftTweets} />
-              </StaggerItem>
-              <StaggerItem>
-                <ShareToX tweets={draftTweets} />
-              </StaggerItem>
-              <StaggerItem>
-                <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
-              </StaggerItem>
-            </Stagger>
-          )}
-          {screen === 'post-share' && activeToken && (
-            <PostShareScreen
-              paidAmountUsd={Number(
-                formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
-              ).toFixed(3)}
-              agentSpentUsd={gen.totalCostUsd ?? '0.001'}
-              tokenSymbol={activeToken.symbol}
-              payTxHash={txHash}
-              agentWalletAddress={getContracts(chainId).AgentWallet}
-              explorerBase={explorerBase(chainId)}
-              onWriteAnother={() => {
-                reset();
-                resetGen();
-                setDraftTweets(null);
-                setSubmitted(null);
-                setHotTake(null);
-                setScreen('mode');
-              }}
-            />
-          )}
-            </ScreenTransition>
-          </AnimatePresence>
-          {error && /approve/i.test(error) && (
-            <ErrorSurface
-              kind="approve-rejected"
-              onRetry={() => {
-                const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
-                reset();
-                resetGen();
-                setDraftTweets(null);
-                setSubmitted(null);
-                setHotTake(null);
-                setScreen(back);
-              }}
-            />
-          )}
-          {error && !/approve/i.test(error) && /revert|reject|fail/i.test(error) && (
-            <ErrorSurface
-              kind="pay-failed"
-              onRetry={() => {
-                const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : 'mode';
-                reset();
-                resetGen();
-                setDraftTweets(null);
-                setSubmitted(null);
-                setHotTake(null);
-                setScreen(back);
-              }}
-            />
-          )}
-          {screen === 'generating' && gen.fatal === 'slow' && !gen.isDone && (
-            <ErrorSurface
-              kind="slow"
-              onRefundRequest={() => requestRefund('slow-cancel')}
-              refundStatus={refundStatus}
-              refundError={refundError}
-            />
-          )}
-          {screen === 'generating' && capHit && (
-            <ErrorSurface
-              kind="cap-hit"
-              onRefundRequest={() => requestRefund('full')}
-              refundStatus={refundStatus}
-              refundError={refundError}
-            />
-          )}
-          {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
-            <ErrorSurface
-              kind="full-fail"
-              onRefundRequest={() => requestRefund('full')}
-              refundStatus={refundStatus}
-              refundError={refundError}
-            />
-          )}
-          {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
-            <ErrorSurface
-              kind="partial"
-              onRefundRequest={() => requestRefund('partial')}
-              refundStatus={refundStatus}
-              refundError={refundError}
-            />
-          )}
-          {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                reset();
-                resetGen();
-                setDraftTweets(null);
-                setSubmitted(null);
-                setHotTake(null);
-                setScreen('mode');
-              }}
-            >
-              Write another
-            </Button>
+          ) : (
+            <>
+              <AnimatePresence mode="wait">
+                <ScreenTransition key={screen}>
+                  {isInputScreen(screen) ? formNode : resultNode}
+                </ScreenTransition>
+              </AnimatePresence>
+              {errorSurfaces}
+            </>
           )}
         </>
       )}
