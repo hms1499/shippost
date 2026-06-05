@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isInputScreen, isOutputScreen, type Screen } from './screens';
 
-const ALL: Screen[] = [
+const ALL = [
   'mode',
   'educational',
   'hot-take',
@@ -9,7 +9,7 @@ const ALL: Screen[] = [
   'generating',
   'preview',
   'post-share',
-];
+] satisfies Screen[];
 
 describe('isInputScreen', () => {
   it('is true only for the three input screens', () => {

@@ -1,3 +1,5 @@
+// Screen name union and input/output categorisation for the folio-spread layout.
+
 export type Screen =
   | 'mode'
   | 'educational'
@@ -7,10 +9,10 @@ export type Screen =
   | 'preview'
   | 'post-share';
 
-const INPUT_SCREENS = ['mode', 'educational', 'hot-take'] as const;
+const INPUT_SCREENS: readonly Screen[] = ['mode', 'educational', 'hot-take'];
 
 export function isInputScreen(screen: Screen): boolean {
-  return (INPUT_SCREENS as readonly string[]).includes(screen);
+  return INPUT_SCREENS.includes(screen);
 }
 
 export function isOutputScreen(screen: Screen): boolean {
