@@ -634,7 +634,7 @@ export default function HomeClient() {
         </>
       )}
 
-      <footer className="w-full max-w-md flex justify-center mt-4">
+      <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex justify-center mt-4`}>
         <InkDivider />
       </footer>
     </main>
