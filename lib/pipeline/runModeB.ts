@@ -17,6 +17,11 @@ export interface ModeBOutput {
 interface ModeBContext extends PipelineContext {
   angle: Angle;
   eventDescription: string;
+  // Optional overrides so sibling modes (e.g. Token Analysis) can reuse this
+  // vetted settle/delivery orchestration with a different query + prompt.
+  // Defaults reproduce Hot Take exactly.
+  serperQuery?: string;
+  buildPrompt?: (args: { searchSummary: string | null; marketSnippet: string | null }) => string;
 }
 
 export async function runModeB(
@@ -36,7 +41,7 @@ export async function runModeB(
   // Step 1 — Serper search (soft-fail: continue with null context if API or settle fails)
   let searchSummary: string | null = null;
   try {
-    const s = await runSerperStep({ ...ctx, query: ctx.eventDescription }, wrappedEmit);
+    const s = await runSerperStep({ ...ctx, query: ctx.serperQuery ?? ctx.eventDescription }, wrappedEmit);
     searchSummary = summarizeSerper(s.organic, s.newsSnippet);
   } catch (e) {
     console.error('[runModeB] serper failed, continuing with no search context:', e);
@@ -59,12 +64,14 @@ export async function runModeB(
   // Step 3 — Groq draft (HARD-fail: strict-settle, no thread = no value)
   emit({ type: 'step_started', step: 'groq' });
 
-  const userPrompt = buildModeBPrompt({
-    eventDescription: ctx.eventDescription,
-    angle: ctx.angle,
-    searchSummary,
-    marketSnippet,
-  });
+  const userPrompt = ctx.buildPrompt
+    ? ctx.buildPrompt({ searchSummary, marketSnippet })
+    : buildModeBPrompt({
+        eventDescription: ctx.eventDescription,
+        angle: ctx.angle,
+        searchSummary,
+        marketSnippet,
+      });
 
   let draft: DraftResult;
   try {
