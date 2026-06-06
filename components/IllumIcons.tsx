@@ -90,6 +90,26 @@ export function IllumQuill(props: IconProps) {
   );
 }
 
+/** Coin with a hand-drawn rising chart line and an ink dot. */
+export function IllumCoin(props: IconProps) {
+  return (
+    <Wrap {...props}>
+      {/* coin rim */}
+      <circle cx="16" cy="16" r="11" />
+      {/* inner rule */}
+      <circle cx="16" cy="16" r="8.5" strokeWidth="0.6" opacity="0.5" />
+      {/* rising chart line across the face */}
+      <path d="M10 19 L14 15 L18 17 L22 11" strokeWidth="1.3" />
+      {/* arrow head on the climb */}
+      <path d="M22 11 L19.5 11 M22 11 L22 13.5" strokeWidth="0.9" />
+      {/* tiny ink hatching at the base */}
+      <path d="M11 24 L13 24 M19 24 L21 24" strokeWidth="0.7" opacity="0.5" />
+      {/* ink dot */}
+      <circle cx="10" cy="19" r="0.7" fill="currentColor" />
+    </Wrap>
+  );
+}
+
 /** Heraldic shield with a hand-drawn check inside. */
 export function IllumShield(props: IconProps) {
   return (
