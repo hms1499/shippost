@@ -30,7 +30,7 @@ export interface PayResult {
   threadId: bigint | null;
   txHash: Hex | null;
   error: string | null;
-  pay: (token: TokenConfig, mode: 0 | 1) => Promise<void>;
+  pay: (token: TokenConfig, mode: number) => Promise<void>;
   reset: () => void;
 }
 
@@ -70,7 +70,7 @@ export function usePayForThread(): PayResult {
   }, []);
 
   const pay = useCallback(
-    async (token: TokenConfig, mode: 0 | 1) => {
+    async (token: TokenConfig, mode: number) => {
       if (!address) {
         setError('Wallet not connected');
         setStatus('error');
