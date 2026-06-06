@@ -1,5 +1,4 @@
-import { runModeA, MODE_A_TOTAL_COST_USD } from '@/lib/pipeline/runModeA';
-import { runModeB } from '@/lib/pipeline/runModeB';
+import { getMode } from '@/lib/pipeline/modes';
 import { getContracts } from '@/lib/contracts';
 import { verifyPayment } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -23,9 +22,6 @@ interface StreamRequest {
   eventDescription?: string;
   angle?: Angle;
 }
-
-const VALID_AUDIENCES = ['beginner', 'intermediate', 'advanced'] as const;
-const VALID_ANGLES: Angle[] = ['bullish', 'bearish', 'skeptical'];
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -76,16 +72,9 @@ function validate(b: Partial<StreamRequest>): string | null {
   if (!b.tokenAddress) return 'tokenAddress required';
   if (!b.amountPaidRaw) return 'amountPaidRaw required';
   if (!b.payTxHash) return 'payTxHash required';
-  if (b.mode !== 0 && b.mode !== 1) return 'mode must be 0 or 1';
-
-  if (b.mode === 0) {
-    if (!b.topic?.trim()) return 'topic required for Mode A';
-    if (b.audience && !VALID_AUDIENCES.includes(b.audience)) return 'invalid audience';
-  } else {
-    if (!b.eventDescription?.trim()) return 'eventDescription required for Mode B';
-    if (b.angle && !VALID_ANGLES.includes(b.angle)) return 'invalid angle';
-  }
-  return null;
+  const mode = getMode(b.mode);
+  if (!mode) return 'unknown mode';
+  return mode.validateInput(b);
 }
 
 export async function POST(req: Request) {
@@ -197,28 +186,17 @@ export async function POST(req: Request) {
         let searchSummary: string | null = null;
         let marketSnippet: string | null = null;
 
-        if (body.mode === 0) {
-          const out = await withDeadline(runModeA(baseCtx, emit), PIPELINE_DEADLINE_MS, () => ac.abort());
-          tweets = out.tweets;
-          totalCostUsd = MODE_A_TOTAL_COST_USD;
-        } else {
-          const out = await withDeadline(
-            runModeB(
-              {
-                ...baseCtx,
-                angle: body.angle ?? 'skeptical',
-                eventDescription: body.eventDescription ?? '',
-              },
-              emit,
-            ),
-            PIPELINE_DEADLINE_MS,
-            () => ac.abort(),
-          );
-          tweets = out.tweets;
-          totalCostUsd = out.totalCostUsd;
-          searchSummary = out.searchSummary;
-          marketSnippet = out.marketSnippet;
-        }
+        const modeDef = getMode(body.mode);
+        if (!modeDef) throw new Error('unknown mode'); // validated already; defensive
+        const out = await withDeadline(
+          modeDef.run(baseCtx, body, emit),
+          PIPELINE_DEADLINE_MS,
+          () => ac.abort(),
+        );
+        tweets = out.tweets;
+        totalCostUsd = out.totalCostUsd;
+        searchSummary = out.searchSummary;
+        marketSnippet = out.marketSnippet;
 
         if (supabase) {
           const { error } = await supabase
