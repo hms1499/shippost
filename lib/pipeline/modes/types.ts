@@ -24,6 +24,15 @@ export interface UnifiedModeOutput {
   marketSnippet: string | null;
 }
 
+// Free-preview input. Settle-free: produces a draft without paying anything.
+export interface PreviewInput {
+  mode: number;
+  topic?: string;
+  audience?: Audience;
+  eventDescription?: string;
+  angle?: Angle;
+}
+
 export interface ModeDef {
   // MUST equal the uint8 emitted on-chain in ThreadRequested. Append-only —
   // never renumber an existing mode (see plan "Invariants").
@@ -34,4 +43,7 @@ export interface ModeDef {
   // Runs the paid pipeline. Settle MUST gate every content emit (we only move
   // the existing runModeA/runModeB calls here, never reorder their internals).
   run(ctx: PipelineContext, body: ModeInputBody, emit: Emit): Promise<UnifiedModeOutput>;
+  // Settle-free draft for the free preview. MUST never settle, spend from the
+  // agent wallet, or persist a row (a source-guard test enforces this).
+  preview(input: PreviewInput): Promise<{ tweets: string[] }>;
 }
