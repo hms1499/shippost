@@ -3,17 +3,17 @@
 import { ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { CodexFrame } from './CodexFrame';
-import { IllumGraduationCap, IllumFlame } from './IllumIcons';
+import { IllumGraduationCap, IllumFlame, IllumCoin } from './IllumIcons';
 import { InkText } from './InkText';
 import { InkDivider } from './InkDivider';
 import { Marginalia } from './Marginalia';
 
 interface Props {
-  onSelect: (mode: 'educational' | 'hot-take') => void;
+  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis') => void;
 }
 
 interface Mode {
-  id: 'educational' | 'hot-take';
+  id: 'educational' | 'hot-take' | 'token-analysis';
   numeral: string;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -39,6 +39,15 @@ const MODES: Mode[] = [
     Icon: IllumGraduationCap,
     blurb: 'Explain one concept, end-to-end. e.g. "How EIP-712 typed signatures work".',
     cost: '$0.001',
+  },
+  {
+    id: 'token-analysis',
+    numeral: 'III',
+    label: 'Token Analysis',
+    Icon: IllumCoin,
+    blurb: 'Break down any token: price, mcap, catalysts. Live market data + fact-check inline.',
+    cost: '$0.003',
+    badge: 'grounded · live price · fact-checked',
   },
 ];
 
