@@ -3,7 +3,7 @@ import type { ModeDef } from './types';
 import { educationalMode } from './educational';
 import { hotTakeMode } from './hotTake';
 
-export type { ModeDef, ModeInputBody, UnifiedModeOutput, Emit } from './types';
+export type { ModeDef, ModeInputBody, UnifiedModeOutput, PreviewInput, Emit } from './types';
 
 export const MODES: Record<number, ModeDef> = {
   [educationalMode.id]: educationalMode,

@@ -8,6 +8,10 @@ const fetchCoinGecko = vi.fn();
 vi.mock('./generateDraft', () => ({ generateTweets }));
 vi.mock('./serperStep', () => ({ fetchSerper }));
 vi.mock('./coingeckoStep', () => ({ fetchCoinGecko }));
+// The mode descriptors import the paid pipelines for their run() methods; the
+// preview path never calls them, so mock them out to keep this test isolated.
+vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST_USD: '0.050' }));
+vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB: vi.fn() }));
 
 const { runPreview } = await import('./runPreview');
 
@@ -43,11 +47,14 @@ describe('runPreview', () => {
   });
 });
 
-describe('runPreview drain-safety invariant', () => {
-  it('source never references settle / AgentWallet / supabase', () => {
-    const src = readFileSync(new URL('./runPreview.ts', import.meta.url), 'utf8');
-    expect(src).not.toMatch(/settleX402Call/);
-    expect(src).not.toMatch(/agentWallet|AgentWallet/);
-    expect(src).not.toMatch(/supabase/i);
+describe('preview drain-safety invariant', () => {
+  it('no preview source references settle / AgentWallet / supabase', () => {
+    const files = ['./runPreview.ts', './modes/educational.ts', './modes/hotTake.ts'];
+    for (const f of files) {
+      const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(src, f).not.toMatch(/settleX402Call/);
+      expect(src, f).not.toMatch(/agentWallet|AgentWallet/);
+      expect(src, f).not.toMatch(/supabase/i);
+    }
   });
 });
