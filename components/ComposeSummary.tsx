@@ -4,12 +4,13 @@ import { Card } from '@/components/ui/card';
 import { InkDivider } from './InkDivider';
 
 interface ComposeSummaryProps {
-  mode: 0 | 1;
+  mode: 0 | 1 | 2;
   tokenSymbol: string;
   topic?: string;
   audience?: string;
   eventDescription?: string;
   angle?: string;
+  ticker?: string;
 }
 
 function cap(s: string): string {
@@ -28,9 +29,10 @@ export function ComposeSummary({
   audience,
   eventDescription,
   angle,
+  ticker,
 }: ComposeSummaryProps) {
-  const numeral = mode === 0 ? 'II' : 'I';
-  const label = mode === 0 ? 'Educational' : 'Hot Take';
+  const numeral = mode === 0 ? 'II' : mode === 1 ? 'I' : 'III';
+  const label = mode === 0 ? 'Educational' : mode === 1 ? 'Hot Take' : 'Token Analysis';
 
   return (
     <Card className="w-full max-w-md p-5 flex flex-col gap-3">
@@ -50,6 +52,11 @@ export function ComposeSummary({
           <>
             <Field label="Topic" value={topic ?? ''} />
             <Field label="Audience" value={cap(audience ?? '')} />
+          </>
+        ) : mode === 2 ? (
+          <>
+            <Field label="Ticker" value={ticker ?? ''} />
+            <Field label="Angle" value={cap(angle ?? '')} />
           </>
         ) : (
           <>

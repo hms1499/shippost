@@ -2,9 +2,9 @@
 // on ANY non-success (unavailable, error, network) so the caller can cleanly
 // fall back to the pay-first flow — a failed preview must never block paying.
 export interface PreviewArgs {
-  mode: 0 | 1;
+  mode: 0 | 1 | 2;
   walletAddress: string;
-  topic?: string;
+  topic?: string; // Mode 0 = topic; Mode 2 = token ticker
   audience?: 'beginner' | 'intermediate' | 'advanced';
   eventDescription?: string;
   angle?: 'bullish' | 'bearish' | 'skeptical';
