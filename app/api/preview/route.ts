@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   if (typeof body.walletAddress !== 'string' || body.walletAddress.length === 0) {
     return NextResponse.json({ error: 'walletAddress required' }, { status: 400 });
   }
-  if (body.mode !== 0 && body.mode !== 1) {
-    return NextResponse.json({ error: 'mode must be 0 or 1' }, { status: 400 });
+  if (body.mode !== 0 && body.mode !== 1 && body.mode !== 2) {
+    return NextResponse.json({ error: 'mode must be 0, 1, or 2' }, { status: 400 });
   }
 
   let input: PreviewInput;
@@ -42,6 +42,15 @@ export async function POST(request: Request) {
       ? (body.audience as PreviewInput['audience'])
       : 'beginner';
     input = { mode: 0, topic: body.topic, audience };
+  } else if (body.mode === 2) {
+    // Token Analysis — the ticker rides in on `topic`.
+    if (typeof body.topic !== 'string' || !body.topic.trim()) {
+      return NextResponse.json({ error: 'token ticker required' }, { status: 400 });
+    }
+    const angle = ANGLES.includes(body.angle as never)
+      ? (body.angle as PreviewInput['angle'])
+      : 'skeptical';
+    input = { mode: 2, topic: body.topic, angle };
   } else {
     if (typeof body.eventDescription !== 'string' || !body.eventDescription.trim()) {
       return NextResponse.json({ error: 'eventDescription required' }, { status: 400 });

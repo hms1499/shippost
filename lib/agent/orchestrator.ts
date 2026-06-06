@@ -70,7 +70,7 @@ export async function verifyPayment(params: {
   threadId: bigint;
   walletAddress: Address;
   tokenAddress: Address;
-  mode: 0 | 1;
+  mode: number;
 }): Promise<{ amountRaw: bigint }> {
   const chain = getChain(params.chainId);
   const publicClient = createPublicClient({ chain, transport: http() });

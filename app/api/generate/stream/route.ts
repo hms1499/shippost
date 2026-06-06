@@ -14,7 +14,7 @@ interface StreamRequest {
   tokenAddress: string;
   amountPaidRaw: string;
   payTxHash: string;
-  mode: 0 | 1;
+  mode: number;
   // Mode A
   topic?: string;
   audience?: 'beginner' | 'intermediate' | 'advanced';
