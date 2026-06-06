@@ -1,5 +1,6 @@
 import { defineConfig } from 'hardhat/config';
 import hardhatToolboxViem from '@nomicfoundation/hardhat-toolbox-viem';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -22,12 +23,31 @@ const FORK_URL = process.env.CELO_FORK_URL || 'https://forno.celo.org';
 const FORK_BLOCK = process.env.CELO_FORK_BLOCK ? parseInt(process.env.CELO_FORK_BLOCK) : undefined;
 
 export default defineConfig({
-  plugins: [hardhatToolboxViem],
+  plugins: [hardhatToolboxViem, hardhatVerify],
   solidity: {
     version: '0.8.24',
     settings: {
       optimizer: { enabled: true, runs: 200 },
     },
+  },
+  // Verify on Celo's Blockscout (keyless). HH3 has no built-in descriptor for
+  // Celo mainnet, so we supply the explorer endpoint here.
+  chainDescriptors: {
+    42220: {
+      name: 'Celo',
+      blockExplorers: {
+        blockscout: {
+          name: 'Celo Blockscout',
+          url: 'https://celo.blockscout.com',
+          apiUrl: 'https://celo.blockscout.com/api',
+        },
+      },
+    },
+  },
+  verify: {
+    blockscout: { enabled: true },
+    etherscan: { enabled: false },
+    sourcify: { enabled: false },
   },
   paths: {
     sources: './contracts',
