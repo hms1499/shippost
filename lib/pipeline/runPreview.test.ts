@@ -45,6 +45,17 @@ describe('runPreview', () => {
     expect(generateTweets).toHaveBeenCalledOnce();
     expect(out.tweets).toHaveLength(2);
   });
+
+  it('Token Analysis (mode 2): grounds on the ticker then generates', async () => {
+    fetchSerper.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
+    fetchCoinGecko.mockResolvedValue({ symbol: 'CELO', priceUsd: 0.5, change24hPct: 2, marketCapUsd: 2.8e8 });
+    const out = await runPreview({ mode: 2, topic: 'celo', angle: 'bullish' });
+    // Serper query is the ticker-oriented query, normalised to $CELO.
+    expect(fetchSerper).toHaveBeenCalledWith(expect.stringContaining('$CELO'));
+    // CoinGecko is fed the normalised $cashtag so it can resolve the coin.
+    expect(fetchCoinGecko).toHaveBeenCalledWith('$CELO');
+    expect(out.tweets).toHaveLength(2);
+  });
 });
 
 describe('preview drain-safety invariant', () => {
