@@ -5,6 +5,9 @@ import { describe, it, expect, vi } from 'vitest';
 // real paid pipeline (groq-sdk, env, etc.). We only exercise the id→def map.
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST_USD: '0.050' }));
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB: vi.fn() }));
+vi.mock('@/lib/pipeline/generateDraft', () => ({ generateTweets: vi.fn() }));
+vi.mock('@/lib/pipeline/serperStep', () => ({ fetchSerper: vi.fn() }));
+vi.mock('@/lib/pipeline/coingeckoStep', () => ({ fetchCoinGecko: vi.fn() }));
 
 const { getMode, MODES } = await import('./index');
 
@@ -16,6 +19,11 @@ describe('mode registry', () => {
 
   it('maps id 1 to the hot-take mode', () => {
     expect(getMode(1)?.key).toBe('hotTake');
+  });
+
+  it('maps id 2 to the token-analysis mode', () => {
+    expect(getMode(2)?.id).toBe(2);
+    expect(getMode(2)?.key).toBe('tokenAnalysis');
   });
 
   it('returns null for an unknown mode id', () => {

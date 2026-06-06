@@ -49,7 +49,7 @@ describe('runPreview', () => {
 
 describe('preview drain-safety invariant', () => {
   it('no preview source references settle / AgentWallet / supabase', () => {
-    const files = ['./runPreview.ts', './modes/educational.ts', './modes/hotTake.ts'];
+    const files = ['./runPreview.ts', './modes/educational.ts', './modes/hotTake.ts', './modes/tokenAnalysis.ts'];
     for (const f of files) {
       const src = readFileSync(new URL(f, import.meta.url), 'utf8');
       expect(src, f).not.toMatch(/settleX402Call/);
