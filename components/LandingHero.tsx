@@ -6,11 +6,11 @@ import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InkDivider } from './InkDivider';
 import { Marginalia } from './Marginalia';
-import { IllumGraduationCap, IllumFlame } from './IllumIcons';
+import { IllumGraduationCap, IllumFlame, IllumCoin } from './IllumIcons';
 
 /**
  * Pre-connect title page. Reads top-to-bottom like the opening folio of a
- * Renaissance codex: synopsis (Argumentum) with drop-cap, two-mode table of
+ * Renaissance codex: synopsis (Argumentum) with drop-cap, three-mode table of
  * contents (Index Modorum), pricing ledger (Liber Rationum), and a single
  * primary CTA. Each block fades up in sequence so the page composes itself
  * the way ink would land on parchment.
@@ -41,27 +41,36 @@ export function LandingHero() {
         <InkDivider />
       </div>
 
-      {/* II. Index Modorum — two-mode TOC, leader-dot rhythm */}
+      {/* II. Index Modorum — three-mode TOC, leader-dot rhythm. Order, numerals
+          and costs mirror ModePicker so the pre-connect page and the picker
+          tell the same story. */}
       <div
         className="reveal flex flex-col gap-3"
         style={{ animationDelay: '0.95s' }}
       >
         <div className="flex items-baseline justify-between">
-          <p className="heading-sub text-[10px]">Modes · Two hands</p>
+          <p className="heading-sub text-[10px]">Modes · Three styles</p>
           <span className="heading-sub text-[10px]">x402 budget</span>
         </div>
         <ModeEntry
           numeral="I"
+          Icon={IllumFlame}
+          title="Hot Take"
+          blurb="React to news with data inline."
+          cost="$0.003"
+        />
+        <ModeEntry
+          numeral="II"
           Icon={IllumGraduationCap}
           title="Educational"
           blurb="Explain a concept, end-to-end."
           cost="$0.001"
         />
         <ModeEntry
-          numeral="II"
-          Icon={IllumFlame}
-          title="Hot Take"
-          blurb="React to news with data inline."
+          numeral="III"
+          Icon={IllumCoin}
+          title="Token Analysis"
+          blurb="Break down any token — price, mcap, catalysts."
           cost="$0.003"
         />
         <InkDivider />
