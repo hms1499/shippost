@@ -109,15 +109,15 @@ describe('checkPreviewAllowed', () => {
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     const { checkPreviewAllowed } = await load();
-    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'unavailable' });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
   });
 
-  it('allows when both per-wallet and global pass', async () => {
+  it('allows when per-wallet, per-IP and global all pass', async () => {
     process.env.UPSTASH_REDIS_REST_URL = 'https://x';
     process.env.UPSTASH_REDIS_REST_TOKEN = 't';
     limitMock.mockResolvedValue({ success: true, limit: 3, remaining: 2, reset: 0 });
     const { checkPreviewAllowed } = await load();
-    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: true });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: true });
   });
 
   it('blocks with reason "rate" when the per-wallet limit is exhausted', async () => {
@@ -125,17 +125,40 @@ describe('checkPreviewAllowed', () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = 't';
     limitMock.mockResolvedValueOnce({ success: false, limit: 3, remaining: 0, reset: 0 });
     const { checkPreviewAllowed } = await load();
-    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'rate' });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'rate' });
   });
 
-  it('blocks with reason "global" when the daily cap is hit', async () => {
+  it('blocks with reason "ip" when the per-IP limit is hit (wallet ok)', async () => {
     process.env.UPSTASH_REDIS_REST_URL = 'https://x';
     process.env.UPSTASH_REDIS_REST_TOKEN = 't';
     limitMock
-      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 1, reset: 0 })
-      .mockResolvedValueOnce({ success: false, limit: 500, remaining: 0, reset: 0 });
+      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 1, reset: 0 }) // wallet
+      .mockResolvedValueOnce({ success: false, limit: 10, remaining: 0, reset: 0 }); // ip
     const { checkPreviewAllowed } = await load();
-    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'global' });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'ip' });
+  });
+
+  it('does not consume the global budget when the per-IP limit blocks', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock
+      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 1, reset: 0 }) // wallet
+      .mockResolvedValueOnce({ success: false, limit: 10, remaining: 0, reset: 0 }); // ip
+    const { checkPreviewAllowed } = await load();
+    await checkPreviewAllowed('0xabc', '1.2.3.4');
+    // wallet + ip only — global (the 3rd) is never called.
+    expect(limitMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('blocks with reason "global" when the daily cap is hit (wallet + IP ok)', async () => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://x';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 't';
+    limitMock
+      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 1, reset: 0 }) // wallet
+      .mockResolvedValueOnce({ success: true, limit: 10, remaining: 9, reset: 0 }) // ip
+      .mockResolvedValueOnce({ success: false, limit: 500, remaining: 0, reset: 0 }); // global
+    const { checkPreviewAllowed } = await load();
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'global' });
   });
 
   it('fails CLOSED when the limiter throws', async () => {
@@ -143,7 +166,7 @@ describe('checkPreviewAllowed', () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = 't';
     limitMock.mockRejectedValue(new Error('redis down'));
     const { checkPreviewAllowed } = await load();
-    expect(await checkPreviewAllowed('0xabc')).toEqual({ allowed: false, reason: 'unavailable' });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
   });
 });
 

@@ -1,7 +1,12 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-export type LimiterName = 'url-preview' | 'refund-request' | 'free-preview' | 'free-preview-global';
+export type LimiterName =
+  | 'url-preview'
+  | 'refund-request'
+  | 'free-preview'
+  | 'free-preview-ip'
+  | 'free-preview-global';
 
 export interface RateLimitResult {
   success: boolean;
@@ -19,6 +24,11 @@ const LIMITS: Record<LimiterName, { tokens: number; window: `${number} s` }> = {
   'url-preview': { tokens: 10, window: '60 s' },
   'refund-request': { tokens: 5, window: '60 s' },
   'free-preview': { tokens: 3, window: '600 s' },
+  // Per-IP is the real abuse bound: walletAddress is client-supplied and
+  // forgeable, so the per-wallet limit alone lets one IP rotate addresses and
+  // drain the global budget. Slightly looser than per-wallet to tolerate shared
+  // NAT (a few real users behind one IP).
+  'free-preview-ip': { tokens: 10, window: '600 s' },
   'free-preview-global': { tokens: PREVIEW_DAILY_CAP, window: '86400 s' },
 };
 
@@ -95,20 +105,25 @@ export function getClientIp(req: Request): string {
 
 export interface PreviewGate {
   allowed: boolean;
-  reason?: 'rate' | 'global' | 'unavailable';
+  reason?: 'rate' | 'ip' | 'global' | 'unavailable';
 }
 
 // Preview consumes shared third-party quota, so unlike checkRateLimit this
 // fails CLOSED: if the limiter can't be reached we deny rather than allow.
-// Per-wallet is checked first so one abuser hits their own ceiling before
-// eating into the global daily budget.
-export async function checkPreviewAllowed(walletAddress: string): Promise<PreviewGate> {
+// Order matters: per-wallet then per-IP, and the global daily budget LAST — so
+// a request we'd reject on wallet/IP never depletes the shared budget. Per-IP
+// is the real bound (walletAddress is forgeable); per-wallet still helps when
+// the address is stable.
+export async function checkPreviewAllowed(walletAddress: string, ip: string): Promise<PreviewGate> {
   const perWallet = getLimiter('free-preview');
+  const perIp = getLimiter('free-preview-ip');
   const global = getLimiter('free-preview-global');
-  if (!perWallet || !global) return { allowed: false, reason: 'unavailable' };
+  if (!perWallet || !perIp || !global) return { allowed: false, reason: 'unavailable' };
   try {
     const w = await perWallet.limit(`wallet:${walletAddress.toLowerCase()}`);
     if (!w.success) return { allowed: false, reason: 'rate' };
+    const i = await perIp.limit(`ip:${ip}`);
+    if (!i.success) return { allowed: false, reason: 'ip' };
     const g = await global.limit('global');
     if (!g.success) return { allowed: false, reason: 'global' };
     return { allowed: true };

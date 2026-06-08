@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { checkPreviewAllowed } from '@/lib/rateLimit';
+import { checkPreviewAllowed, getClientIp } from '@/lib/rateLimit';
 import { runPreview, type PreviewInput } from '@/lib/pipeline/runPreview';
 
 export const runtime = 'nodejs';
@@ -61,8 +61,9 @@ export async function POST(request: Request) {
     input = { mode: 1, eventDescription: body.eventDescription, angle };
   }
 
-  // Fail-closed gate: deny → fall back to pay-first on the client.
-  const gate = await checkPreviewAllowed(body.walletAddress);
+  // Fail-closed gate: deny → fall back to pay-first on the client. Per-IP is
+  // bounded too, so a forged walletAddress can't rotate past the limit.
+  const gate = await checkPreviewAllowed(body.walletAddress, getClientIp(request));
   if (!gate.allowed) {
     return NextResponse.json({ available: false }, { status: 200 });
   }

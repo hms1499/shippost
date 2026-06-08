@@ -3,15 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const checkPreviewAllowed = vi.fn();
 const runPreview = vi.fn();
 
-vi.mock('@/lib/rateLimit', () => ({ checkPreviewAllowed }));
+// Override only the gate; keep the real getClientIp (pure header parsing) so the
+// IP-wiring test exercises the actual extraction.
+vi.mock('@/lib/rateLimit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/rateLimit')>();
+  return { ...actual, checkPreviewAllowed };
+});
 vi.mock('@/lib/pipeline/runPreview', () => ({ runPreview }));
 
 const { POST } = await import('./route');
 
-function req(body: unknown): Request {
+function req(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/api/preview', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -48,5 +53,24 @@ describe('POST /api/preview', () => {
     runPreview.mockRejectedValue(new Error('groq down'));
     const res = await POST(req({ mode: 0, walletAddress: '0xabc', topic: 't', audience: 'beginner' }));
     expect(res.status).toBe(502);
+  });
+
+  it('passes the client IP (from x-forwarded-for) to the gate', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook'] });
+    await POST(
+      req(
+        { mode: 0, walletAddress: '0xabc', topic: 't', audience: 'beginner' },
+        { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' },
+      ),
+    );
+    expect(checkPreviewAllowed).toHaveBeenCalledWith('0xabc', '203.0.113.7');
+  });
+
+  it('falls back to pay-first when the per-IP limit is hit', async () => {
+    checkPreviewAllowed.mockResolvedValue({ allowed: false, reason: 'ip' });
+    const res = await POST(req({ mode: 0, walletAddress: '0xabc', topic: 't', audience: 'beginner' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ available: false });
+    expect(runPreview).not.toHaveBeenCalled();
   });
 });
