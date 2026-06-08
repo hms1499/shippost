@@ -55,7 +55,7 @@ export function ModePicker({ onSelect }: Props) {
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="heading-sub text-[10px]">Modes · Two hands</p>
+        <p className="heading-sub text-[10px]">Modes · Three styles</p>
         <InkText
           as="h2"
           className="font-display italic text-3xl leading-tight"
@@ -64,7 +64,7 @@ export function ModePicker({ onSelect }: Props) {
           Choose your hand
         </InkText>
         <p className="text-sm italic text-muted-foreground leading-snug">
-          The agent picks up the quill from there.
+          Pick a style — the agent writes the whole thread from there.
         </p>
       </div>
 
@@ -108,7 +108,7 @@ export function ModePicker({ onSelect }: Props) {
                       {m.label}
                     </h3>
                     {m.badge && (
-                      <span className="mt-1 inline-block rounded-full border border-[hsl(var(--ink-faded)/0.4)] px-2 py-0.5 text-[9px] uppercase tracking-wide text-[hsl(var(--ink-faded))]">
+                      <span className="mt-1 inline-block rounded-full border border-[hsl(var(--ink-faded)/0.4)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[hsl(var(--ink-faded))]">
                         {m.badge}
                       </span>
                     )}
@@ -145,7 +145,7 @@ export function ModePicker({ onSelect }: Props) {
       </div>
 
       <Marginalia side="right" className="self-end mt-1">
-        Either mode, same $0.05 — modes only change the agent&apos;s recipe.
+        Any of the three, same $0.05 — the mode only changes the agent&apos;s recipe.
       </Marginalia>
 
       <style jsx>{`
