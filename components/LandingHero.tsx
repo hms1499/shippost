@@ -2,11 +2,13 @@
 
 import * as React from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { InkDivider } from './InkDivider';
 import { Marginalia } from './Marginalia';
 import { IllumGraduationCap, IllumFlame, IllumCoin } from './IllumIcons';
+import { SAMPLE_THREAD } from '@/lib/sampleThread';
 
 /**
  * Pre-connect title page. Reads top-to-bottom like the opening folio of a
@@ -32,7 +34,7 @@ export function LandingHero() {
       </span>
 
       {/* I. Argumentum — synopsis with drop-cap */}
-      <div className="reveal flex flex-col gap-3" style={{ animationDelay: '0.35s' }}>
+      <div className="reveal flex flex-col gap-3" style={{ animationDelay: '0.3s' }}>
         <p className="heading-sub text-[10px]">Synopsis · Folio 0</p>
         <p className="font-display italic text-xl leading-[1.42] drop-cap text-foreground">
           A small agent reads the wires and forges an X thread for $0.05. Paid
@@ -41,12 +43,40 @@ export function LandingHero() {
         <InkDivider />
       </div>
 
+      {/* I½. Specimen — show the goods before the mechanics. A read-only
+          exhibit reusing PreviewLocked's vocabulary (opening tweet + blurred
+          locked stack); the real unlock lives behind the CTA below. */}
+      <div className="reveal flex flex-col gap-3" style={{ animationDelay: '0.7s' }}>
+        <div className="flex items-baseline justify-between">
+          <p className="heading-sub text-[10px]">Specimen · A finished leaf</p>
+          <span className="heading-sub text-[10px]">{SAMPLE_THREAD.mode}</span>
+        </div>
+        <Card className="p-4">
+          <p className="whitespace-pre-wrap text-sm">{SAMPLE_THREAD.firstTweet}</p>
+        </Card>
+        <div className="relative flex flex-col gap-2" aria-hidden>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="p-4 select-none">
+              <div className="h-3 w-3/4 rounded bg-[hsl(var(--ink-faded)/0.25)] blur-[1.5px]" />
+              <div className="mt-2 h-3 w-1/2 rounded bg-[hsl(var(--ink-faded)/0.2)] blur-[1.5px]" />
+            </Card>
+          ))}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--ink-faded))] bg-background/80 px-3 py-1 text-xs text-muted-foreground">
+              <Lock size={12} aria-hidden />
+              {SAMPLE_THREAD.total - 1} more tweets in the full thread
+            </span>
+          </div>
+        </div>
+        <InkDivider />
+      </div>
+
       {/* II. Index Modorum — three-mode TOC, leader-dot rhythm. Order, numerals
           and costs mirror ModePicker so the pre-connect page and the picker
           tell the same story. */}
       <div
         className="reveal flex flex-col gap-3"
-        style={{ animationDelay: '0.95s' }}
+        style={{ animationDelay: '1.1s' }}
       >
         <div className="flex items-baseline justify-between">
           <p className="heading-sub text-[10px]">Modes · Three styles</p>
@@ -79,7 +109,7 @@ export function LandingHero() {
       {/* III. Liber Rationum — pricing breakdown */}
       <div
         className="reveal flex flex-col gap-2"
-        style={{ animationDelay: '1.45s' }}
+        style={{ animationDelay: '1.5s' }}
       >
         <p className="heading-sub text-[10px]">
           Ledger · Where the $0.05 goes
@@ -105,7 +135,7 @@ export function LandingHero() {
       {/* IV. CTA — Take up the quill */}
       <div
         className="reveal flex flex-col gap-2.5 mt-3"
-        style={{ animationDelay: '2.0s' }}
+        style={{ animationDelay: '1.9s' }}
       >
         <Button
           size="lg"
