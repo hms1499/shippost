@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -13,12 +13,15 @@ interface Props {
 }
 
 export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate, regenerating }: Props) {
+  // lockedCount is "the rest"; the full thread is that plus the opening tweet.
+  const totalTweets = Math.max(lockedCount, 0) + 1;
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="heading-sub text-[10px]">Preview · First tweet free</p>
+        <p className="heading-sub text-[10px]">Sample · First tweet free</p>
         <p className="text-sm text-muted-foreground leading-snug">
-          Here is your opening tweet. Unlock the full thread for $0.05.
+          A free taste of the opening. Pay $0.05 to generate your full thread —
+          freshly written and fact-checked.
         </p>
       </div>
 
@@ -35,13 +38,16 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
         ))}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--ink-faded))] bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-            <Lock size={12} aria-hidden />
-            {lockedCount} more {lockedCount === 1 ? 'tweet' : 'tweets'} locked
+            ≈ {totalTweets} {totalTweets === 1 ? 'tweet' : 'tweets'} in the full thread
           </span>
         </div>
       </div>
 
-      <Button onClick={onUnlock}>Unlock full thread · $0.05</Button>
+      <Button onClick={onUnlock}>Generate full thread · $0.05</Button>
+
+      <p className="text-xs text-muted-foreground text-center leading-snug">
+        Generated fresh, so the final wording may differ from this sample.
+      </p>
 
       <button
         type="button"
@@ -50,7 +56,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
         className="self-center inline-flex items-center gap-1.5 heading-sub text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
       >
         <RefreshCw size={11} className={regenerating ? 'animate-spin' : ''} aria-hidden />
-        {regenerating ? 'Regenerating…' : 'Regenerate preview'}
+        {regenerating ? 'Regenerating…' : 'Regenerate sample'}
       </button>
     </section>
   );
