@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, X as XIcon } from 'lucide-react';
+import { Pencil, X as XIcon, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { InkDivider } from './InkDivider';
 import { InkText } from './InkText';
+import { moveTweet, deleteTweet } from '@/lib/threadEdits';
 
 const MAX_TWEET_LEN = 270;
 
@@ -74,6 +75,16 @@ export function ThreadPreview({ tweets, onChange }: Props) {
     setDraft('');
   }
 
+  // Reorder/delete only fire while no editor is open (controls are hidden in
+  // that case), so editingIdx can never drift out of sync with the array.
+  function move(i: number, dir: -1 | 1) {
+    onChange(moveTweet(tweets, i, dir));
+  }
+  function remove(i: number) {
+    onChange(deleteTweet(tweets, i));
+  }
+
+  const anyEditing = editingIdx !== null;
   const totalRoman = toRoman(tweets.length);
 
   return (
@@ -113,6 +124,13 @@ export function ThreadPreview({ tweets, onChange }: Props) {
               onStartEdit={() => startEdit(i)}
               onCancel={cancelEdit}
               onSave={saveEdit}
+              showControls={!anyEditing}
+              canMoveUp={i > 0}
+              canMoveDown={i < tweets.length - 1}
+              canDelete={tweets.length > 1}
+              onMoveUp={() => move(i, -1)}
+              onMoveDown={() => move(i, 1)}
+              onDelete={() => remove(i)}
               len={len}
               ratio={ratio}
               over={over}
@@ -143,6 +161,13 @@ interface LeafProps {
   onStartEdit: () => void;
   onCancel: () => void;
   onSave: () => void;
+  showControls: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  canDelete: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDelete: () => void;
   len: number;
   ratio: number;
   over: boolean;
@@ -160,6 +185,13 @@ function FolioLeaf({
   onStartEdit,
   onCancel,
   onSave,
+  showControls,
+  canMoveUp,
+  canMoveDown,
+  canDelete,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
   len,
   ratio,
   over,
@@ -173,7 +205,7 @@ function FolioLeaf({
     >
       <Card className="relative p-5 pt-4 flex flex-col gap-3 transition-colors duration-200 hover:border-[hsl(var(--ink-deep))]">
         {/* Folio numeral marker — top-left */}
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-2 leading-none">
             <span
               className="font-display italic text-[2rem] text-[hsl(var(--ink-faded))]"
@@ -184,26 +216,59 @@ function FolioLeaf({
             <span className="heading-sub text-[10px]">of {total}</span>
           </div>
 
-          {/* Edit nib — top-right */}
-          {!isEditing ? (
-            <button
-              type="button"
-              onClick={onStartEdit}
-              className="flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
-            >
-              <Pencil size={11} aria-hidden />
-              edit
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-destructive transition-colors"
-            >
-              <XIcon size={11} aria-hidden />
-              cancel
-            </button>
-          )}
+          {/* Right cluster: reorder + delete nibs, then the edit/cancel nib.
+              Reorder/delete hide while any leaf is being edited so the array
+              index can't drift under the open editor. Icons stay small but
+              each button keeps a ~36px tap area for thumbs. */}
+          <div className="flex items-center gap-0.5 -mr-1.5">
+            {showControls && !isEditing && (
+              <>
+                <LeafNib
+                  label="Move tweet up"
+                  onClick={onMoveUp}
+                  disabled={!canMoveUp}
+                >
+                  <ChevronUp size={15} aria-hidden />
+                </LeafNib>
+                <LeafNib
+                  label="Move tweet down"
+                  onClick={onMoveDown}
+                  disabled={!canMoveDown}
+                >
+                  <ChevronDown size={15} aria-hidden />
+                </LeafNib>
+                <LeafNib
+                  label="Delete tweet"
+                  onClick={onDelete}
+                  disabled={!canDelete}
+                  danger
+                >
+                  <Trash2 size={14} aria-hidden />
+                </LeafNib>
+              </>
+            )}
+
+            {/* Edit nib */}
+            {!isEditing ? (
+              <button
+                type="button"
+                onClick={onStartEdit}
+                className="flex items-center gap-1 px-2 h-9 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+              >
+                <Pencil size={11} aria-hidden />
+                edit
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex items-center gap-1 px-2 h-9 heading-sub text-[10px] no-underline hover:text-destructive transition-colors"
+              >
+                <XIcon size={11} aria-hidden />
+                cancel
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Body */}
@@ -262,6 +327,41 @@ function FolioLeaf({
         )}
       </Card>
     </li>
+  );
+}
+
+/**
+ * A small square nib button used for the per-leaf reorder/delete controls. The
+ * glyph stays small to match the codex line work, but the button holds a 36px
+ * (h-9 w-9) hit area so it's comfortable under a thumb.
+ */
+function LeafNib({
+  label,
+  onClick,
+  disabled,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={
+        'flex items-center justify-center h-9 w-9 rounded text-[hsl(var(--ink-faded))] no-underline transition-colors disabled:opacity-30 disabled:cursor-not-allowed ' +
+        (danger ? 'hover:text-destructive' : 'hover:text-primary')
+      }
+    >
+      {children}
+    </button>
   );
 }
 
