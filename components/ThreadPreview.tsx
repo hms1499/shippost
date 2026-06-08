@@ -321,7 +321,7 @@ function FolioLeaf({
         </div>
 
         {!isEditing && over && (
-          <p className="text-xs italic text-[hsl(var(--vermillion))] leading-snug">
+          <p className="text-xs text-[hsl(var(--vermillion))] leading-snug">
             X will split this leaf into multiple tweets when posted.
           </p>
         )}

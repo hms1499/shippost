@@ -63,7 +63,7 @@ export function ModePicker({ onSelect }: Props) {
         >
           Choose your hand
         </InkText>
-        <p className="text-sm italic text-muted-foreground leading-snug">
+        <p className="text-sm text-muted-foreground leading-snug">
           Pick a style — the agent writes the whole thread from there.
         </p>
       </div>
@@ -112,14 +112,14 @@ export function ModePicker({ onSelect }: Props) {
                         {m.badge}
                       </span>
                     )}
-                    <p className="text-sm text-muted-foreground italic mt-1 leading-snug">
+                    <p className="text-sm text-muted-foreground mt-1 leading-snug">
                       {m.blurb}
                     </p>
                   </div>
 
                   {/* Cost row — leader-dot rhythm matching the rest of the codex */}
                   <div className="flex items-baseline gap-2 text-[11px]">
-                    <span className="italic text-muted-foreground">
+                    <span className="text-muted-foreground">
                       $0.05 to begin
                     </span>
                     <span

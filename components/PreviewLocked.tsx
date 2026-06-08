@@ -17,7 +17,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">Preview · First tweet free</p>
-        <p className="text-sm italic text-muted-foreground leading-snug">
+        <p className="text-sm text-muted-foreground leading-snug">
           Here is your opening tweet. Unlock the full thread for $0.05.
         </p>
       </div>

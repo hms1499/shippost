@@ -263,7 +263,7 @@ export function WalletMenu() {
                           </button>
                         </div>
                         {connectorLabel && (
-                          <p className="text-[11px] italic text-[hsl(var(--ink-faded))] flex items-center gap-1.5">
+                          <p className="text-[11px] text-[hsl(var(--ink-faded))] flex items-center gap-1.5">
                             <Wallet size={10} aria-hidden />
                             Sealed via {connectorLabel}
                           </p>
@@ -298,7 +298,7 @@ export function WalletMenu() {
                                       {item.label}
                                     </p>
                                   </div>
-                                  <p className="text-xs italic text-muted-foreground leading-snug">
+                                  <p className="text-xs text-muted-foreground leading-snug">
                                     {item.description}
                                   </p>
                                 </div>

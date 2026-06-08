@@ -51,7 +51,7 @@ export function WalletStatus() {
         )}
 
         {!isLoading && balances.length === 0 && (
-          <li className="text-xs italic text-muted-foreground">
+          <li className="text-xs text-muted-foreground">
             No stable balances on this chain.
           </li>
         )}
@@ -98,7 +98,7 @@ export function WalletStatus() {
       </ul>
 
       {isMiniPay && connector?.name && (
-        <p className="text-[11px] italic text-[hsl(var(--ink-faded))] flex items-center gap-1.5 mt-0.5">
+        <p className="text-[11px] text-[hsl(var(--ink-faded))] flex items-center gap-1.5 mt-0.5">
           <Wallet size={10} aria-hidden />
           Sealed via {connector.name}
         </p>

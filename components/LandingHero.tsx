@@ -125,7 +125,7 @@ export function LandingHero() {
           <li className="my-0.5" aria-hidden>
             <InkDivider />
           </li>
-          <li className="text-xs italic text-muted-foreground leading-snug">
+          <li className="text-xs text-muted-foreground leading-snug">
             Agent then spends $0.001–3 on x402 calls (Groq, Serper, CoinGecko).
             The remainder is its profit; daily cap $50/token.
           </li>
@@ -215,7 +215,7 @@ function ModeEntry({ numeral, Icon, title, blurb, cost }: ModeEntryProps) {
             {cost}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground italic leading-snug">
+        <p className="text-xs text-muted-foreground leading-snug">
           {blurb}
         </p>
       </div>

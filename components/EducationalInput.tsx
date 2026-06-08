@@ -99,7 +99,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
           >
             Set the quill
           </InkText>
-          <p className="text-sm italic text-muted-foreground leading-snug">
+          <p className="text-sm text-muted-foreground leading-snug">
             Describe the concept and the reader.
           </p>
         </div>
@@ -179,7 +179,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
       >
         {effectiveToken && (
           <div className="flex items-baseline gap-2 text-[11px]">
-            <span className="italic text-muted-foreground">You pay</span>
+            <span className="text-muted-foreground">You pay</span>
             <span
               aria-hidden
               className="flex-1 border-b border-dotted border-[hsl(var(--ink-faded))] mb-1 opacity-50"
@@ -190,7 +190,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
           </div>
         )}
         {insufficient && effectiveToken && (
-          <p className="text-xs text-destructive italic leading-snug">
+          <p className="text-xs text-destructive leading-snug">
             You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
             pick another token above.
           </p>

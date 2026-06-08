@@ -141,7 +141,7 @@ export function GeneratingStatus({
       </ul>
 
       {groqStep.status === 'failed' && groqStep.error && (
-        <p className="text-xs text-destructive italic">
+        <p className="text-xs text-destructive">
           Step failed: {groqStep.error}
         </p>
       )}
@@ -149,7 +149,7 @@ export function GeneratingStatus({
       {gen.totalCostUsd && (
         <>
           <InkDivider />
-          <p className="text-xs italic text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Agent spent{' '}
             <span className="font-mono not-italic">${gen.totalCostUsd}</span>{' '}
             calligraphing this folio.
@@ -215,7 +215,7 @@ export function GeneratingStatus({
       )}
 
       {gen.fatal && (
-        <p className="text-sm text-destructive italic">
+        <p className="text-sm text-destructive">
           Pipeline failed: {gen.fatal}
         </p>
       )}
@@ -238,7 +238,7 @@ function LedgerRow({ label, Icon, right, budget }: RowProps) {
         className="self-center text-[hsl(var(--ink-faded))] shrink-0"
         aria-hidden
       />
-      <span className="italic">{label}</span>
+      <span>{label}</span>
       <span
         className="flex-1 self-center border-b border-dotted border-[hsl(var(--ink-faded))] mx-1 mt-2 opacity-60"
         aria-hidden
