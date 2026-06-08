@@ -462,6 +462,18 @@ export default function HomeClient() {
 
   const errorSurfaces = (
     <>
+      {/* Advisory only — the stall watchdog noticed no forward progress for a
+          while, but the run is NOT cancelled and the outcome is still the
+          server's to decide. No button: any refund follows from the server's
+          own fatal/done. */}
+      {screen === 'generating' && gen.isSlow && !gen.isDone && !gen.fatal && (
+        <div className="w-full max-w-md rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3">
+          <p className="text-sm text-muted-foreground leading-snug">
+            Taking longer than usual — the agent is still working. Your payment
+            is safe; if it can&apos;t finish, a refund is sent automatically.
+          </p>
+        </div>
+      )}
       {error && /approve/i.test(error) && (
         <ErrorSurface
           kind="approve-rejected"
@@ -492,14 +504,6 @@ export default function HomeClient() {
           }}
         />
       )}
-      {screen === 'generating' && gen.fatal === 'slow' && !gen.isDone && (
-        <ErrorSurface
-          kind="slow"
-          onRefundRequest={() => requestRefund('slow-cancel')}
-          refundStatus={refundStatus}
-          refundError={refundError}
-        />
-      )}
       {screen === 'generating' && capHit && (
         <ErrorSurface
           kind="cap-hit"
@@ -508,7 +512,7 @@ export default function HomeClient() {
           refundError={refundError}
         />
       )}
-      {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && !gen.tweets && (
+      {screen === 'generating' && !capHit && gen.fatal && !gen.tweets && (
         <ErrorSurface
           kind="full-fail"
           onRefundRequest={() => requestRefund('full')}
@@ -516,7 +520,7 @@ export default function HomeClient() {
           refundError={refundError}
         />
       )}
-      {screen === 'generating' && !capHit && gen.fatal && gen.fatal !== 'slow' && gen.tweets && (
+      {screen === 'generating' && !capHit && gen.fatal && gen.tweets && (
         <ErrorSurface
           kind="partial"
           onRefundRequest={() => requestRefund('partial')}
@@ -524,7 +528,7 @@ export default function HomeClient() {
           refundError={refundError}
         />
       )}
-      {screen === 'generating' && gen.fatal && gen.fatal !== 'slow' && (
+      {screen === 'generating' && gen.fatal && (
         <Button
           variant="outline"
           onClick={() => {

@@ -9,8 +9,7 @@ export type ErrorKind =
   | 'pay-failed'
   | 'partial'
   | 'full-fail'
-  | 'cap-hit'
-  | 'slow';
+  | 'cap-hit';
 
 export type RefundRequestStatus = 'idle' | 'sending' | 'sent' | 'error';
 
@@ -56,11 +55,6 @@ const COPY: Record<
     body: "Today's agent budget is spent, so this thread couldn't be generated. New generations resume at midnight UTC — and since you paid for nothing, a full refund will be sent within 24h.",
     primary: 'Request refund now',
   },
-  slow: {
-    title: 'This is taking longer than usual',
-    body: 'The pipeline is still running. You can cancel for a 50% refund.',
-    primary: 'Cancel + refund 50%',
-  },
 };
 
 export function ErrorSurface({
@@ -72,7 +66,6 @@ export function ErrorSurface({
 }: Props) {
   const c = COPY[kind];
   const isRefundKind =
-    kind === 'slow' ||
     kind === 'partial' ||
     kind === 'full-fail' ||
     kind === 'cap-hit';
