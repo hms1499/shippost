@@ -73,4 +73,15 @@ describe('POST /api/preview', () => {
     expect(await res.json()).toEqual({ available: false });
     expect(runPreview).not.toHaveBeenCalled();
   });
+
+  it('forwards eventContext into the mode-1 preview input', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook'] });
+    const eventContext = { title: 'BTC ETF record', description: 'inflows', host: 'x.co', kind: 'news' };
+    await POST(
+      req({ mode: 1, walletAddress: '0xabc', eventDescription: 'https://x.co/a', angle: 'bullish', eventContext }),
+    );
+    expect(runPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 1, eventContext }),
+    );
+  });
 });

@@ -1,6 +1,8 @@
 // Client helper: ask the server for a free first-tweet preview. Returns null
 // on ANY non-success (unavailable, error, network) so the caller can cleanly
 // fall back to the pay-first flow — a failed preview must never block paying.
+import type { EventContext } from '@/lib/eventContext';
+
 export interface PreviewArgs {
   mode: 0 | 1 | 2;
   walletAddress: string;
@@ -8,6 +10,7 @@ export interface PreviewArgs {
   audience?: 'beginner' | 'intermediate' | 'advanced';
   eventDescription?: string;
   angle?: 'bullish' | 'bearish' | 'skeptical';
+  eventContext?: EventContext | null;
 }
 
 export interface PreviewResult {

@@ -5,6 +5,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import type { Address, Hex } from 'viem';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 import type { Angle } from '@/lib/prompts/modeB';
+import type { EventContext } from '@/lib/eventContext';
 
 interface StreamRequest {
   threadId: string;
@@ -21,6 +22,7 @@ interface StreamRequest {
   // Mode B
   eventDescription?: string;
   angle?: Angle;
+  eventContext?: EventContext | null;
 }
 
 export const dynamic = 'force-dynamic';

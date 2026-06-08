@@ -5,6 +5,7 @@ import type { PipelineEvent } from '@/lib/pipeline/types';
 import { haptic } from '@/lib/haptics';
 import { initialState, applyEvent } from '@/lib/threadGeneration';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
+import type { EventContext } from '@/lib/eventContext';
 
 export type { StepState, ThreadGenerationState } from '@/lib/threadGeneration';
 
@@ -80,6 +81,7 @@ export function useThreadGeneration() {
             audience: params.audience,
             eventDescription: params.eventDescription,
             angle: params.angle,
+            eventContext: params.eventContext,
           }),
           signal: abortRef.current.signal,
         });
@@ -152,4 +154,5 @@ interface StartParams {
   // Mode B
   eventDescription?: string;
   angle?: 'bullish' | 'bearish' | 'skeptical';
+  eventContext?: EventContext | null;
 }

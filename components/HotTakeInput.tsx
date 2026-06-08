@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,10 +10,11 @@ import { InkText } from './InkText';
 import { InkDivider } from './InkDivider';
 import { Marginalia } from './Marginalia';
 import { TokenSelector } from './TokenSelector';
-import { UrlPreviewCard } from './UrlPreviewCard';
+import { UrlPreviewCard, type UrlPreview } from './UrlPreviewCard';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
 import { parseUrl } from '@/lib/urlParser';
+import type { EventContext } from '@/lib/eventContext';
 import { formatUnits } from 'viem';
 
 export type Angle = 'bullish' | 'bearish' | 'skeptical';
@@ -23,6 +24,9 @@ export interface HotTakeSubmitPayload {
   eventDescription: string;
   angle: Angle;
   token: TokenBalance;
+  // OG metadata of the pasted URL (when resolved), so the agent reads the
+  // article instead of the raw URL string. Null when no URL / preview failed.
+  eventContext: EventContext | null;
 }
 
 interface Props {
@@ -47,6 +51,11 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
 
   const parsed = useMemo(() => parseUrl(input), [input]);
   const isUrl = parsed !== null;
+
+  // Capture the OG metadata UrlPreviewCard fetches for display, so we can
+  // forward it to generation (the agent reads the article, not the URL string).
+  const [urlPreview, setUrlPreview] = useState<UrlPreview | null>(null);
+  const onPreviewResolved = useCallback((p: UrlPreview) => setUrlPreview(p), []);
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
@@ -146,7 +155,9 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
         >
           {trimmedLen}/{MAX_LEN}
         </p>
-        {isUrl && parsed && <UrlPreviewCard url={parsed.url} />}
+        {isUrl && parsed && (
+          <UrlPreviewCard url={parsed.url} onResolved={onPreviewResolved} />
+        )}
       </div>
 
       {/* II · Angle */}
@@ -221,11 +232,23 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
           disabled={!canSubmit}
           onClick={() => {
             if (canSubmit && effectiveToken) {
+              // Only forward context for the URL currently in the box, and only
+              // when the preview actually resolved with usable text.
+              const ctx: EventContext | null =
+                isUrl && urlPreview && !urlPreview.error && (urlPreview.title || urlPreview.description)
+                  ? {
+                      title: urlPreview.title,
+                      description: urlPreview.description,
+                      host: urlPreview.host,
+                      kind: urlPreview.kind,
+                    }
+                  : null;
               onSubmit({
                 eventUrl: parsed?.url ?? null,
                 eventDescription: input.trim(),
                 angle,
                 token: effectiveToken,
+                eventContext: ctx,
               });
             }
           }}

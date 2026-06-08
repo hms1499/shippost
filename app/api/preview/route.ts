@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkPreviewAllowed, getClientIp } from '@/lib/rateLimit';
 import { runPreview, type PreviewInput } from '@/lib/pipeline/runPreview';
+import type { EventContext } from '@/lib/eventContext';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,7 @@ interface Body {
   audience?: string;
   eventDescription?: string;
   angle?: string;
+  eventContext?: EventContext | null;
 }
 
 export async function POST(request: Request) {
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
     const angle = ANGLES.includes(body.angle as never)
       ? (body.angle as PreviewInput['angle'])
       : 'bullish';
-    input = { mode: 1, eventDescription: body.eventDescription, angle };
+    input = { mode: 1, eventDescription: body.eventDescription, angle, eventContext: body.eventContext ?? null };
   }
 
   // Fail-closed gate: deny → fall back to pay-first on the client. Per-IP is

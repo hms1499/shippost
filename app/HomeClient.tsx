@@ -198,6 +198,7 @@ export default function HomeClient() {
         mode: 1,
         eventDescription: hotTake.eventDescription,
         angle: hotTake.angle,
+        eventContext: hotTake.eventContext,
       });
     } else if (tokenAnalysis) {
       void startGen({
@@ -311,6 +312,7 @@ export default function HomeClient() {
                 walletAddress: address,
                 eventDescription: (payload as HotTakeSubmitPayload).eventDescription,
                 angle: (payload as HotTakeSubmitPayload).angle,
+                eventContext: (payload as HotTakeSubmitPayload).eventContext,
               };
       const preview = await fetchPreview(args);
       setPreviewLoading(false);

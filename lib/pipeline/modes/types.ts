@@ -2,6 +2,7 @@
 import type { PipelineContext, PipelineEvent } from '@/lib/pipeline/types';
 import type { Audience } from '@/lib/prompts/modeA';
 import type { Angle } from '@/lib/prompts/modeB';
+import type { EventContext } from '@/lib/eventContext';
 
 export type Emit = (e: PipelineEvent) => void;
 
@@ -13,6 +14,9 @@ export interface ModeInputBody {
   audience?: Audience;
   eventDescription?: string;
   angle?: Angle;
+  // Mode B only: OG metadata for a pasted URL, forwarded from the client so the
+  // agent reads the article's substance, not the raw URL string.
+  eventContext?: EventContext | null;
 }
 
 // Every mode normalises its result to this shape so the route can persist and
@@ -31,6 +35,7 @@ export interface PreviewInput {
   audience?: Audience;
   eventDescription?: string;
   angle?: Angle;
+  eventContext?: EventContext | null;
 }
 
 export interface ModeDef {
