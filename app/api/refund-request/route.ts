@@ -74,6 +74,17 @@ export async function POST(req: Request) {
       { status: 409 },
     );
   }
+  // Defense in depth: a 'slow-cancel' refund means "the run never finished".
+  // The current client no longer sends it, but a stale client might — and the
+  // server's deadline can complete a run the client gave up on. Never queue a
+  // cancel-refund against a thread that actually delivered. ('partial' stays
+  // valid: a completed-but-degraded thread is legitimately partially refundable.)
+  if (body.kind === 'slow-cancel' && thread.status === 'completed') {
+    return NextResponse.json(
+      { error: 'thread already completed — not eligible for a cancel refund' },
+      { status: 409 },
+    );
+  }
 
   // Upsert: if user clicks twice, return the existing pending row instead of erroring.
   const { data, error } = await supabase
