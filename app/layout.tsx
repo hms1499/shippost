@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, IM_Fell_DW_Pica } from 'next/font/google';
+import { JetBrains_Mono, IM_Fell_DW_Pica, EB_Garamond } from 'next/font/google';
 import { Providers } from './providers';
 import { ThemeApplicator } from '@/components/ThemeApplicator';
 import './globals.css';
@@ -20,6 +20,17 @@ const display = IM_Fell_DW_Pica({
   weight: ['400'],
   style: ['normal', 'italic'],
   variable: '--font-display',
+  display: 'swap',
+});
+
+// EB Garamond — a legible, modern old-style serif in the same family as the
+// display tier. The reading workhorse: body copy, labels, buttons, inputs.
+// Replaces JetBrains Mono as the body face (mono is for code, not prose).
+const serif = EB_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
   display: 'swap',
 });
 
@@ -44,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${mono.variable} ${display.variable}`}>
+    <html lang="en" className={`${mono.variable} ${display.variable} ${serif.variable}`}>
       <body>
         <ThemeApplicator />
         <Providers>{children}</Providers>

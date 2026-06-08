@@ -68,11 +68,13 @@
      edges so the centre reads as "page", (3) the actual parchment colour. */
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-feature-settings: "liga" 1, "calt" 1, "ss01" 1;
-    font-variant-numeric: lining-nums;
-    /* Mono runs dense at small sizes in the MiniPay webview; smooth the glyph
-       edges so long italic blurbs stay comfortable to read on a phone. */
+    /* Body workhorse is EB Garamond (a readable old-style serif), NOT mono.
+       Mono is reserved for data — see .font-mono / .num below. EB Garamond has
+       a small x-height, so nudge size + leading up a touch for phone comfort. */
+    font-family: var(--font-serif), Garamond, Georgia, serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    font-feature-settings: "liga" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
