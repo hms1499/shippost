@@ -71,10 +71,10 @@ export function PostShareScreen({
         />
       </ul>
 
-      <div className="flex flex-col gap-1 text-xs italic">
+      <div className="flex flex-col gap-1 text-xs">
         {payTxHash && (
           <a
-            className="text-primary not-italic"
+            className="text-primary"
             href={`${explorerBase}/tx/${payTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -83,7 +83,7 @@ export function PostShareScreen({
           </a>
         )}
         <a
-          className="text-muted-foreground not-italic"
+          className="text-muted-foreground"
           href={`${explorerBase}/address/${agentWalletAddress}`}
           target="_blank"
           rel="noopener noreferrer"

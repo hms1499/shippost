@@ -46,7 +46,7 @@ export default function HistoryPage() {
           </InkText>
         </div>
 
-        <p className="text-sm italic text-muted-foreground leading-snug">
+        <p className="text-sm text-muted-foreground leading-snug">
           Every thread you&apos;ve composed, in the order they were inked.
         </p>
       </header>
@@ -54,7 +54,7 @@ export default function HistoryPage() {
       <InkDivider />
 
       {!isConnected || !address ? (
-        <p className="text-sm italic text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Connect a wallet to read your folios.
         </p>
       ) : (

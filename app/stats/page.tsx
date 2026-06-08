@@ -95,7 +95,7 @@ export default function StatsPage() {
           </InkText>
         </div>
 
-        <p className="text-sm italic text-muted-foreground leading-snug">
+        <p className="text-sm text-muted-foreground leading-snug">
           Pulled live from the chain. Refreshed every 30 seconds.
         </p>
       </header>
@@ -120,7 +120,7 @@ export default function StatsPage() {
         )}
 
         {statsError && (
-          <p className="text-sm italic text-destructive">
+          <p className="text-sm text-destructive">
             The records are illegible. Try again later.
           </p>
         )}
@@ -192,7 +192,7 @@ export default function StatsPage() {
         )}
 
         {threadsData && threads.length === 0 && (
-          <p className="text-sm italic text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             No threads yet on this chain.
           </p>
         )}
@@ -277,7 +277,7 @@ function ThreadEntry({
           aria-hidden
         />
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <p className="text-sm italic line-clamp-1 leading-tight">
+          <p className="text-sm line-clamp-1 leading-tight">
             {thread.topic ?? '(no topic)'}
           </p>
           <p className="text-[11px] text-muted-foreground font-mono">

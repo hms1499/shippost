@@ -76,7 +76,7 @@ function Field({ label, value }: { label: string; value: string }) {
       <dt className="heading-sub text-[9px] text-[hsl(var(--ink-faded))]">
         {label}
       </dt>
-      <dd className="text-foreground italic leading-snug">{value}</dd>
+      <dd className="text-foreground leading-snug">{value}</dd>
     </div>
   );
 }

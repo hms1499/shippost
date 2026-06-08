@@ -54,7 +54,7 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
 
   if (error)
     return (
-      <p className="text-sm italic text-destructive">
+      <p className="text-sm text-destructive">
         The records are illegible. Refresh to try again.
       </p>
     );
@@ -63,7 +63,7 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
 
   if (threads.length === 0)
     return (
-      <p className="text-sm italic text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         No threads yet — your folio is blank parchment.
       </p>
     );
@@ -134,13 +134,13 @@ function HistoryEntry({
         </p>
 
         <div className="flex items-baseline gap-2 mt-1 text-[11px]">
-          <span className="italic text-muted-foreground">
+          <span className="text-muted-foreground">
             Paid 0.05 {thread.token_symbol}
           </span>
           {thread.total_cost_usd && (
             <>
               <span aria-hidden className="text-[hsl(var(--ink-faded))]">·</span>
-              <span className="italic text-muted-foreground">
+              <span className="text-muted-foreground">
                 agent spent ${thread.total_cost_usd}
               </span>
             </>
