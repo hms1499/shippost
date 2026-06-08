@@ -31,28 +31,30 @@
     --vermillion: 8 70% 42%;
   }
 
-  /* Dark: original slate. Activated for MiniPay webview only (mobile UX). */
+  /* Dark: candlelit codex — aged vellum at night. Warm near-black ground,
+     cream ink, gilt-amber accents. Activated for MiniPay webview only (mobile
+     UX); carries the parchment identity onto the surface real users see. */
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 13%;
-    --card-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 22%;
-    --input: 217 33% 22%;
-    --ring: 217 91% 60%;
-    --ink-deep: 210 40% 98%;
-    --ink-faded: 215 20% 65%;
-    --vermillion: 0 70% 60%;
+    --background: 30 14% 9%;
+    --foreground: 40 30% 90%;
+    --card: 30 13% 12%;
+    --card-foreground: 40 30% 90%;
+    --primary: 36 68% 56%;
+    --primary-foreground: 30 30% 10%;
+    --secondary: 30 12% 17%;
+    --secondary-foreground: 40 30% 90%;
+    --muted: 30 11% 17%;
+    --muted-foreground: 38 16% 64%;
+    --accent: 32 28% 26%;
+    --accent-foreground: 40 30% 90%;
+    --destructive: 8 62% 50%;
+    --destructive-foreground: 40 30% 95%;
+    --border: 32 14% 26%;
+    --input: 32 14% 24%;
+    --ring: 36 68% 56%;
+    --ink-deep: 40 30% 92%;
+    --ink-faded: 36 14% 60%;
+    --vermillion: 8 75% 60%;
   }
 }
 
@@ -69,6 +71,11 @@
     font-family: var(--font-mono), ui-monospace, monospace;
     font-feature-settings: "liga" 1, "calt" 1, "ss01" 1;
     font-variant-numeric: lining-nums;
+    /* Mono runs dense at small sizes in the MiniPay webview; smooth the glyph
+       edges so long italic blurbs stay comfortable to read on a phone. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     background-image:
       radial-gradient(
         ellipse 90% 70% at 50% 38%,
@@ -82,9 +89,25 @@
     background-attachment: fixed, scroll;
     background-blend-mode: multiply, multiply;
   }
+  /* Dark keeps the codex texture, dialled down: a warm candlelit vignette so
+     the centre reads as a lit page, plus a faint grain. Subtle enough to stay
+     clean in the MiniPay webview. */
   .dark body {
-    background-image: none;
-    background-attachment: scroll;
+    background-image:
+      radial-gradient(
+        ellipse 95% 75% at 50% 32%,
+        hsl(36 40% 60% / 0.05) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        ellipse 90% 80% at 50% 50%,
+        transparent 45%,
+        hsl(30 30% 3% / 0.55) 100%
+      ),
+      url("data:image/svg+xml;utf8,<svg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.85  0 0 0 0 0.74  0 0 0 0 0.52  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    background-size: auto, auto, 240px 240px;
+    background-attachment: fixed, fixed, scroll;
+    background-blend-mode: screen, multiply, overlay;
   }
 
   /* Hierarchy is two-voice: IM Fell DW Pica is the display tier (hero,
@@ -177,8 +200,16 @@
       0 0 0 1px hsl(var(--border) / 0.4),
       inset 0 0 0 1px hsl(var(--card-foreground) / 0.02);
   }
+  /* Dark cards keep a faint gilt sheen + inner hairline so they still read as
+     tooled vellum panels rather than flat slate. */
   .dark .codex-card {
-    background-image: none;
+    background-image:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))),
+      linear-gradient(135deg, hsl(36 50% 60% / 0.05), transparent 55%);
+    box-shadow:
+      0 1px 0 0 hsl(var(--border) / 0.7),
+      0 0 0 1px hsl(var(--border) / 0.5),
+      inset 0 0 0 1px hsl(40 40% 80% / 0.03);
   }
 
   .folio {
@@ -195,7 +226,8 @@
     opacity: 0.9;
   }
   .dark .folio::before {
-    display: none;
+    border-color: hsl(var(--border) / 0.6);
+    opacity: 0.7;
   }
 
   /* Drop cap: oversized IM Fell italic. The hand-pressed irregular shapes
