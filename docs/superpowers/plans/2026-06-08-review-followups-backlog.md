@@ -6,7 +6,15 @@ Owner: solo (trunk-based on `main`)
 Prioritized backlog of what's left from the senior UI/UX + flow review. Each
 item lists the problem, evidence (`file:line`), the recommended approach, and a
 rough effort (XS/S/M/L). When picking one up: brainstorm → spec → TDD, same as
-this session. **Start next session at B1 (cheapest correctness win).**
+this session.
+
+> **Status (2026-06-09):** B1, A2, A1, B2, B3, B4 all shipped to `main`. **C1
+> shipped** — spec `docs/superpowers/specs/2026-06-09-funnel-instrumentation-design.md`,
+> plan `docs/superpowers/plans/2026-06-09-funnel-instrumentation.md`, implemented
+> across 8 commits (`4b908b4`…`6fa7c8f`). **Only C2 (i18n) remains** — deliberately
+> deferred until the C1 funnel produces drop-off data to guide it. NOTE: the
+> `0006_funnel_events.sql` migration must be applied to Supabase before the
+> ingest route can write in a live environment.
 
 ## Done this session (context)
 - Slow-state advisory model — fixed UI dead-end + refund-on-delivered (#1/#2).
@@ -108,6 +116,7 @@ this session. **Start next session at B1 (cheapest correctness win).**
 ---
 
 ## Suggested order
-`push` (this session) → **B1** → **A2** → **A1** → batch **B2/B3/B4** →
-**C1** → **C2**. Rationale: cheap correctness/polish first, instrument (C1)
-before investing in the big UX bet (C2) so data guides it.
+`push` → ~~**B1**~~ → ~~**A2**~~ → ~~**A1**~~ → batch ~~**B2/B3/B4**~~ →
+~~**C1**~~ → **C2** (next). Rationale: cheap correctness/polish first, instrument
+(C1) before investing in the big UX bet (C2) so data guides it. Everything
+through C1 is done; C2 is the only remaining item and needs its own spec.
