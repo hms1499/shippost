@@ -2,6 +2,7 @@ import { getMode } from '@/lib/pipeline/modes';
 import { getContracts } from '@/lib/contracts';
 import { verifyPayment } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
+import { claimGenerationOnce } from '@/lib/rateLimit';
 import type { Address, Hex } from 'viem';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 import type { Angle } from '@/lib/prompts/modeB';
@@ -141,6 +142,20 @@ export async function POST(req: Request) {
       console.error('[supabase] insert pending failed:', error.message);
       return new Response('could not record generation attempt', { status: 503 });
     }
+  } else {
+    // Supabase unreachable → the unique-index replay guard above was skipped.
+    // Fall back to a Redis SET NX on the payment so a replayed payTxHash still
+    // can't generate (and spend x402) twice during the outage window. Only on
+    // this branch: in the Supabase path the index is the guard, and reusing
+    // Redis there would block legitimate retries after a transient DB error.
+    const claim = await claimGenerationOnce(
+      `${body.chainId}:${body.payTxHash.toLowerCase()}`,
+    );
+    if (claim === 'replay') {
+      return new Response('thread already generated for this payment', { status: 409 });
+    }
+    // 'claimed' or 'unavailable' (dual outage) → proceed; verifyPayment + the
+    // on-chain daily cap still bound abuse.
   }
 
   const stream = new ReadableStream<Uint8Array>({

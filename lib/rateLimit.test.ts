@@ -2,15 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Hoisted mock fns so the vi.mock factories (hoisted above imports) can close
 // over them.
-const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor } = vi.hoisted(() => ({
+const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor, setMock } = vi.hoisted(() => ({
   limitMock: vi.fn(),
   redisCtor: vi.fn(),
   slidingWindowMock: vi.fn((tokens: number, window: string) => ({ tokens, window })),
   ratelimitCtor: vi.fn(),
+  setMock: vi.fn(),
 }));
 
 vi.mock('@upstash/redis', () => ({
   Redis: class {
+    set = setMock;
     constructor(opts: unknown) {
       redisCtor(opts);
     }
@@ -167,6 +169,46 @@ describe('checkPreviewAllowed', () => {
     limitMock.mockRejectedValue(new Error('redis down'));
     const { checkPreviewAllowed } = await load();
     expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
+  });
+});
+
+describe('claimGenerationOnce', () => {
+  it('returns "unavailable" and never touches Redis when env is missing', async () => {
+    clearUpstashEnv();
+    const { claimGenerationOnce } = await load();
+
+    expect(await claimGenerationOnce('42220:0xabc')).toBe('unavailable');
+    expect(redisCtor).not.toHaveBeenCalled();
+    expect(setMock).not.toHaveBeenCalled();
+  });
+
+  it('claims the key the first time (SET NX returns OK)', async () => {
+    setUpstashEnv();
+    setMock.mockResolvedValue('OK');
+    const { claimGenerationOnce } = await load();
+
+    expect(await claimGenerationOnce('42220:0xabc')).toBe('claimed');
+    expect(setMock).toHaveBeenCalledWith(
+      'generate:claim:42220:0xabc',
+      '1',
+      { nx: true, ex: 3600 },
+    );
+  });
+
+  it('reports a replay when the key already exists (SET NX returns null)', async () => {
+    setUpstashEnv();
+    setMock.mockResolvedValue(null);
+    const { claimGenerationOnce } = await load();
+
+    expect(await claimGenerationOnce('42220:0xabc')).toBe('replay');
+  });
+
+  it('fails open ("unavailable") when Redis throws', async () => {
+    setUpstashEnv();
+    setMock.mockRejectedValue(new Error('upstash down'));
+    const { claimGenerationOnce } = await load();
+
+    expect(await claimGenerationOnce('42220:0xabc')).toBe('unavailable');
   });
 });
 

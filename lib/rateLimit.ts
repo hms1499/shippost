@@ -92,6 +92,32 @@ export async function checkRateLimit(
   }
 }
 
+export type GenerationClaim = 'claimed' | 'replay' | 'unavailable';
+
+// Backstop replay guard for the paid generate route. The primary guard is the
+// unique (chain_id, onchain_thread_id) index in Supabase, inserted before any
+// spend. When Supabase is unreachable that insert is skipped (degraded mode),
+// leaving a window where the same payTxHash could be replayed to spend x402
+// repeatedly for one payment. A Redis SET NX (1h TTL — well past the 150s
+// pipeline) closes that window cheaply. Fails OPEN ('unavailable') when Redis
+// is also down, matching checkRateLimit: a dual outage degrades to
+// verifyPayment + the on-chain daily cap rather than taking generation fully
+// offline.
+export async function claimGenerationOnce(key: string): Promise<GenerationClaim> {
+  const r = getRedis();
+  if (!r) return 'unavailable';
+  try {
+    const res = await r.set(`generate:claim:${key}`, '1', { nx: true, ex: 3600 });
+    return res === 'OK' ? 'claimed' : 'replay';
+  } catch (e) {
+    console.error(
+      '[rateLimit] generation claim error — failing open:',
+      e instanceof Error ? e.message : e,
+    );
+    return 'unavailable';
+  }
+}
+
 // Vercel sets x-forwarded-for; take the client (first) entry. Missing header
 // buckets together under a sentinel rather than throwing.
 export function getClientIp(req: Request): string {
