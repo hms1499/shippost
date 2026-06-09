@@ -93,4 +93,31 @@ describe('payGroqViaX402', () => {
     payFetch.mockResolvedValue(res({ tweets: [] }));
     await expect(payGroqViaX402(params)).rejects.toThrow('no tweets');
   });
+
+  it('throws before reserving cap or paying when the signal is already aborted', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    await expect(payGroqViaX402({ ...params, signal: ac.signal })).rejects.toThrow(/abort/i);
+    expect(isPaused).not.toHaveBeenCalled();
+    expect(reserveDailySpend).not.toHaveBeenCalled();
+    expect(payFetch).not.toHaveBeenCalled();
+  });
+
+  it('re-checks the signal right before the payment fetch (deadline fired during reserve)', async () => {
+    const ac = new AbortController();
+    // The cap reservation hits Redis; the deadline can fire while it's in flight.
+    reserveDailySpend.mockImplementation(async () => {
+      ac.abort();
+    });
+    await expect(payGroqViaX402({ ...params, signal: ac.signal })).rejects.toThrow(/abort/i);
+    expect(payFetch).not.toHaveBeenCalled();
+  });
+
+  it('forwards the abort signal into the payment fetch (native cancellation)', async () => {
+    const ac = new AbortController();
+    payFetch.mockResolvedValue(res({ tweets: ['t1'] }));
+    await payGroqViaX402({ ...params, signal: ac.signal });
+    const [, init] = payFetch.mock.calls[0];
+    expect(init.signal).toBe(ac.signal);
+  });
 });

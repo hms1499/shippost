@@ -82,6 +82,14 @@ describe('generateDraft', () => {
     await expect(generateDraft({ ...ctx, signal: ac.signal }, msgs)).rejects.toThrow(/abort/i);
     expect(payGroqViaX402).not.toHaveBeenCalled();
   });
+
+  it('x402 mode: forwards the run signal so a mid-call deadline can cancel the settle', async () => {
+    getSettleMode.mockReturnValue('x402');
+    payGroqViaX402.mockResolvedValue({ tweets: ['a'], settlementTxHash: '0xtx' });
+    const ac = new AbortController();
+    await generateDraft({ ...ctx, signal: ac.signal }, msgs);
+    expect(payGroqViaX402).toHaveBeenCalledWith(expect.objectContaining({ signal: ac.signal }));
+  });
 });
 
 describe('generateTweets', () => {

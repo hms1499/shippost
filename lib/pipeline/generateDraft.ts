@@ -50,6 +50,9 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
       messages: input.messages,
       temperature: input.temperature,
       maxTokens: input.maxTokens,
+      // Forward the deadline so a timeout mid-proxy-call cancels before settle,
+      // mirroring the legacy path's re-check right before settleX402Call.
+      signal: ctx.signal,
     });
     return {
       tweets,

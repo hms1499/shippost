@@ -9,6 +9,17 @@ export interface PayGroqParams {
   messages: { role: 'system' | 'user'; content: string }[];
   temperature: number;
   maxTokens: number;
+  // Run deadline. In x402 mode the payment is bundled into the proxy fetch
+  // (the X-Payment is signed + settled server-side during this request), so —
+  // unlike the legacy settle — there's no separate point to gate. We honour the
+  // signal two ways: throw before the fetch if the deadline already fired
+  // (no spend for an already-`fatal`, refundable run), and forward it to the
+  // fetch so a deadline mid-request cancels it before settlement completes.
+  signal?: AbortSignal;
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error('aborted: generation deadline exceeded');
 }
 
 export interface PayGroqResult {
@@ -49,6 +60,10 @@ export async function payGroqViaX402(params: PayGroqParams): Promise<PayGroqResu
   const pk = requireEnv('AGENT_WALLET_PRIVATE_KEY') as `0x${string}`;
   const proxyBase = requireEnv('X402_PROXY_BASE_URL');
 
+  // Already past the deadline → don't even reserve cap budget for a run that's
+  // already `fatal`/refundable.
+  throwIfAborted(params.signal);
+
   // Layer 3 then Layer 2, BEFORE any payment. Either throws => refundable, no spend.
   if (await isPaused()) throw new Error('x402 settlement paused');
   await reserveDailySpend({ token: cfg.usdc, amountRaw: priceRawUSDC(), capRaw: dailyCapRawUSDC() });
@@ -60,6 +75,10 @@ export async function payGroqViaX402(params: PayGroqParams): Promise<PayGroqResu
   registerExactEvmScheme(client, { signer: account });
   const fetchWithPay = wrapFetchWithPayment(fetch, client);
 
+  // Immediately before the settle (the payment rides this fetch): the reserve
+  // above touches Redis, during which the deadline may have fired.
+  throwIfAborted(params.signal);
+
   const url = `${proxyBase}/api/x402/groq`;
   const res = await fetchWithPay(url, {
     method: 'POST',
@@ -69,6 +88,7 @@ export async function payGroqViaX402(params: PayGroqParams): Promise<PayGroqResu
       temperature: params.temperature,
       maxTokens: params.maxTokens,
     }),
+    signal: params.signal,
   });
 
   if (!res.ok) {
