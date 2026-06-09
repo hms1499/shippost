@@ -442,6 +442,12 @@ export default function HomeClient() {
           <ShareToX tweets={draftTweets} />
         </StaggerItem>
         <StaggerItem>
+          {/* SELF-REPORTED signal: the app can't verify a post actually landed
+              on X, only that the user clicked here. When the funnel is
+              instrumented (C1), record this as a self-reported "claims posted"
+              event — never as a verified share-rate. A harder signal is
+              available in ShareToX (postFirstTweet sees the X composer take the
+              foreground via visibilitychange). */}
           <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
         </StaggerItem>
       </Stagger>
