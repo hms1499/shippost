@@ -6,7 +6,8 @@ export type LimiterName =
   | 'refund-request'
   | 'free-preview'
   | 'free-preview-ip'
-  | 'free-preview-global';
+  | 'free-preview-global'
+  | 'funnel-ingest';
 
 export interface RateLimitResult {
   success: boolean;
@@ -30,6 +31,7 @@ const LIMITS: Record<LimiterName, { tokens: number; window: `${number} s` }> = {
   // NAT (a few real users behind one IP).
   'free-preview-ip': { tokens: 10, window: '600 s' },
   'free-preview-global': { tokens: PREVIEW_DAILY_CAP, window: '86400 s' },
+  'funnel-ingest': { tokens: 60, window: '60 s' },
 };
 
 // Fail-open result: returned whenever rate limiting is unavailable so a limiter
