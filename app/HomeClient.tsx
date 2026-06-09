@@ -37,6 +37,7 @@ import type { EducationalSubmitPayload } from '@/components/EducationalInput';
 import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import type { TokenAnalysisSubmitPayload } from '@/components/TokenAnalysisInput';
 import { usePayForThread } from '@/lib/usePayForThread';
+import { track } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
@@ -136,8 +137,11 @@ export default function HomeClient() {
       reset();
       resetGen();
     }
+    if (!prevConnected.current && isConnected) {
+      track('connect', { chainId, wallet: address ?? undefined });
+    }
     prevConnected.current = isConnected;
-  }, [isConnected, reset, resetGen]);
+  }, [isConnected, reset, resetGen, chainId, address]);
 
   const autoConnectAttempted = useRef(false);
   useEffect(() => {
@@ -237,10 +241,21 @@ export default function HomeClient() {
 
   useEffect(() => {
     if (gen.isDone && gen.tweets && !gen.fatal) {
-      if (draftTweets === null) setDraftTweets(gen.tweets);
+      if (draftTweets === null) {
+        const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+        track('share', { mode, chainId, wallet: address ?? undefined });
+        setDraftTweets(gen.tweets);
+      }
       setScreen('preview');
     }
-  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets]);
+  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, chainId, address]);
+
+  useEffect(() => {
+    if (status === 'success') {
+      const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+      track('pay', { mode, chainId, wallet: address ?? undefined });
+    }
+  }, [status, submitted, hotTake, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
@@ -296,6 +311,7 @@ export default function HomeClient() {
       mode: 0 | 1 | 2,
     ) => {
       if (!address) return;
+      track('submit', { mode, chainId, wallet: address });
       setPreviewLoading(true);
       const args: PreviewArgs =
         mode === 0
@@ -323,13 +339,14 @@ export default function HomeClient() {
       setPreviewLoading(false);
       if (preview) {
         setPreviewData(preview);
+        track('preview', { mode, chainId, wallet: address });
         setScreen('preview-locked');
       } else {
         setScreen('generating');
         await pay(payload.token, mode);
       }
     },
-    [address, pay],
+    [address, chainId, pay],
   );
 
   const unlock = useCallback(async () => {
@@ -344,6 +361,8 @@ export default function HomeClient() {
     screen === 'mode' ? (
       <ModePicker
         onSelect={(m) => {
+          const mode = m === 'educational' ? 0 : m === 'hot-take' ? 1 : 2;
+          track('mode_select', { mode, chainId, wallet: address ?? undefined });
           if (m === 'educational') setScreen('educational');
           if (m === 'hot-take') setScreen('hot-take');
           if (m === 'token-analysis') setScreen('token-analysis');
