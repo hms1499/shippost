@@ -45,6 +45,7 @@ import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { useIsDesktop } from '@/lib/useIsDesktop';
+import { useKeyboardInset } from '@/lib/useKeyboardInset';
 import { FolioSpread } from '@/components/FolioSpread';
 import { ComposeSummary } from '@/components/ComposeSummary';
 import { RightLeafPlaceholder } from '@/components/RightLeafPlaceholder';
@@ -97,6 +98,10 @@ export default function HomeClient() {
   const isMiniPay = useIsMiniPay();
   const isDesktop = useIsDesktop();
   const spread = !isMiniPay && isDesktop;
+  // When the webview keyboard opens it covers the bottom of the screen, where
+  // the primary CTA lives. Add matching bottom scroll-room so the button can be
+  // scrolled up above the keyboard instead of being trapped under it.
+  const keyboardInset = useKeyboardInset();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const onSupportedChain = chainId === TARGET_CHAIN_ID;
@@ -573,7 +578,14 @@ export default function HomeClient() {
   ) : null;
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center gap-6 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+    <main
+      className="relative min-h-screen flex flex-col items-center gap-6 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+      style={
+        keyboardInset > 0
+          ? { paddingBottom: `calc(1.5rem + env(safe-area-inset-bottom) + ${keyboardInset}px)` }
+          : undefined
+      }
+    >
       {/* Decorative ink stains, light theme only — pulled to edges so they
           don't sit on top of content. dark:hidden keeps MiniPay clean. */}
       <InkBlot
