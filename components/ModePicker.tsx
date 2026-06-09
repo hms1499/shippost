@@ -22,6 +22,12 @@ interface Mode {
   badge?: string;
 }
 
+// Presentation order only. The `numeral` (I/II/III) is the curated reading
+// order on this screen — Hot Take leads as the flagship — and is DELIBERATELY
+// NOT the on-chain mode id. Those ids are append-only and emitted in the
+// `ThreadRequested` event: educational=0, hot-take=1, token-analysis=2 (see
+// lib/pipeline/modes/*). Renumbering for cosmetic alignment would break the
+// contract event mapping — change the display numeral here, never the id.
 const MODES: Mode[] = [
   {
     id: 'hot-take',
