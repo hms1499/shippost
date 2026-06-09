@@ -125,6 +125,7 @@ export default function HomeClient() {
   // the mode picker. Without this, screens like 'generating' or 'preview' stay
   // visible with stale data after the wallet is gone.
   const prevConnected = useRef(false);
+  const paidTracked = useRef<string | null>(null);
   useEffect(() => {
     if (prevConnected.current && !isConnected) {
       setScreen('mode');
@@ -251,11 +252,15 @@ export default function HomeClient() {
   }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, chainId, address]);
 
   useEffect(() => {
-    if (status === 'success') {
-      const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
-      track('pay', { mode, chainId, wallet: address ?? undefined });
+    if (status === 'success' && threadId != null) {
+      const key = threadId.toString();
+      if (paidTracked.current !== key) {
+        paidTracked.current = key;
+        const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+        track('pay', { mode, chainId, wallet: address ?? undefined });
+      }
     }
-  }, [status, submitted, hotTake, chainId, address]);
+  }, [status, threadId, submitted, hotTake, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
