@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export type ErrorKind =
-  | 'insufficient'
   | 'approve-rejected'
   | 'pay-failed'
   | 'partial'
@@ -25,11 +24,6 @@ const COPY: Record<
   ErrorKind,
   { title: string; body: string; primary?: string }
 > = {
-  insufficient: {
-    title: 'Not enough balance',
-    body: 'You need 0.05 of the selected token. Top up in MiniPay or pick another token above.',
-    primary: 'Open MiniPay top-up',
-  },
   'approve-rejected': {
     title: 'Approval cancelled',
     body: 'You rejected the approve step. No funds moved.',
@@ -69,11 +63,7 @@ export function ErrorSurface({
     kind === 'partial' ||
     kind === 'full-fail' ||
     kind === 'cap-hit';
-  const primary = kind === 'insufficient'
-    ? () => window.open('https://minipay.to', '_blank')
-    : isRefundKind
-      ? onRefundRequest
-      : onRetry;
+  const primary = isRefundKind ? onRefundRequest : onRetry;
 
   const buttonLabel = isRefundKind && refundStatus === 'sending'
     ? 'Sending…'
