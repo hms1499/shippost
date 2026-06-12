@@ -74,6 +74,18 @@ describe('POST /api/preview', () => {
     expect(runPreview).not.toHaveBeenCalled();
   });
 
+  it('accepts mode 3 with no content fields (Daily Recap is input-free)', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook', '2/ body'] });
+    const res = await POST(req({ mode: 3, walletAddress: '0xabc' }));
+    expect(res.status).toBe(200);
+    expect(runPreview).toHaveBeenCalledWith({ mode: 3 });
+  });
+
+  it('rejects an out-of-range mode', async () => {
+    const res = await POST(req({ mode: 4, walletAddress: '0xabc' }));
+    expect(res.status).toBe(400);
+  });
+
   it('forwards eventContext into the mode-1 preview input', async () => {
     runPreview.mockResolvedValue({ tweets: ['1/ hook'] });
     const eventContext = { title: 'BTC ETF record', description: 'inflows', host: 'x.co', kind: 'news' };

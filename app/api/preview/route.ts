@@ -31,12 +31,15 @@ export async function POST(request: Request) {
   if (typeof body.walletAddress !== 'string' || body.walletAddress.length === 0) {
     return NextResponse.json({ error: 'walletAddress required' }, { status: 400 });
   }
-  if (body.mode !== 0 && body.mode !== 1 && body.mode !== 2) {
-    return NextResponse.json({ error: 'mode must be 0, 1, or 2' }, { status: 400 });
+  if (body.mode !== 0 && body.mode !== 1 && body.mode !== 2 && body.mode !== 3) {
+    return NextResponse.json({ error: 'mode must be 0, 1, 2, or 3' }, { status: 400 });
   }
 
   let input: PreviewInput;
-  if (body.mode === 0) {
+  if (body.mode === 3) {
+    // Daily Recap is deliberately input-free — the grounding is the input.
+    input = { mode: 3 };
+  } else if (body.mode === 0) {
     if (typeof body.topic !== 'string' || !body.topic.trim()) {
       return NextResponse.json({ error: 'topic required' }, { status: 400 });
     }

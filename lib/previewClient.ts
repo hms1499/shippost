@@ -4,7 +4,7 @@
 import type { EventContext } from '@/lib/eventContext';
 
 export interface PreviewArgs {
-  mode: 0 | 1 | 2;
+  mode: 0 | 1 | 2 | 3;
   walletAddress: string;
   topic?: string; // Mode 0 = topic; Mode 2 = token ticker
   audience?: 'beginner' | 'intermediate' | 'advanced';
