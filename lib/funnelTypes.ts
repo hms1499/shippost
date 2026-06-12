@@ -21,15 +21,15 @@ export function isFunnelStage(v: unknown): v is FunnelStage {
   return typeof v === 'string' && (FUNNEL_STAGES as readonly string[]).includes(v);
 }
 
-export function isValidMode(v: unknown): v is 0 | 1 | 2 | null | undefined {
-  return v === null || v === undefined || v === 0 || v === 1 || v === 2;
+export function isValidMode(v: unknown): v is 0 | 1 | 2 | 3 | null | undefined {
+  return v === null || v === undefined || v === 0 || v === 1 || v === 2 || v === 3;
 }
 
 // The wire shape the client sends and the ingest route validates.
 export interface FunnelEventInput {
   session_id: string;
   stage: FunnelStage;
-  mode?: 0 | 1 | 2 | null;
+  mode?: 0 | 1 | 2 | 3 | null;
   chain_id?: number | null;
   wallet_address?: string | null;
 }

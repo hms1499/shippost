@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import useSWR from 'swr';
 import { useChainId } from 'wagmi';
-import { ArrowLeft, ArrowRight, GraduationCap, Flame, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { InkText } from '@/components/InkText';
 import { InkDivider } from '@/components/InkDivider';
@@ -263,7 +263,7 @@ function ThreadEntry({
   explorer: string;
   index: number;
 }) {
-  const ModeIcon = thread.mode === 0 ? GraduationCap : Flame;
+  const ModeIcon = thread.mode === 0 ? GraduationCap : thread.mode === 3 ? Newspaper : Flame;
   return (
     <li
       style={{

@@ -35,7 +35,7 @@ export function buildPayload(
   opts: { mode?: number | null; chainId?: number | null; wallet?: string | null } = {},
 ): FunnelEventInput {
   const payload: FunnelEventInput = { session_id: sessionId, stage };
-  if (opts.mode === 0 || opts.mode === 1 || opts.mode === 2) payload.mode = opts.mode;
+  if (opts.mode === 0 || opts.mode === 1 || opts.mode === 2 || opts.mode === 3) payload.mode = opts.mode;
   if (typeof opts.chainId === 'number') payload.chain_id = opts.chainId;
   if (opts.wallet) payload.wallet_address = opts.wallet.toLowerCase();
   return payload;
