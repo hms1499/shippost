@@ -67,6 +67,23 @@ describe('runModeB overrides (sibling modes)', () => {
     );
   });
 
+  it('uses marketStep instead of the cashtag CoinGecko step when provided', async () => {
+    const marketStep = vi.fn().mockResolvedValue('whole-market snapshot');
+    await runModeB(
+      {
+        ...baseCtx,
+        angle: 'skeptical',
+        eventDescription: 'ignored',
+        marketStep,
+        buildPrompt: ({ marketSnippet }) => `PROMPT:${marketSnippet}`,
+      },
+      () => {},
+    );
+    expect(marketStep).toHaveBeenCalledOnce();
+    expect(runCoinGeckoStep).not.toHaveBeenCalled();
+    expect(userMessageOf(generateDraft.mock.calls[0])).toBe('PROMPT:whole-market snapshot');
+  });
+
   it('uses buildPrompt when provided', async () => {
     await runModeB(
       {

@@ -22,6 +22,10 @@ interface ModeBContext extends PipelineContext {
   // Defaults reproduce Hot Take exactly.
   serperQuery?: string;
   buildPrompt?: (args: { searchSummary: string | null; marketSnippet: string | null }) => string;
+  // Replaces the cashtag CoinGecko lookup with a custom market step (e.g. the
+  // Daily Recap whole-market overview). Must emit the 'coingecko' lifecycle
+  // itself and return the ready-to-use snippet.
+  marketStep?: (ctx: PipelineContext, emit: (e: PipelineEvent) => void) => Promise<string | null>;
 }
 
 export async function runModeB(
@@ -54,8 +58,12 @@ export async function runModeB(
   // Step 2 — CoinGecko market data (soft-fail: free API, no x402 settle)
   let marketSnippet: string | null = null;
   try {
-    const cg = await runCoinGeckoStep(ctx, wrappedEmit);
-    marketSnippet = summarizeMarket(cg);
+    if (ctx.marketStep) {
+      marketSnippet = await ctx.marketStep(ctx, wrappedEmit);
+    } else {
+      const cg = await runCoinGeckoStep(ctx, wrappedEmit);
+      marketSnippet = summarizeMarket(cg);
+    }
   } catch (e) {
     console.error('[runModeB] coingecko failed:', e);
     emit({ type: 'step_failed', step: 'coingecko', error: e instanceof Error ? e.message : 'market data failed' });
