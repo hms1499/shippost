@@ -36,6 +36,7 @@ import { ErrorSurface } from '@/components/ErrorSurface';
 import type { EducationalSubmitPayload } from '@/components/EducationalInput';
 import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import type { TokenAnalysisSubmitPayload } from '@/components/TokenAnalysisInput';
+import type { DailyRecapSubmitPayload } from '@/components/DailyRecapInput';
 import { usePayForThread } from '@/lib/usePayForThread';
 import { track } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
@@ -61,6 +62,10 @@ const HotTakeInput = dynamic(
 );
 const TokenAnalysisInput = dynamic(
   () => import('@/components/TokenAnalysisInput').then((m) => m.TokenAnalysisInput),
+  { ssr: false },
+);
+const DailyRecapInput = dynamic(
+  () => import('@/components/DailyRecapInput').then((m) => m.DailyRecapInput),
   { ssr: false },
 );
 const GeneratingStatus = dynamic(
@@ -111,13 +116,15 @@ export default function HomeClient() {
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
   const [hotTake, setHotTake] = useState<HotTakeSubmitPayload | null>(null);
   const [tokenAnalysis, setTokenAnalysis] = useState<TokenAnalysisSubmitPayload | null>(null);
+  const [dailyRecap, setDailyRecap] = useState<DailyRecapSubmitPayload | null>(null);
   const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
   const [previewData, setPreviewData] = useState<{ firstTweet: string; totalTweets: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [refundStatus, setRefundStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [refundError, setRefundError] = useState<string | null>(null);
 
-  const activeToken = submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ?? null;
+  const activeToken =
+    submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? null;
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
@@ -132,6 +139,7 @@ export default function HomeClient() {
       setSubmitted(null);
       setHotTake(null);
       setTokenAnalysis(null);
+      setDailyRecap(null);
       setDraftTweets(null);
       setPreviewData(null);
       setPreviewLoading(false);
@@ -224,6 +232,18 @@ export default function HomeClient() {
         topic: tokenAnalysis.ticker,
         angle: tokenAnalysis.angle,
       });
+    } else if (dailyRecap) {
+      void startGen({
+        threadId,
+        chainId,
+        walletAddress: address,
+        tokenSymbol: dailyRecap.token.symbol,
+        tokenAddress: dailyRecap.token.address,
+        amountPaidRaw: computeTokenAmount(dailyRecap.token).toString(),
+        payTxHash: txHash,
+        // Daily Recap is input-free — no content fields ride along.
+        mode: 3,
+      });
     }
   }, [
     status,
@@ -233,6 +253,7 @@ export default function HomeClient() {
     submitted,
     hotTake,
     tokenAnalysis,
+    dailyRecap,
     gen.hasStarted,
     gen.isDone,
     gen.fatal,
@@ -243,24 +264,24 @@ export default function HomeClient() {
   useEffect(() => {
     if (gen.isDone && gen.tweets && !gen.fatal) {
       if (draftTweets === null) {
-        const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+        const mode: 0 | 1 | 2 | 3 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : 3;
         track('share', { mode, chainId, wallet: address ?? undefined });
         setDraftTweets(gen.tweets);
       }
       setScreen('preview');
     }
-  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, chainId, address]);
+  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, tokenAnalysis, chainId, address]);
 
   useEffect(() => {
     if (status === 'success' && threadId != null) {
       const key = threadId.toString();
       if (paidTracked.current !== key) {
         paidTracked.current = key;
-        const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+        const mode: 0 | 1 | 2 | 3 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : 3;
         track('pay', { mode, chainId, wallet: address ?? undefined });
       }
     }
-  }, [status, threadId, submitted, hotTake, chainId, address]);
+  }, [status, threadId, submitted, hotTake, tokenAnalysis, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
@@ -312,8 +333,12 @@ export default function HomeClient() {
   // through to the existing pay-first flow. A failed preview never blocks paying.
   const beginFlow = useCallback(
     async (
-      payload: EducationalSubmitPayload | HotTakeSubmitPayload | TokenAnalysisSubmitPayload,
-      mode: 0 | 1 | 2,
+      payload:
+        | EducationalSubmitPayload
+        | HotTakeSubmitPayload
+        | TokenAnalysisSubmitPayload
+        | DailyRecapSubmitPayload,
+      mode: 0 | 1 | 2 | 3,
     ) => {
       if (!address) return;
       track('submit', { mode, chainId, wallet: address });
@@ -333,13 +358,15 @@ export default function HomeClient() {
                 topic: (payload as TokenAnalysisSubmitPayload).ticker,
                 angle: (payload as TokenAnalysisSubmitPayload).angle,
               }
-            : {
-                mode: 1,
-                walletAddress: address,
-                eventDescription: (payload as HotTakeSubmitPayload).eventDescription,
-                angle: (payload as HotTakeSubmitPayload).angle,
-                eventContext: (payload as HotTakeSubmitPayload).eventContext,
-              };
+            : mode === 3
+              ? { mode: 3, walletAddress: address }
+              : {
+                  mode: 1,
+                  walletAddress: address,
+                  eventDescription: (payload as HotTakeSubmitPayload).eventDescription,
+                  angle: (payload as HotTakeSubmitPayload).angle,
+                  eventContext: (payload as HotTakeSubmitPayload).eventContext,
+                };
       const preview = await fetchPreview(args);
       setPreviewLoading(false);
       if (preview) {
@@ -355,22 +382,24 @@ export default function HomeClient() {
   );
 
   const unlock = useCallback(async () => {
-    const token = submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token;
+    const token = submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ?? dailyRecap?.token;
     if (!token) return;
-    const mode: 0 | 1 | 2 = submitted ? 0 : hotTake ? 1 : 2;
+    const mode: 0 | 1 | 2 | 3 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : 3;
     setScreen('generating');
     await pay(token, mode);
-  }, [submitted, hotTake, tokenAnalysis, pay]);
+  }, [submitted, hotTake, tokenAnalysis, dailyRecap, pay]);
 
   const formNode =
     screen === 'mode' ? (
       <ModePicker
         onSelect={(m) => {
-          const mode = m === 'educational' ? 0 : m === 'hot-take' ? 1 : 2;
+          const mode =
+            m === 'educational' ? 0 : m === 'hot-take' ? 1 : m === 'token-analysis' ? 2 : 3;
           track('mode_select', { mode, chainId, wallet: address ?? undefined });
           if (m === 'educational') setScreen('educational');
           if (m === 'hot-take') setScreen('hot-take');
           if (m === 'token-analysis') setScreen('token-analysis');
+          if (m === 'daily-recap') setScreen('daily-recap');
         }}
       />
     ) : screen === 'educational' ? (
@@ -379,6 +408,7 @@ export default function HomeClient() {
           setSubmitted(p);
           setHotTake(null);
           setTokenAnalysis(null);
+          setDailyRecap(null);
           await beginFlow(p, 0);
         }}
         onBack={() => setScreen('mode')}
@@ -390,6 +420,7 @@ export default function HomeClient() {
           setHotTake(p);
           setSubmitted(null);
           setTokenAnalysis(null);
+          setDailyRecap(null);
           await beginFlow(p, 1);
         }}
         onBack={() => setScreen('mode')}
@@ -401,7 +432,20 @@ export default function HomeClient() {
           setTokenAnalysis(p);
           setSubmitted(null);
           setHotTake(null);
+          setDailyRecap(null);
           await beginFlow(p, 2);
+        }}
+        onBack={() => setScreen('mode')}
+        disabled={status === 'approving' || status === 'paying'}
+      />
+    ) : screen === 'daily-recap' ? (
+      <DailyRecapInput
+        onSubmit={async (p) => {
+          setDailyRecap(p);
+          setSubmitted(null);
+          setHotTake(null);
+          setTokenAnalysis(null);
+          await beginFlow(p, 3);
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
@@ -415,8 +459,8 @@ export default function HomeClient() {
         lockedCount={Math.max(previewData.totalTweets - 1, 0)}
         onUnlock={unlock}
         onRegenerate={() => {
-          const payload = submitted ?? hotTake ?? tokenAnalysis;
-          if (payload) void beginFlow(payload, submitted ? 0 : hotTake ? 1 : 2);
+          const payload = submitted ?? hotTake ?? tokenAnalysis ?? dailyRecap;
+          if (payload) void beginFlow(payload, submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : 3);
         }}
         regenerating={previewLoading}
       />
@@ -492,6 +536,7 @@ export default function HomeClient() {
           setSubmitted(null);
           setHotTake(null);
           setTokenAnalysis(null);
+          setDailyRecap(null);
           setScreen('mode');
         }}
       />
@@ -515,13 +560,14 @@ export default function HomeClient() {
         <ErrorSurface
           kind="approve-rejected"
           onRetry={() => {
-            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : 'mode';
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : 'mode';
             reset();
             resetGen();
             setDraftTweets(null);
             setSubmitted(null);
             setHotTake(null);
             setTokenAnalysis(null);
+            setDailyRecap(null);
             setScreen(back);
           }}
         />
@@ -530,13 +576,14 @@ export default function HomeClient() {
         <ErrorSurface
           kind="pay-failed"
           onRetry={() => {
-            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : 'mode';
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : 'mode';
             reset();
             resetGen();
             setDraftTweets(null);
             setSubmitted(null);
             setHotTake(null);
             setTokenAnalysis(null);
+            setDailyRecap(null);
             setScreen(back);
           }}
         />
@@ -575,6 +622,7 @@ export default function HomeClient() {
             setSubmitted(null);
             setHotTake(null);
             setTokenAnalysis(null);
+            setDailyRecap(null);
             setScreen('mode');
           }}
         >
@@ -605,6 +653,8 @@ export default function HomeClient() {
       angle={tokenAnalysis.angle}
       tokenSymbol={tokenAnalysis.token.symbol}
     />
+  ) : dailyRecap ? (
+    <ComposeSummary mode={3} tokenSymbol={dailyRecap.token.symbol} />
   ) : null;
 
   return (

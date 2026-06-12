@@ -3,17 +3,17 @@
 import { ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { CodexFrame } from './CodexFrame';
-import { IllumGraduationCap, IllumFlame, IllumCoin } from './IllumIcons';
+import { IllumGraduationCap, IllumFlame, IllumCoin, IllumQuill } from './IllumIcons';
 import { InkText } from './InkText';
 import { InkDivider } from './InkDivider';
 import { Marginalia } from './Marginalia';
 
 interface Props {
-  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis') => void;
+  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap') => void;
 }
 
 interface Mode {
-  id: 'educational' | 'hot-take' | 'token-analysis';
+  id: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap';
   numeral: string;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -22,12 +22,13 @@ interface Mode {
   badge?: string;
 }
 
-// Presentation order only. The `numeral` (I/II/III) is the curated reading
+// Presentation order only. The `numeral` (I/II/III/IV) is the curated reading
 // order on this screen — Hot Take leads as the flagship — and is DELIBERATELY
 // NOT the on-chain mode id. Those ids are append-only and emitted in the
-// `ThreadRequested` event: educational=0, hot-take=1, token-analysis=2 (see
-// lib/pipeline/modes/*). Renumbering for cosmetic alignment would break the
-// contract event mapping — change the display numeral here, never the id.
+// `ThreadRequested` event: educational=0, hot-take=1, token-analysis=2,
+// daily-recap=3 (see lib/pipeline/modes/*). Renumbering for cosmetic alignment
+// would break the contract event mapping — change the display numeral here,
+// never the id.
 const MODES: Mode[] = [
   {
     id: 'hot-take',
@@ -55,13 +56,22 @@ const MODES: Mode[] = [
     cost: '$0.003',
     badge: 'grounded · live price · fact-checked',
   },
+  {
+    id: 'daily-recap',
+    numeral: 'IV',
+    label: 'Daily Recap',
+    Icon: IllumQuill,
+    blurb: "Today's market in one thread — nothing to type. Top movers, headlines, one thing to watch.",
+    cost: '$0.003',
+    badge: 'one tap · live market · fact-checked',
+  },
 ];
 
 export function ModePicker({ onSelect }: Props) {
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <p className="heading-sub text-[10px]">Modes · Three styles</p>
+        <p className="heading-sub text-[10px]">Modes · Four styles</p>
         <InkText
           as="h2"
           className="font-display italic text-3xl leading-tight"
@@ -151,7 +161,7 @@ export function ModePicker({ onSelect }: Props) {
       </div>
 
       <Marginalia side="right" className="self-end mt-1">
-        Any of the three, same $0.05 — the mode only changes the agent&apos;s recipe.
+        Any of the four, same $0.05 — the mode only changes the agent&apos;s recipe.
       </Marginalia>
 
       <style jsx>{`
