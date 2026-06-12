@@ -7,7 +7,11 @@ vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB: vi.fn() }));
 vi.mock('@/lib/pipeline/generateDraft', () => ({ generateTweets: vi.fn() }));
 vi.mock('@/lib/pipeline/serperStep', () => ({ fetchSerper: vi.fn() }));
-vi.mock('@/lib/pipeline/coingeckoStep', () => ({ fetchCoinGecko: vi.fn() }));
+vi.mock('@/lib/pipeline/coingeckoStep', () => ({
+  fetchCoinGecko: vi.fn(),
+  fetchMarketOverview: vi.fn(),
+  runMarketOverviewStep: vi.fn(),
+}));
 
 const { getMode, MODES } = await import('./index');
 
@@ -24,6 +28,15 @@ describe('mode registry', () => {
   it('maps id 2 to the token-analysis mode', () => {
     expect(getMode(2)?.id).toBe(2);
     expect(getMode(2)?.key).toBe('tokenAnalysis');
+  });
+
+  it('maps id 3 to the daily-recap mode', () => {
+    expect(getMode(3)?.id).toBe(3);
+    expect(getMode(3)?.key).toBe('dailyRecap');
+  });
+
+  it('daily-recap requires no input', () => {
+    expect(getMode(3)?.validateInput({})).toBeNull();
   });
 
   it('returns null for an unknown mode id', () => {

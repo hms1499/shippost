@@ -4,10 +4,15 @@ import { readFileSync } from 'node:fs';
 const generateTweets = vi.fn();
 const fetchSerper = vi.fn();
 const fetchCoinGecko = vi.fn();
+const fetchMarketOverview = vi.fn();
 
 vi.mock('./generateDraft', () => ({ generateTweets }));
 vi.mock('./serperStep', () => ({ fetchSerper }));
-vi.mock('./coingeckoStep', () => ({ fetchCoinGecko }));
+vi.mock('./coingeckoStep', () => ({
+  fetchCoinGecko,
+  fetchMarketOverview,
+  runMarketOverviewStep: vi.fn(),
+}));
 // The mode descriptors import the paid pipelines for their run() methods; the
 // preview path never calls them, so mock them out to keep this test isolated.
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST_USD: '0.050' }));
@@ -56,11 +61,35 @@ describe('runPreview', () => {
     expect(fetchCoinGecko).toHaveBeenCalledWith('$CELO');
     expect(out.tweets).toHaveLength(2);
   });
+
+  it('Daily Recap (mode 3): grounds on the market overview, no input needed', async () => {
+    fetchSerper.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
+    fetchMarketOverview.mockResolvedValue('BTC $67,420 (-1.2% 24h)');
+    const out = await runPreview({ mode: 3 });
+    expect(fetchSerper).toHaveBeenCalledOnce();
+    expect(fetchMarketOverview).toHaveBeenCalledOnce();
+    expect(fetchCoinGecko).not.toHaveBeenCalled();
+    expect(out.tweets).toHaveLength(2);
+  });
+
+  it('Daily Recap: soft-fails grounding and still generates', async () => {
+    fetchSerper.mockRejectedValue(new Error('serper down'));
+    fetchMarketOverview.mockRejectedValue(new Error('cg down'));
+    const out = await runPreview({ mode: 3 });
+    expect(generateTweets).toHaveBeenCalledOnce();
+    expect(out.tweets).toHaveLength(2);
+  });
 });
 
 describe('preview drain-safety invariant', () => {
   it('no preview source references settle / AgentWallet / supabase', () => {
-    const files = ['./runPreview.ts', './modes/educational.ts', './modes/hotTake.ts', './modes/tokenAnalysis.ts'];
+    const files = [
+      './runPreview.ts',
+      './modes/educational.ts',
+      './modes/hotTake.ts',
+      './modes/tokenAnalysis.ts',
+      './modes/dailyRecap.ts',
+    ];
     for (const f of files) {
       const src = readFileSync(new URL(f, import.meta.url), 'utf8');
       expect(src, f).not.toMatch(/settleX402Call/);
