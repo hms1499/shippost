@@ -1,18 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ArrowLeftRight,
-  BarChart3,
-  History,
-  Loader2,
-  Wallet,
-  X as XIcon,
-} from 'lucide-react';
+import { ArrowLeftRight, Loader2, Wallet, X as XIcon } from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
@@ -22,38 +14,13 @@ function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-interface NavItem {
-  numeral: string;
-  Icon: React.ComponentType<{ size?: number; className?: string }>;
-  label: string;
-  description: string;
-  href: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    numeral: 'I',
-    Icon: BarChart3,
-    label: 'Public Stats',
-    description: 'Live metrics, recent threads, x402 settlements.',
-    href: '/stats',
-  },
-  {
-    numeral: 'II',
-    Icon: History,
-    label: 'My History',
-    description: "Threads you've composed on this chain.",
-    href: '/history',
-  },
-];
-
 /**
- * Custom RainbowKit chip + bottom-sheet menu. Three visible states:
+ * Custom RainbowKit chip + bottom-sheet menu. Account-only — site navigation
+ * lives in the footer ColophonIndex, not here. Three visible states:
  *   1. Pre-connect (web)        — "Sign in" pill, opens RainbowKit modal.
  *   2. Pre-connect (MiniPay)    — "Connecting…" spinner pill (auto-connect runs in HomeClient).
  *   3. Connected                — address chip; click opens a folio-styled
- *                                 menu with nav links (stats, history),
- *                                 wallet management, and chain switching.
+ *                                 menu with wallet management and chain switching.
  */
 export function WalletMenu() {
   const [open, setOpen] = useState(false);
@@ -269,44 +236,6 @@ export function WalletMenu() {
                           </p>
                         )}
                       </div>
-
-                      <InkDivider />
-
-                      <p className="heading-sub text-[10px]">
-                        Index · Other folios
-                      </p>
-                      <ul className="flex flex-col gap-2">
-                        {NAV_ITEMS.map((item) => {
-                          const { Icon } = item;
-                          return (
-                            <li key={item.href}>
-                              <Link
-                                href={item.href}
-                                onClick={() => setOpen(false)}
-                                className="group no-underline flex items-stretch gap-4 p-3 rounded-md border border-transparent hover:border-[hsl(var(--ink-faded))] hover:bg-[hsl(var(--accent)/0.25)] transition-colors"
-                              >
-                                <div className="w-12 shrink-0 flex items-center justify-center font-display italic text-[2.4rem] leading-none text-[hsl(var(--ink-faded))] group-hover:text-primary transition-colors">
-                                  {item.numeral}
-                                </div>
-                                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                                  <div className="flex items-center gap-2">
-                                    <Icon
-                                      size={14}
-                                      className="text-[hsl(var(--ink-faded))] group-hover:text-primary transition-colors"
-                                    />
-                                    <p className="font-display italic text-base leading-tight">
-                                      {item.label}
-                                    </p>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground leading-snug">
-                                    {item.description}
-                                  </p>
-                                </div>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
 
                       {!isOnTargetChain && (
                         <>

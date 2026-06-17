@@ -12,6 +12,7 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
 import { FolioMark } from '@/components/FolioMark';
 import { InkDivider } from '@/components/InkDivider';
+import { ColophonIndex } from '@/components/ColophonIndex';
 import { MirrorScript } from '@/components/MirrorScript';
 import { Marginalia } from '@/components/Marginalia';
 import { InkBlot } from '@/components/InkBlot';
@@ -789,8 +790,9 @@ export default function HomeClient() {
         </>
       )}
 
-      <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex justify-center mt-4`}>
+      <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col items-center gap-4 mt-4`}>
         <InkDivider />
+        <ColophonIndex />
       </footer>
     </main>
   );
