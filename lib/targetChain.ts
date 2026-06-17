@@ -22,3 +22,9 @@ export function targetChainName(): string {
   if (TARGET_CHAIN_ID === celoSepolia.id) return 'Celo Sepolia (testnet)';
   return 'Celo';
 }
+
+// MiniPay only runs on Celo mainnet + Celo Sepolia and exposes NO
+// wallet_switchEthereumChain — the chain is chosen by the wallet's own
+// "Use Testnet" toggle (Settings → About → tap Version → Developer Settings),
+// not by the dapp. UI uses this to tell MiniPay users which way to toggle.
+export const IS_TESTNET_TARGET = TARGET_CHAIN_ID === celoSepolia.id;

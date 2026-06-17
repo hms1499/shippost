@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useConnect, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -44,7 +44,7 @@ import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
-import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
+import { TARGET_CHAIN_ID, targetChainName, IS_TESTNET_TARGET } from '@/lib/targetChain';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { useIsDesktop } from '@/lib/useIsDesktop';
@@ -110,7 +110,6 @@ export default function HomeClient() {
   // scrolled up above the keyboard instead of being trapped under it.
   const keyboardInset = useKeyboardInset();
   const chainId = useChainId();
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
   const onSupportedChain = chainId === TARGET_CHAIN_ID;
 
   const [screen, setScreen] = useState<Screen>('mode');
@@ -734,24 +733,24 @@ export default function HomeClient() {
         )
       ) : !onSupportedChain ? (
         isMiniPay ? (
+          // MiniPay has no wallet_switchEthereumChain — a switch button would
+          // fail silently. The chain is set by MiniPay's own "Use Testnet"
+          // toggle, so guide the user there instead.
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
             <p className="text-sm text-destructive">
               Wrong network (chainId {chainId}). ShipPost runs on {targetChainName()}.
             </p>
-            <Button
-              variant="outline"
-              disabled={isSwitching}
-              onClick={() => switchChain({ chainId: TARGET_CHAIN_ID })}
-            >
-              {isSwitching ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" aria-hidden />
-                  Switching…
-                </>
+            <p className="text-xs text-muted-foreground leading-snug">
+              In MiniPay, open <span className="font-medium text-foreground">Settings → About</span>,
+              tap the <span className="font-medium text-foreground">Version</span> number a few times to
+              unlock <span className="font-medium text-foreground">Developer Settings</span>, then{' '}
+              {IS_TESTNET_TARGET ? (
+                <>turn <span className="font-medium text-foreground">Use Testnet on</span></>
               ) : (
-                'Switch to Celo'
-              )}
-            </Button>
+                <>turn <span className="font-medium text-foreground">Use Testnet off</span></>
+              )}{' '}
+              and reopen ShipPost.
+            </p>
           </div>
         ) : (
           <div className="text-sm text-destructive text-center max-w-sm">

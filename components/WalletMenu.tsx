@@ -108,6 +108,16 @@ export function WalletMenu() {
         }
 
         if (chain.unsupported) {
+          // MiniPay can't switch chains from a dapp — the full-screen gate in
+          // HomeClient tells the user how to toggle it in wallet settings, so
+          // here it's a non-interactive indicator, not a (failing) switch button.
+          if (isMiniPay) {
+            return (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px]">
+                Wrong network
+              </span>
+            );
+          }
           return (
             <button
               type="button"
@@ -237,7 +247,9 @@ export function WalletMenu() {
                         )}
                       </div>
 
-                      {!isOnTargetChain && (
+                      {/* MiniPay can't switch chains from a dapp; the switch
+                          action only makes sense on web wallets. */}
+                      {!isOnTargetChain && !isMiniPay && (
                         <>
                           <InkDivider />
                           <button
