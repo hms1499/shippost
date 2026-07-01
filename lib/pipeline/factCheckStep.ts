@@ -1,5 +1,5 @@
 import Groq from 'groq-sdk';
-import { parseEther } from 'viem';
+import { getAddress, parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { parseThread } from '@/lib/threadParser';
 import { retryOnce } from './retry';
@@ -7,7 +7,10 @@ import { throwIfAborted } from './abort';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
 import type { PipelineContext, PipelineEvent } from './types';
 
-const FC_SINK = '0x00000000000000000000000000000000000FAC7C' as const;
+// Simulated micro-payment sink. Run through getAddress so an invalid vanity
+// literal fails loudly at module load instead of silently throwing inside the
+// x402 settle (viem rejects a non-checksummed mixed-case address).
+const FC_SINK = getAddress('0x00000000000000000000000000000000000fac7c');
 const FC_COST_CUSD = parseEther('0.001');
 
 interface FactCheckInput {

@@ -1,10 +1,13 @@
-import { parseEther } from 'viem';
+import { getAddress, parseEther } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { retryOnce } from './retry';
 import { throwIfAborted } from './abort';
 import type { PipelineContext, PipelineEvent } from './types';
 
-const SERPER_SINK = '0x00000000000000000000000000000000000053E2' as const;
+// Simulated micro-payment sink. Run through getAddress so an invalid vanity
+// literal fails loudly at module load instead of silently throwing inside the
+// x402 settle (viem rejects a non-checksummed mixed-case address).
+const SERPER_SINK = getAddress('0x00000000000000000000000000000000000053e2');
 const SERPER_COST_CUSD = parseEther('0.001');
 const SERPER_SEARCH_ENDPOINT = 'https://google.serper.dev/search';
 const SERPER_NEWS_ENDPOINT = 'https://google.serper.dev/news';
