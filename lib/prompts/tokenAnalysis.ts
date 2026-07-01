@@ -49,7 +49,13 @@ const LENGTH_GUIDANCE = `Length: use as many tweets as the token needs to be arg
 const FEW_SHOT_EXAMPLE = `Reference for voice and shape (different token — match the structure, do NOT copy content):
 
 Sample ticker: $UNI
-Sample market data: $UNI @ $7.42, -3.10% 24h, mcap ~$4450.0M
+Sample market data:
+$UNI @ $7.420, rank #22
+Momentum: 24h -3.1%, 7d +5.2%, 30d -11.0%
+Size & liquidity: mcap $4.45B, 24h vol $310.0M, vol/mcap 0.07
+Supply: 75% of max in circulation, 25% still to unlock
+Down 68% from all-time high
+TVL $4.20B, Dexes (Uniswap on DefiLlama), mcap/TVL 1.06, TVL 7d -2.0%
 Sample search context:
 - Uniswap is the largest decentralized exchange by volume on Ethereum.
 - A "fee switch" governance proposal to turn on protocol fees has been debated repeatedly since 2022.
@@ -63,9 +69,11 @@ Sample angle: skeptical
 
 3/ That gap is the whole UNI debate. A "fee switch" — turning on protocol fees and directing them to the DAO or stakers — has been proposed repeatedly since 2022 and has not shipped.
 
-4/ Price is down ~3% on the day, in line with a token whose cash-flow case is still a governance question rather than a live mechanism.
+4/ The market prices UNI at roughly the capital in the protocol: $4.45B cap against $4.2B TVL, an mcap/TVL near 1.06. The governance premium is thin.
 
-5/ What would change my mind: a fee switch passing governance with a concrete on-date and a defined split to UNI holders.
+5/ Only 75% of max supply is circulating. The remaining 25% is a standing dilution overhang for any long-term holder.
+
+6/ What would change my mind: a fee switch passing governance with a concrete on-date and a defined split to UNI holders.
 </example_thread>`;
 
 export function buildTokenAnalysisPrompt(input: TokenAnalysisInput): string {
