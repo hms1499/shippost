@@ -24,7 +24,14 @@ export const hotTakeMode: ModeDef = {
     // raw URL). Falls back to the user's text when there's no context.
     const { event, query } = composeEvent(body.eventDescription ?? '', body.eventContext);
     const out = await runModeB(
-      { ...ctx, angle: body.angle ?? 'skeptical', eventDescription: event, serperQuery: query },
+      {
+        ...ctx,
+        angle: body.angle ?? 'skeptical',
+        eventDescription: event,
+        serperQuery: query,
+        // Bias toward recent coverage of the event, not years-old SEO pages.
+        serperOpts: { recency: 'qdr:m' },
+      },
       emit,
     );
     return {
@@ -40,7 +47,7 @@ export const hotTakeMode: ModeDef = {
     const { event, query } = composeEvent(input.eventDescription ?? '', input.eventContext);
     let searchSummary: string | null = null;
     try {
-      const s = await fetchSerper(query);
+      const s = await fetchSerper(query, { recency: 'qdr:m' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
       console.error('[hotTake.preview] serper failed, continuing:', e instanceof Error ? e.message : e);

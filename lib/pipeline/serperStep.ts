@@ -6,7 +6,8 @@ import type { PipelineContext, PipelineEvent } from './types';
 
 const SERPER_SINK = '0x00000000000000000000000000000000000053E2' as const;
 const SERPER_COST_CUSD = parseEther('0.001');
-const SERPER_ENDPOINT = 'https://google.serper.dev/search';
+const SERPER_SEARCH_ENDPOINT = 'https://google.serper.dev/search';
+const SERPER_NEWS_ENDPOINT = 'https://google.serper.dev/news';
 
 export interface SerperOrganicResult {
   title: string;
@@ -21,23 +22,61 @@ export interface SerperResult {
   newsSnippet: string | null;
 }
 
+// Google's time-based-search windows. Bias results toward recent coverage and
+// away from years-old evergreen SEO pages, which is the actual freshness gap
+// for event/market threads.
+export type SerperRecency = 'qdr:h' | 'qdr:d' | 'qdr:w' | 'qdr:m';
+
+export interface SerperOptions {
+  // Restrict to a recency window (tbs). Omit for evergreen queries (Educational).
+  recency?: SerperRecency;
+  // 'news' hits the dated /news endpoint (headlines with timestamps); default
+  // 'search' keeps the organic + answerBox behaviour.
+  mode?: 'search' | 'news';
+}
+
+interface SerperNewsItem {
+  title?: string;
+  snippet?: string;
+  link?: string;
+  date?: string;
+}
+
 // Pure Serper fetch — no emit, no settle. Used by the paid step (which then
 // settles + emits) and by the free preview (which does neither).
-export async function fetchSerper(query: string): Promise<SerperResult> {
+export async function fetchSerper(
+  query: string,
+  opts: SerperOptions = {},
+): Promise<SerperResult> {
   const key = process.env.SERPER_API_KEY;
   if (!key) throw new Error('SERPER_API_KEY missing');
+  const endpoint = opts.mode === 'news' ? SERPER_NEWS_ENDPOINT : SERPER_SEARCH_ENDPOINT;
   const data = await retryOnce(async () => {
-    const res = await fetch(SERPER_ENDPOINT, {
+    const body: Record<string, unknown> = { q: query, num: 5, gl: 'us', hl: 'en' };
+    if (opts.recency) body.tbs = opts.recency;
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: query, num: 5, gl: 'us', hl: 'en' }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`Serper ${res.status}`);
     const json = (await res.json()) as {
       organic?: SerperOrganicResult[];
+      news?: SerperNewsItem[];
       answerBox?: { snippet?: string };
       knowledgeGraph?: { description?: string };
     };
+    // The /news endpoint returns dated headlines under `news`; normalise them
+    // into the same organic shape so summarizeSerper surfaces the timestamps.
+    if (opts.mode === 'news') {
+      const organic: SerperOrganicResult[] = (json.news ?? []).map((n) => ({
+        title: n.title ?? '',
+        snippet: n.snippet ?? '',
+        link: n.link ?? '',
+        date: n.date,
+      }));
+      return { organic, newsSnippet: null };
+    }
     return {
       organic: json.organic ?? [],
       newsSnippet: json.answerBox?.snippet ?? json.knowledgeGraph?.description ?? null,
@@ -47,7 +86,7 @@ export async function fetchSerper(query: string): Promise<SerperResult> {
 }
 
 export async function runSerperStep(
-  ctx: PipelineContext & { query: string },
+  ctx: PipelineContext & { query: string; serperOpts?: SerperOptions },
   emit: (e: PipelineEvent) => void,
 ): Promise<SerperResult> {
   emit({ type: 'step_started', step: 'serper' });
@@ -56,7 +95,7 @@ export async function runSerperStep(
   let newsSnippet: string | null = null;
 
   try {
-    const data = await fetchSerper(ctx.query);
+    const data = await fetchSerper(ctx.query, ctx.serperOpts);
     organic = data.organic;
     newsSnippet = data.newsSnippet;
   } catch (e: unknown) {

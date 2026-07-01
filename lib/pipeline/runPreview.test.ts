@@ -5,14 +5,19 @@ const generateTweets = vi.fn();
 const fetchSerper = vi.fn();
 const fetchCoinGecko = vi.fn();
 const fetchMarketOverview = vi.fn();
+const fetchProtocolTvl = vi.fn();
+const summarizeProtocolTvl = vi.fn();
+const fetchDefiOverview = vi.fn();
 
 vi.mock('./generateDraft', () => ({ generateTweets }));
 vi.mock('./serperStep', () => ({ fetchSerper }));
 vi.mock('./coingeckoStep', () => ({
   fetchCoinGecko,
   fetchMarketOverview,
+  runCoinGeckoStep: vi.fn(),
   runMarketOverviewStep: vi.fn(),
 }));
+vi.mock('./defiLlamaStep', () => ({ fetchProtocolTvl, summarizeProtocolTvl, fetchDefiOverview }));
 // The mode descriptors import the paid pipelines for their run() methods; the
 // preview path never calls them, so mock them out to keep this test isolated.
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST_USD: '0.050' }));
@@ -23,6 +28,11 @@ const { runPreview } = await import('./runPreview');
 beforeEach(() => {
   vi.clearAllMocks();
   generateTweets.mockResolvedValue(['1/ hook', '2/ body']);
+  // DefiLlama grounding is additive + soft; default to "no protocol / no macro"
+  // so these previews exercise the base path without real network calls.
+  fetchProtocolTvl.mockResolvedValue(null);
+  summarizeProtocolTvl.mockReturnValue(null);
+  fetchDefiOverview.mockResolvedValue(null);
 });
 
 describe('runPreview', () => {
@@ -55,8 +65,9 @@ describe('runPreview', () => {
     fetchSerper.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
     fetchCoinGecko.mockResolvedValue({ symbol: 'CELO', priceUsd: 0.5, change24hPct: 2, marketCapUsd: 2.8e8 });
     const out = await runPreview({ mode: 2, topic: 'celo', angle: 'bullish' });
-    // Serper query is the ticker-oriented query, normalised to $CELO.
-    expect(fetchSerper).toHaveBeenCalledWith(expect.stringContaining('$CELO'));
+    // Serper query is the ticker-oriented query, normalised to $CELO, with a
+    // recency bias toward fresh catalysts.
+    expect(fetchSerper).toHaveBeenCalledWith(expect.stringContaining('$CELO'), { recency: 'qdr:m' });
     // CoinGecko is fed the normalised $cashtag so it can resolve the coin.
     expect(fetchCoinGecko).toHaveBeenCalledWith('$CELO');
     expect(out.tweets).toHaveLength(2);

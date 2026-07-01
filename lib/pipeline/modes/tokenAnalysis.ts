@@ -51,6 +51,8 @@ export const tokenAnalysisMode: ModeDef = {
         eventDescription: ticker, // fallback only; query + prompt are overridden
         angle,
         serperQuery: serperQueryFor(ticker),
+        // Bias toward recent catalysts/news for the token, not stale pages.
+        serperOpts: { recency: 'qdr:m' },
         // Fold DefiLlama TVL into the CoinGecko market step (same free,
         // no-settle 'coingecko' lifecycle) so the prompt sees on-chain capital
         // alongside price/momentum.
@@ -76,7 +78,7 @@ export const tokenAnalysisMode: ModeDef = {
     // Grounding is soft: a failed Serper/CoinGecko still yields a draft.
     let searchSummary: string | null = null;
     try {
-      const s = await fetchSerper(serperQueryFor(ticker));
+      const s = await fetchSerper(serperQueryFor(ticker), { recency: 'qdr:m' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
       console.error('[tokenAnalysis.preview] serper failed, continuing:', e instanceof Error ? e.message : e);

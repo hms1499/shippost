@@ -45,6 +45,9 @@ export const dailyRecapMode: ModeDef = {
         angle: 'skeptical',
         eventDescription: 'crypto market today',
         serperQuery: SERPER_QUERY,
+        // Today's recap wants today's headlines: the dated /news endpoint,
+        // restricted to the past day.
+        serperOpts: { mode: 'news', recency: 'qdr:d' },
         marketStep: async (c, emit) =>
           joinSnippet(await runMarketOverviewStep(c, emit), await defiLine()),
         buildPrompt: ({ searchSummary, marketSnippet }) =>
@@ -64,7 +67,7 @@ export const dailyRecapMode: ModeDef = {
     // Mirror the paid path so the free preview reflects what paying produces.
     let searchSummary: string | null = null;
     try {
-      const s = await fetchSerper(SERPER_QUERY);
+      const s = await fetchSerper(SERPER_QUERY, { mode: 'news', recency: 'qdr:d' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
       console.error('[dailyRecap.preview] serper failed, continuing:', e instanceof Error ? e.message : e);

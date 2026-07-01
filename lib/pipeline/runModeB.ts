@@ -1,6 +1,6 @@
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeBPrompt, summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/modeB';
-import { runSerperStep } from './serperStep';
+import { runSerperStep, type SerperOptions } from './serperStep';
 import { runCoinGeckoStep } from './coingeckoStep';
 import { runFactCheckStep } from './factCheckStep';
 import { generateDraft, type DraftResult } from './generateDraft';
@@ -21,6 +21,10 @@ interface ModeBContext extends PipelineContext {
   // vetted settle/delivery orchestration with a different query + prompt.
   // Defaults reproduce Hot Take exactly.
   serperQuery?: string;
+  // Recency / endpoint tuning for the search step (e.g. dated /news for the
+  // Daily Recap, a recency bias for event/token threads). Defaults to a plain,
+  // unrestricted /search — Hot Take's original behaviour.
+  serperOpts?: SerperOptions;
   buildPrompt?: (args: { searchSummary: string | null; marketSnippet: string | null }) => string;
   // Replaces the cashtag CoinGecko lookup with a custom market step (e.g. the
   // Daily Recap whole-market overview). Must emit the 'coingecko' lifecycle
@@ -45,7 +49,10 @@ export async function runModeB(
   // Step 1 — Serper search (soft-fail: continue with null context if API or settle fails)
   let searchSummary: string | null = null;
   try {
-    const s = await runSerperStep({ ...ctx, query: ctx.serperQuery ?? ctx.eventDescription }, wrappedEmit);
+    const s = await runSerperStep(
+      { ...ctx, query: ctx.serperQuery ?? ctx.eventDescription, serperOpts: ctx.serperOpts },
+      wrappedEmit,
+    );
     searchSummary = summarizeSerper(s.organic, s.newsSnippet);
   } catch (e) {
     console.error('[runModeB] serper failed, continuing with no search context:', e);
