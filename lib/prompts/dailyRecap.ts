@@ -40,7 +40,7 @@ T1 — Hook
 
 Lead with the single defining story of the day and the concrete detail that makes it matter. Name the event, not a mood: "Bitcoin slid 4% after the SEC delayed its spot ETF decision", not "Crypto had a rough day".
 
-Never start with: GM, Good morning, Today, In this thread, or a question.
+Never start with: GM, Good morning, Today, or In this thread. A sharp, neutral question is allowed as an opener ("Why did BTC slide 4% while SOL ran 5%?"). Still name the event, not a mood.
 
 T2 — The majors
 

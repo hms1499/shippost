@@ -20,7 +20,7 @@ const AUDIENCE_GUIDANCE: Record<Audience, string> = {
 };
 
 const STRUCTURE = `Structure (ONE concept, ONE thread — narrative, not bullet list):
-- Tweet 1: open with a one-line frame of the concept. Plain, specific. No question opener, no "in this thread", no preamble.
+- Tweet 1: lead with a hook (see HOOK) — a hard specific about the concept, or a real question the reader cannot yet answer. Anchor it to something concrete. No "in this thread", no preamble.
 - Tweet 2: name the concept and define it concretely, with one example. This is the foundation every later tweet builds on.
 - Middle tweets: extend the explanation step-by-step. Each tweet picks up where the previous left off. Avoid the standalone-bullet feel. This is one narrative on one idea, not N independent facts.
 - Second-last tweet: connect the pieces, so the reader can answer "what does this give me?".

@@ -35,3 +35,11 @@ describe('buildDailyRecapPrompt', () => {
     expect(p.trim().endsWith('Output only the numbered tweets separated by blank lines. Nothing else.')).toBe(true);
   });
 });
+
+describe('buildDailyRecapPrompt — hook', () => {
+  it('allows a neutral question opener but keeps event-not-mood', () => {
+    const out = buildDailyRecapPrompt({ searchSummary: null, marketSnippet: null });
+    expect(out).toMatch(/neutral question is allowed/i);
+    expect(out).toMatch(/name the event, not a mood/i);
+  });
+});

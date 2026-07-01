@@ -31,7 +31,7 @@ const ANGLE_CLOSE: Record<Angle, string> = {
 };
 
 const STRUCTURE = `Structure (data-anchored body, angle only at the close):
-- T1: hook — name the token in plain terms (what it is / what it does), anchored to one fact from the market data (price or market cap). No question opener. No "in this thread". No angle adjectives.
+- T1: hook (see HOOK) — name the token (what it is / what it does) through its most striking real number or contradiction, anchored to the market data. A specific question is allowed. No "in this thread". No angle adjectives.
 - T2: anchor signal — the single most verifiable fact: market cap, price, or the token's core function. Draw it directly from the market data or search context.
 - T3 ... T(n-1): additional signals. Each tweet does ONE of:
     (a) present a hard fact (24h move, a recent catalyst/listing/unlock, a named partner, a TVL or volume figure) drawn from the market data or search context

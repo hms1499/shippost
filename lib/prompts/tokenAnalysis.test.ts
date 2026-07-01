@@ -53,3 +53,11 @@ describe('buildTokenAnalysisPrompt', () => {
     expect(p.trim().endsWith('Output only the numbered tweets separated by blank lines. Nothing else.')).toBe(true);
   });
 });
+
+describe('buildTokenAnalysisPrompt — hook', () => {
+  it('invites a hook and drops the question-opener ban', () => {
+    const out = buildTokenAnalysisPrompt({ ticker: '$CELO', angle: 'skeptical', searchSummary: null, marketSnippet: null });
+    expect(out).toMatch(/hook/i);
+    expect(out).not.toMatch(/No question opener/i);
+  });
+});

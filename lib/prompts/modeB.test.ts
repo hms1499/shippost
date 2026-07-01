@@ -53,3 +53,12 @@ describe('buildModeBPrompt — angle-specific close', () => {
     expect(out).toMatch(/falsifiable|specific|concrete/i);
   });
 });
+
+describe('buildModeBPrompt — hook', () => {
+  it('invites a hook and drops the question-opener ban, keeps neutral body', () => {
+    const out = buildModeBPrompt({ ...baseInput, angle: 'bullish' });
+    expect(out).toMatch(/hook/i);
+    expect(out).not.toMatch(/No question opener/i);
+    expect(out).toMatch(/No angle adjectives/i);
+  });
+});

@@ -20,7 +20,7 @@ const ANGLE_BRIEF: Record<Angle, string> = {
 };
 
 const STRUCTURE = `Structure (signal-extraction body, angle only at the close):
-- T1: hook framing the event in plain terms. No question opener. No "in this thread". No angle adjectives.
+- T1: hook (see HOOK) — frame the event through its single sharpest verifiable fact or tension. A specific question is allowed. No "in this thread". No angle adjectives.
 - T2: anchor signal — the single most verifiable fact about this event, drawn directly from the user description, search context, or market data.
 - T3 ... T(n-1): additional signals. Each tweet does ONE of:
     (a) present a hard fact (named entity, number, date, contract, EIP, protocol)
