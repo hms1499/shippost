@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Pencil, X as XIcon, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { InkDivider } from './InkDivider';
 import { InkText } from './InkText';
 import { moveTweet, deleteTweet } from '@/lib/threadEdits';
-
-const MAX_TWEET_LEN = 270;
+import { detectBannedPhrases } from '@/lib/bannedPhrases';
 
 const ROMAN_PAIRS: [number, string][] = [
   [10, 'X'],
@@ -38,8 +37,7 @@ interface Props {
 /**
  * Each tweet is rendered as a "folio leaf" of a manuscript: a Roman-numeral
  * page mark in the upper-left, an edit nib in the upper-right, drop-cap on
- * the opening leaf, and a 10-dot ink-meter that warms from sepia → vermillion
- * as the character count nears X's split limit.
+ * the opening leaf, and live inline highlighting of banned slop phrases.
  */
 export function ThreadPreview({ tweets, onChange }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -107,10 +105,6 @@ export function ThreadPreview({ tweets, onChange }: Props) {
       <ol className="flex flex-col gap-3 list-none">
         {tweets.map((tw, i) => {
           const isEditing = editingIdx === i;
-          const text = isEditing ? draft : tw;
-          const len = text.length;
-          const over = len > MAX_TWEET_LEN;
-          const ratio = len / MAX_TWEET_LEN;
           return (
             <FolioLeaf
               key={i}
@@ -131,9 +125,6 @@ export function ThreadPreview({ tweets, onChange }: Props) {
               onMoveUp={() => move(i, -1)}
               onMoveDown={() => move(i, 1)}
               onDelete={() => remove(i)}
-              len={len}
-              ratio={ratio}
-              over={over}
               animationDelay={i * 0.08}
             />
           );
@@ -168,9 +159,6 @@ interface LeafProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
-  len: number;
-  ratio: number;
-  over: boolean;
   animationDelay: number;
 }
 
@@ -192,9 +180,6 @@ function FolioLeaf({
   onMoveUp,
   onMoveDown,
   onDelete,
-  len,
-  ratio,
-  over,
   animationDelay,
 }: LeafProps) {
   return (
@@ -287,43 +272,19 @@ function FolioLeaf({
               (isFirst ? 'drop-cap' : '')
             }
           >
-            {text}
+            <HighlightedText text={text} />
           </p>
         )}
 
-        {/* Footer: ink-meter + (save when editing) + (over warning) */}
-        <div className="flex items-center gap-3 mt-1">
-          <InkMeter ratio={ratio} over={over} />
-          <span
-            className={
-              'font-mono text-[11px] tabular-nums ' +
-              (over
-                ? 'text-[hsl(var(--vermillion))]'
-                : 'text-[hsl(var(--ink-faded))]')
-            }
-          >
-            {len}/{MAX_TWEET_LEN}
-          </span>
-          {isEditing && (
-            <div className="ml-auto flex gap-2">
-              <Button size="sm" variant="ghost" onClick={onCancel}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={onSave}
-                disabled={draft.trim().length === 0}
-              >
-                Save
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {!isEditing && over && (
-          <p className="text-xs text-[hsl(var(--vermillion))] leading-snug">
-            X will split this leaf into multiple tweets when posted.
-          </p>
+        {isEditing && (
+          <div className="flex items-center gap-2 mt-1 justify-end">
+            <Button size="sm" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={onSave} disabled={draft.trim().length === 0}>
+              Save
+            </Button>
+          </div>
         )}
       </Card>
     </li>
@@ -366,31 +327,30 @@ function LeafNib({
 }
 
 /**
- * Ten-dot ink-meter. Fills left-to-right; the trailing dots warm into primary
- * when crossing 85% of the limit, then jump to vermillion the moment the
- * paragraph exceeds X's natural break length.
+ * Renders tweet text with banned phrases wrapped in a wavy-underline <mark>.
+ * Detection is live: it recomputes on every text change so a phrase the creator
+ * deletes stops being flagged immediately.
  */
-function InkMeter({ ratio, over }: { ratio: number; over: boolean }) {
-  const segments = 10;
-  const filled = Math.min(Math.ceil(ratio * segments), segments);
-  const warning = !over && ratio > 0.85;
-  return (
-    <div className="flex items-center gap-[3px]" aria-hidden>
-      {Array.from({ length: segments }).map((_, i) => {
-        const isFilled = i < filled;
-        let cls = 'bg-[hsl(var(--ink-faded)/0.18)]';
-        if (isFilled) {
-          if (over) cls = 'bg-[hsl(var(--vermillion))]';
-          else if (warning && i >= segments - 3) cls = 'bg-primary';
-          else cls = 'bg-[hsl(var(--ink-faded))]';
-        }
-        return (
-          <span
-            key={i}
-            className={`block w-[5px] h-[5px] rounded-full transition-colors ${cls}`}
-          />
-        );
-      })}
-    </div>
-  );
+function HighlightedText({ text }: { text: string }) {
+  const matches = useMemo(() => detectBannedPhrases(text), [text]);
+  if (matches.length === 0) return <>{text}</>;
+
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  matches.forEach((m, i) => {
+    if (m.start < cursor) return; // overlapping match already inside a mark
+    if (m.start > cursor) parts.push(text.slice(cursor, m.start));
+    parts.push(
+      <mark
+        key={i}
+        title={`${m.group.replace('-', ' ')} — cut or replace`}
+        className="bg-transparent underline decoration-wavy underline-offset-2 decoration-[hsl(var(--vermillion))] text-[hsl(var(--vermillion))]"
+      >
+        {text.slice(m.start, m.end)}
+      </mark>,
+    );
+    cursor = m.end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }
