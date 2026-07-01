@@ -13,7 +13,7 @@ describe('buildDailyRecapPrompt', () => {
 
   it('warns the model off numbers when market data is absent', () => {
     const p = buildDailyRecapPrompt({ marketSnippet: null, searchSummary: null });
-    expect(p).toContain('do NOT state any price');
+    expect(p).toContain('Do NOT state any prices');
   });
 
   it('embeds the search context when provided', () => {
