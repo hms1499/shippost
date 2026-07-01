@@ -23,6 +23,7 @@
     "tools:distribute-token": "tsx tools/distribute-token.ts --",
     "tools:collect": "tsx tools/collect-celo.ts --",
     "tools:collect-token": "tsx tools/collect-token.ts --",
+    "tools:collect-eth": "tsx tools/collect-eth-base.ts --",
     "tools:volume": "tsx tools/generate-volume.ts",
     "analyze": "ANALYZE=true next build"
   },
