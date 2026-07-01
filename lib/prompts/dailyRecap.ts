@@ -28,7 +28,8 @@ Editorial priority (highest first):
 7. Exchange listings or delistings
 8. Token unlocks
 9. Significant market moves
-10. Trending searches
+
+Do not report trending searches, "top gainers/losers" tables, or bare ticker lists — a list of symbols with no story is noise, not news.
 
 When several stories compete, choose the one that best explains today's market — not the one with the biggest number.`;
 
@@ -42,6 +43,8 @@ Lead with the single defining story of the day and the concrete detail that make
 
 Never start with: GM, Good morning, Today, or In this thread. A sharp, neutral question is allowed as an opener ("Why did BTC slide 4% while SOL ran 5%?"). Still name the event, not a mood.
 
+The hook is exactly ONE story — the single most important of the day. Never merge two separate events into one tweet, here or anywhere in the thread.
+
 T2 — The majors
 
 State BTC and ETH with price and 24h change, only if the market data provides them. If a major moved on a specific catalyst from the news, say so in the same breath. If no market data exists, omit prices entirely.
@@ -52,7 +55,7 @@ Each tweet carries ONE story that earned its place, drawn only from the data. Pr
 
 T(n) — close
 
-End with one thing to watch that is already grounded in something mentioned earlier — concrete, not a prediction. Examples: an ETF decision, a governance vote, a token unlock, a scheduled upgrade, a macro event.
+End with one thing to watch that is already grounded in something mentioned earlier — concrete, not a prediction. Prefer an item with a specific date or deadline (an ETF decision, a governance vote, a token unlock, a scheduled upgrade, a macro release). State it plainly; do not append a vague tail like "could impact the market".
 
 No prediction. No conclusion. No verdict.`;
 
@@ -72,7 +75,8 @@ const WRITING_STYLE = `Writing style:
   insane
   moon
   explosive
-- Never exaggerate.`;
+- Never exaggerate.
+- No mood tags or filler tails such as "as the majors see a positive day" or "a move that could impact the market".`;
 
 const FACTUAL_RULES = `Accuracy rules:
 
@@ -94,7 +98,9 @@ If a number is unavailable, describe the event qualitatively.
 
 Never speculate.
 
-Never infer causation unless clearly supported by the provided information.
+You MAY connect a market move to its cause when the data makes the link explicit — a named ETF custodian, a same-day announcement, a dated event — stated plainly: "BTC rose after the SEC opened its comment period."
+
+Do not hedge causation with "may be driven by", "possibly in response to", "likely related to", or "could impact the market". If the link is not explicit in the data, put the fact and the price side by side and let the reader connect them.
 
 Never provide investment advice.
 
@@ -121,6 +127,10 @@ const QUALITY_CHECK = `Before producing the final thread, internally verify:
 ✓ No filler remains.
 ✓ No speculation appears.
 ✓ No investment advice appears.
+✓ No trending-search or bare ticker lists.
+✓ No hedged causation ("may", "possibly", "likely", "could").
+✓ Each tweet carries exactly one story.
+✓ The close is a concrete, ideally dated, watch-item.
 
 Do NOT output this checklist.`;
 
@@ -143,11 +153,9 @@ Sample search context:
 
 2/ The majors: BTC trades at $61,200, down 2.1% on the day. ETH sits at $2,980, off 1.4%.
 
-3/ The outlier is SOL at $142, +4.8%. The move follows a major exchange announcing a SOL staking product this morning.
+3/ SOL is the outlier at $142, up 4.8%, after a major exchange launched a SOL staking product this morning.
 
-4/ Search interest also rotated toward Solana ecosystem tokens, with JUP and WIF leading today's trending searches.
-
-5/ One thing to watch: the Ethereum upgrade vote scheduled for Thursday.
+4/ One thing to watch: the Ethereum upgrade vote scheduled for Thursday.
 
 </example_thread>`;
 

@@ -43,3 +43,24 @@ describe('buildDailyRecapPrompt — hook', () => {
     expect(out).toMatch(/name the event, not a mood/i);
   });
 });
+
+describe('buildDailyRecapPrompt — quality tuning', () => {
+  const p = buildDailyRecapPrompt({ marketSnippet: 'x', searchSummary: 'y' });
+
+  it('excludes trending-search / bare ticker lists', () => {
+    expect(p).toMatch(/Do not report trending searches/i);
+  });
+
+  it('bans hedged causation but allows explicit fusion', () => {
+    expect(p).toMatch(/Do not hedge causation/i);
+    expect(p).toMatch(/You MAY connect a market move to its cause/i);
+  });
+
+  it('requires exactly one story per tweet', () => {
+    expect(p).toMatch(/Never merge two separate events/i);
+  });
+
+  it('wants a dated watch-item close, no vague tail', () => {
+    expect(p).toMatch(/specific date or deadline/i);
+  });
+});
