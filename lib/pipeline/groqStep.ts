@@ -6,12 +6,20 @@ import type { PipelineContext, PipelineEvent } from './types';
 export async function runGroqStep(
   ctx: PipelineContext,
   emit: (e: PipelineEvent) => void,
+  opts: { searchSummary?: string | null } = {},
 ): Promise<{ tweets: string[] }> {
   emit({ type: 'step_started', step: 'groq' });
 
   const messages = [
     { role: 'system' as const, content: SYSTEM_PROMPT },
-    { role: 'user' as const, content: buildModeAPrompt({ topic: ctx.topic, audience: ctx.audience }) },
+    {
+      role: 'user' as const,
+      content: buildModeAPrompt({
+        topic: ctx.topic,
+        audience: ctx.audience,
+        searchSummary: opts.searchSummary ?? null,
+      }),
+    },
   ];
 
   let draft: DraftResult;

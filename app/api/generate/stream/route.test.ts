@@ -101,7 +101,11 @@ describe('POST /api/generate/stream', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     verifyPayment.mockResolvedValue({ amountRaw: VERIFIED_AMOUNT });
-    runModeA.mockResolvedValue({ tweets: ['tweet 1', 'tweet 2'] });
+    runModeA.mockResolvedValue({
+      tweets: ['tweet 1', 'tweet 2'],
+      searchSummary: null,
+      totalCostUsd: MODE_A_TOTAL_COST_USD,
+    });
     runModeB.mockResolvedValue({
       tweets: ['hot 1', 'hot 2'],
       searchSummary: 'summary',

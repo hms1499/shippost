@@ -20,7 +20,11 @@ vi.mock('./coingeckoStep', () => ({
 vi.mock('./defiLlamaStep', () => ({ fetchProtocolTvl, summarizeProtocolTvl, fetchDefiOverview }));
 // The mode descriptors import the paid pipelines for their run() methods; the
 // preview path never calls them, so mock them out to keep this test isolated.
-vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA: vi.fn(), MODE_A_TOTAL_COST_USD: '0.050' }));
+vi.mock('@/lib/pipeline/runModeA', () => ({
+  runModeA: vi.fn(),
+  MODE_A_TOTAL_COST_USD: '0.050',
+  educationalQuery: (t: string) => `${t} ethereum`,
+}));
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB: vi.fn() }));
 
 const { runPreview } = await import('./runPreview');
@@ -28,6 +32,7 @@ const { runPreview } = await import('./runPreview');
 beforeEach(() => {
   vi.clearAllMocks();
   generateTweets.mockResolvedValue(['1/ hook', '2/ body']);
+  fetchSerper.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
   // DefiLlama grounding is additive + soft; default to "no protocol / no macro"
   // so these previews exercise the base path without real network calls.
   fetchProtocolTvl.mockResolvedValue(null);
@@ -36,10 +41,12 @@ beforeEach(() => {
 });
 
 describe('runPreview', () => {
-  it('Mode A: generates from topic/audience, no grounding calls', async () => {
+  it('Mode A: grounds on the topic via search, no market calls', async () => {
     const out = await runPreview({ mode: 0, topic: 'EIP-712', audience: 'beginner' });
     expect(out.tweets).toHaveLength(2);
-    expect(fetchSerper).not.toHaveBeenCalled();
+    // Educational grounds on a soft search over the topic, but never touches
+    // market data.
+    expect(fetchSerper).toHaveBeenCalledWith(expect.stringContaining('EIP-712'));
     expect(fetchCoinGecko).not.toHaveBeenCalled();
     expect(generateTweets).toHaveBeenCalledOnce();
   });

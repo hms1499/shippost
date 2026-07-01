@@ -38,7 +38,7 @@ The paid generation flow (`/api/generate/stream`, SSE) is the heart of the app a
 
 1. **Pay** — `ShipPostPayment.payForThread(token, mode)` pulls $0.05 stablecoin and splits it 50% → AgentWallet / 40% → treasury / 10% → reserve, emitting `ThreadRequested`.
 2. **Verify** — the route decodes that log from `payTxHash` and asserts threadId/payer/token/mode + exact amount **before any paid work**.
-3. **Generate** — a pipeline of steps fires 1–4 x402 micro-payments from **AgentWallet** to AI services (Model 1). Mode A (Educational) = `groqStep`; Mode B (Hot Take) = `serperStep → coingeckoStep → groqStep → factCheckStep`.
+3. **Generate** — a pipeline of steps fires 1–4 x402 micro-payments from **AgentWallet** to AI services (Model 1). Mode A (Educational) = `serperStep (soft grounding) → groqStep`; Mode B (Hot Take) = `serperStep → coingeckoStep → groqStep → factCheckStep`.
 4. **Settle gates delivery** — tweets are emitted only *after* the x402 settle confirms; every failure path is a clean, refundable state.
 
 The non-negotiable invariants of this flow are in [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md). Read it before editing anything under `/api/generate` or `lib/pipeline/`.

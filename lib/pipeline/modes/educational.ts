@@ -1,8 +1,10 @@
 // lib/pipeline/modes/educational.ts
-import { runModeA, MODE_A_TOTAL_COST_USD } from '@/lib/pipeline/runModeA';
+import { runModeA, educationalQuery } from '@/lib/pipeline/runModeA';
 import { SYSTEM_PROMPT } from '@/lib/prompts/system';
 import { buildModeAPrompt } from '@/lib/prompts/modeA';
+import { summarizeSerper } from '@/lib/prompts/modeB';
 import { generateTweets } from '@/lib/pipeline/generateDraft';
+import { fetchSerper } from '@/lib/pipeline/serperStep';
 import type { ModeDef } from './types';
 
 const VALID_AUDIENCES = ['beginner', 'intermediate', 'advanced'] as const;
@@ -16,16 +18,27 @@ export const educationalMode: ModeDef = {
     return null;
   },
   async run(ctx, _body, emit) {
-    const { tweets } = await runModeA(ctx, emit);
-    // Mode A is a single Groq settle, so its total is exactly the Groq cost.
-    return { tweets, totalCostUsd: MODE_A_TOTAL_COST_USD, searchSummary: null, marketSnippet: null };
+    // runModeA now grounds on a soft, paid Serper search before drafting, so
+    // its total covers Groq plus the grounding settle when it lands.
+    const { tweets, totalCostUsd, searchSummary } = await runModeA(ctx, emit);
+    return { tweets, totalCostUsd, searchSummary, marketSnippet: null };
   },
   async preview(input) {
+    // Grounding is soft: a failed Serper still yields a draft. Mirror the paid
+    // path so the free preview reflects what paying produces.
+    const topic = input.topic ?? '';
+    let searchSummary: string | null = null;
+    try {
+      const s = await fetchSerper(educationalQuery(topic));
+      searchSummary = summarizeSerper(s.organic, s.newsSnippet);
+    } catch (e) {
+      console.error('[educational.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+    }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
       {
         role: 'user' as const,
-        content: buildModeAPrompt({ topic: input.topic ?? '', audience: input.audience ?? 'beginner' }),
+        content: buildModeAPrompt({ topic, audience: input.audience ?? 'beginner', searchSummary }),
       },
     ];
     return { tweets: await generateTweets({ messages, temperature: 0.7, maxTokens: 1200 }) };

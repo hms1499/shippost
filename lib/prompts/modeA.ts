@@ -3,7 +3,12 @@ export type Audience = 'beginner' | 'intermediate' | 'advanced';
 interface ModeAInput {
   topic: string;
   audience: Audience;
+  // Optional retrieved reference facts. Fact-anchor ONLY — see REFERENCE_GUIDANCE.
+  searchSummary?: string | null;
 }
+
+const REFERENCE_GUIDANCE = `Reference facts (fact-check only — NOT a content source):
+The lines below were retrieved by search for this topic. Use them for ONE thing: keeping concrete specifics accurate — EIP/ERC numbers, function signatures, gas figures, dates, proper names. Your explanation, structure, and narrative come entirely from your own understanding. Do NOT summarize these results, do NOT let them add or reorder sub-topics, do NOT copy their phrasing. If a specific in your draft conflicts with a reference, trust the reference or drop the specific. If the references are thin, off-topic, or marketing fluff, ignore them and write from your own knowledge.`;
 
 const AUDIENCE_GUIDANCE: Record<Audience, string> = {
   beginner:
@@ -41,15 +46,20 @@ const FEW_SHOT_EXAMPLE = `Reference for voice and quality bar (different topic �
 </example_thread>`;
 
 export function buildModeAPrompt(input: ModeAInput): string {
-  return [
+  const blocks = [
     FEW_SHOT_EXAMPLE,
     `Now write a thread on:`,
     `Topic: ${input.topic.trim()}`,
     `Target audience: ${input.audience}. ${AUDIENCE_GUIDANCE[input.audience]}`,
-    LENGTH_GUIDANCE,
-    STRUCTURE,
-    'Output only the numbered tweets separated by blank lines. Nothing else.',
-  ].join('\n\n');
+  ];
+  if (input.searchSummary) {
+    blocks.push(REFERENCE_GUIDANCE);
+    blocks.push(`Reference facts:\n${input.searchSummary}`);
+  }
+  blocks.push(LENGTH_GUIDANCE);
+  blocks.push(STRUCTURE);
+  blocks.push('Output only the numbered tweets separated by blank lines. Nothing else.');
+  return blocks.join('\n\n');
 }
 
 export function buildThumbnailPrompt(topic: string): string {
