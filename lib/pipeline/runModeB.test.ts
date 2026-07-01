@@ -34,7 +34,19 @@ function userMessageOf(call: unknown): string {
 beforeEach(() => {
   vi.clearAllMocks();
   runSerperStep.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
-  runCoinGeckoStep.mockResolvedValue({ symbol: null, priceUsd: null, change24hPct: null, marketCapUsd: null });
+  runCoinGeckoStep.mockResolvedValue({
+    symbol: null,
+    priceUsd: null,
+    change24hPct: null,
+    change7dPct: null,
+    change30dPct: null,
+    marketCapUsd: null,
+    marketCapRank: null,
+    volume24hUsd: null,
+    circulatingSupply: null,
+    maxSupply: null,
+    athChangePct: null,
+  });
   generateDraft.mockResolvedValue({ tweets: ['1', '2'], txHash: '0xabc', costHuman: '0.010', tokenSymbol: 'cUSD' });
   runFactCheckStep.mockResolvedValue({ tweets: ['1', '2'] });
 });

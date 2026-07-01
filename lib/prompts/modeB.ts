@@ -1,4 +1,5 @@
 import type { SerperOrganicResult } from '@/lib/pipeline/serperStep';
+import type { CoinGeckoResult } from '@/lib/pipeline/coingeckoStep';
 
 export type Angle = 'bullish' | 'bearish' | 'skeptical';
 
@@ -97,15 +98,56 @@ export function summarizeSerper(
   return lines.join('\n');
 }
 
-export function summarizeMarket(cg: {
-  symbol: string | null;
-  priceUsd: number | null;
-  change24hPct: number | null;
-  marketCapUsd: number | null;
-}): string | null {
+function signedPct(n: number): string {
+  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
+}
+
+// Compact USD: $4.45B / $312.0M / $28.4K. Keeps the snippet short so the model
+// spends its attention on the signal, not on parsing long numbers.
+function usdCompact(n: number): string {
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
+
+// Turn the CoinGecko snapshot into researcher-grade ground truth: not just a
+// price line, but momentum across windows, liquidity, dilution headroom, and
+// distance from the all-time high. Each line is a signal the thread can cite.
+export function summarizeMarket(cg: CoinGeckoResult): string | null {
   if (!cg.symbol || cg.priceUsd === null) return null;
-  const parts: string[] = [`${cg.symbol} @ $${cg.priceUsd.toPrecision(4)}`];
-  if (cg.change24hPct !== null) parts.push(`${cg.change24hPct.toFixed(2)}% 24h`);
-  if (cg.marketCapUsd) parts.push(`mcap ~$${(cg.marketCapUsd / 1e6).toFixed(1)}M`);
-  return parts.join(', ');
+  const lines: string[] = [];
+
+  const head = [`${cg.symbol} @ $${cg.priceUsd.toPrecision(4)}`];
+  if (cg.marketCapRank) head.push(`rank #${cg.marketCapRank}`);
+  lines.push(head.join(', '));
+
+  const momentum: string[] = [];
+  if (cg.change24hPct !== null) momentum.push(`24h ${signedPct(cg.change24hPct)}`);
+  if (cg.change7dPct !== null) momentum.push(`7d ${signedPct(cg.change7dPct)}`);
+  if (cg.change30dPct !== null) momentum.push(`30d ${signedPct(cg.change30dPct)}`);
+  if (momentum.length) lines.push(`Momentum: ${momentum.join(', ')}`);
+
+  const size: string[] = [];
+  if (cg.marketCapUsd) size.push(`mcap ${usdCompact(cg.marketCapUsd)}`);
+  if (cg.volume24hUsd) {
+    size.push(`24h vol ${usdCompact(cg.volume24hUsd)}`);
+    if (cg.marketCapUsd) size.push(`vol/mcap ${(cg.volume24hUsd / cg.marketCapUsd).toFixed(2)}`);
+  }
+  if (size.length) lines.push(`Size & liquidity: ${size.join(', ')}`);
+
+  if (cg.circulatingSupply && cg.maxSupply) {
+    const inCirc = (cg.circulatingSupply / cg.maxSupply) * 100;
+    lines.push(
+      `Supply: ${inCirc.toFixed(0)}% of max in circulation, ${(100 - inCirc).toFixed(0)}% still to unlock`,
+    );
+  } else if (cg.circulatingSupply && cg.maxSupply === null) {
+    lines.push(`Supply: uncapped (no fixed max)`);
+  }
+
+  if (cg.athChangePct !== null && cg.athChangePct < 0) {
+    lines.push(`Down ${Math.abs(cg.athChangePct).toFixed(0)}% from all-time high`);
+  }
+
+  return lines.join('\n');
 }

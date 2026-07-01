@@ -9,7 +9,29 @@ export interface CoinGeckoResult {
   symbol: string | null;
   priceUsd: number | null;
   change24hPct: number | null;
+  change7dPct: number | null;
+  change30dPct: number | null;
   marketCapUsd: number | null;
+  marketCapRank: number | null;
+  volume24hUsd: number | null;
+  circulatingSupply: number | null;
+  maxSupply: number | null; // null = uncapped emission
+  athChangePct: number | null; // negative = trading below all-time high
+}
+
+// One /coins/markets row — the fields we read for a single-token snapshot.
+interface MarketDetailRow {
+  current_price?: number;
+  market_cap?: number;
+  market_cap_rank?: number;
+  total_volume?: number;
+  circulating_supply?: number;
+  max_supply?: number | null;
+  ath_change_percentage?: number;
+  price_change_percentage_24h?: number;
+  price_change_percentage_24h_in_currency?: number;
+  price_change_percentage_7d_in_currency?: number;
+  price_change_percentage_30d_in_currency?: number;
 }
 
 function extractSymbol(text: string): string | null {
@@ -30,11 +52,20 @@ const EMPTY: CoinGeckoResult = {
   symbol: null,
   priceUsd: null,
   change24hPct: null,
+  change7dPct: null,
+  change30dPct: null,
   marketCapUsd: null,
+  marketCapRank: null,
+  volume24hUsd: null,
+  circulatingSupply: null,
+  maxSupply: null,
+  athChangePct: null,
 };
 
 // Pure CoinGecko lookup — no emit. Returns EMPTY when no $cashtag is found or
 // the coin can't be resolved. Used by the paid step and the free preview.
+// Uses /coins/markets (one call, free, no key) to pull a researcher-grade
+// snapshot: multi-window momentum, liquidity, dilution headroom, ATH drawdown.
 export async function fetchCoinGecko(topicText: string): Promise<CoinGeckoResult> {
   const sym = extractSymbol(topicText);
   if (!sym) return EMPTY;
@@ -43,20 +74,26 @@ export async function fetchCoinGecko(topicText: string): Promise<CoinGeckoResult
   // No x402 settle in this step, so retrying the fetch is fully safe.
   const entry = await retryOnce(async () => {
     const res = await fetch(
-      `${CG_BASE}/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
+      `${CG_BASE}/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h%2C7d%2C30d`,
     );
     if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
-    const j = (await res.json()) as Record<
-      string,
-      { usd?: number; usd_24h_change?: number; usd_market_cap?: number }
-    >;
-    return j[id];
+    const j = (await res.json()) as MarketDetailRow[];
+    return Array.isArray(j) ? j[0] : undefined;
   });
+  if (!entry) return { ...EMPTY, symbol: sym.toUpperCase() };
   return {
     symbol: sym.toUpperCase(),
-    priceUsd: entry?.usd ?? null,
-    change24hPct: entry?.usd_24h_change ?? null,
-    marketCapUsd: entry?.usd_market_cap ?? null,
+    priceUsd: entry.current_price ?? null,
+    change24hPct:
+      entry.price_change_percentage_24h_in_currency ?? entry.price_change_percentage_24h ?? null,
+    change7dPct: entry.price_change_percentage_7d_in_currency ?? null,
+    change30dPct: entry.price_change_percentage_30d_in_currency ?? null,
+    marketCapUsd: entry.market_cap ?? null,
+    marketCapRank: entry.market_cap_rank ?? null,
+    volume24hUsd: entry.total_volume ?? null,
+    circulatingSupply: entry.circulating_supply ?? null,
+    maxSupply: entry.max_supply ?? null,
+    athChangePct: entry.ath_change_percentage ?? null,
   };
 }
 

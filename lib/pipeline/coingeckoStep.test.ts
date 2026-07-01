@@ -8,10 +8,13 @@ describe('fetchCoinGecko', () => {
   it('returns EMPTY when no $cashtag is present', async () => {
     const { fetchCoinGecko } = await import('./coingeckoStep');
     const out = await fetchCoinGecko('no ticker here');
-    expect(out).toEqual({ symbol: null, priceUsd: null, change24hPct: null, marketCapUsd: null });
+    expect(out.symbol).toBeNull();
+    expect(out.priceUsd).toBeNull();
+    expect(out.change7dPct).toBeNull();
+    expect(out.marketCapRank).toBeNull();
   });
 
-  it('resolves a $cashtag to price data', async () => {
+  it('resolves a $cashtag to a full markets snapshot', async () => {
     const { fetchCoinGecko } = await import('./coingeckoStep');
     vi.stubGlobal(
       'fetch',
@@ -21,7 +24,20 @@ describe('fetchCoinGecko', () => {
         }
         return {
           ok: true,
-          json: async () => ({ bitcoin: { usd: 50000, usd_24h_change: 2.5, usd_market_cap: 1e12 } }),
+          json: async () => [
+            {
+              current_price: 50000,
+              market_cap: 1e12,
+              market_cap_rank: 1,
+              total_volume: 3e10,
+              circulating_supply: 19_700_000,
+              max_supply: 21_000_000,
+              ath_change_percentage: -28.4,
+              price_change_percentage_24h_in_currency: 2.5,
+              price_change_percentage_7d_in_currency: -4.1,
+              price_change_percentage_30d_in_currency: 12.3,
+            },
+          ],
         };
       }),
     );
@@ -29,6 +45,12 @@ describe('fetchCoinGecko', () => {
     expect(out.symbol).toBe('BTC');
     expect(out.priceUsd).toBe(50000);
     expect(out.change24hPct).toBe(2.5);
+    expect(out.change7dPct).toBe(-4.1);
+    expect(out.change30dPct).toBe(12.3);
+    expect(out.marketCapRank).toBe(1);
+    expect(out.volume24hUsd).toBe(3e10);
+    expect(out.maxSupply).toBe(21_000_000);
+    expect(out.athChangePct).toBe(-28.4);
   });
 });
 
