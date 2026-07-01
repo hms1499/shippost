@@ -55,7 +55,9 @@ Each tweet carries ONE story that earned its place, drawn only from the data. Pr
 
 T(n) — close
 
-End with one thing to watch that is already grounded in something mentioned earlier — concrete, not a prediction. Prefer an item with a specific date or deadline (an ETF decision, a governance vote, a token unlock, a scheduled upgrade, a macro release). State it plainly; do not append a vague tail like "could impact the market".
+End with one thing to watch that is already grounded in something mentioned earlier — concrete, not a prediction. It must name a specific upcoming event, ideally with a date or deadline (an ETF decision, a governance vote, a token unlock, a scheduled upgrade, a macro release). Do NOT close on a TVL/market-cap figure or a summary sentence. State it plainly; do not append a vague tail.
+
+If the day's only dated event is the one you used in the hook, close on it anyway (as the thing to watch next) rather than falling back to a TVL number.
 
 No prediction. No conclusion. No verdict.`;
 
@@ -76,7 +78,7 @@ const WRITING_STYLE = `Writing style:
   moon
   explosive
 - Never exaggerate.
-- No mood tags or filler tails such as "as the majors see a positive day" or "a move that could impact the market".`;
+- No mood tags or filler tails. Ban clauses like "as the majors see a positive day", "a move that could impact the market", "took center stage", "as the space continues to evolve", "amidst regulatory developments and market fluctuations". End the sentence at the fact.`;
 
 const FACTUAL_RULES = `Accuracy rules:
 
@@ -100,7 +102,7 @@ Never speculate.
 
 You MAY connect a market move to its cause when the data makes the link explicit — a named ETF custodian, a same-day announcement, a dated event — stated plainly: "BTC rose after the SEC opened its comment period."
 
-Do not hedge causation with "may be driven by", "possibly in response to", "likely related to", or "could impact the market". If the link is not explicit in the data, put the fact and the price side by side and let the reader connect them.
+Do not hedge causation. Ban these connectors and any synonym of them: "may", "might", "could", "possibly", "likely", "potentially", "seemingly", "appears to", "signaling", "hinting at", "in a move that". If the link is not explicit in the data, put the fact and the price side by side and let the reader connect them — never guess or gesture at a connection.
 
 Never provide investment advice.
 
@@ -128,9 +130,9 @@ const QUALITY_CHECK = `Before producing the final thread, internally verify:
 ✓ No speculation appears.
 ✓ No investment advice appears.
 ✓ No trending-search or bare ticker lists.
-✓ No hedged causation ("may", "possibly", "likely", "could").
+✓ No hedged causation or synonyms ("may", "possibly", "likely", "could", "potentially", "signaling").
 ✓ Each tweet carries exactly one story.
-✓ The close is a concrete, ideally dated, watch-item.
+✓ The close names a specific upcoming event — never a TVL figure or a summary sentence.
 
 Do NOT output this checklist.`;
 

@@ -51,8 +51,9 @@ describe('buildDailyRecapPrompt — quality tuning', () => {
     expect(p).toMatch(/Do not report trending searches/i);
   });
 
-  it('bans hedged causation but allows explicit fusion', () => {
+  it('bans hedged causation and its synonyms but allows explicit fusion', () => {
     expect(p).toMatch(/Do not hedge causation/i);
+    expect(p).toMatch(/"potentially"/);
     expect(p).toMatch(/You MAY connect a market move to its cause/i);
   });
 
@@ -60,7 +61,8 @@ describe('buildDailyRecapPrompt — quality tuning', () => {
     expect(p).toMatch(/Never merge two separate events/i);
   });
 
-  it('wants a dated watch-item close, no vague tail', () => {
-    expect(p).toMatch(/specific date or deadline/i);
+  it('wants a dated event close, never a TVL/summary close', () => {
+    expect(p).toMatch(/date or deadline/i);
+    expect(p).toMatch(/Do NOT close on a TVL/i);
   });
 });
