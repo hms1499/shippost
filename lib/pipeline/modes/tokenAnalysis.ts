@@ -5,7 +5,8 @@ import { summarizeSerper, summarizeMarket, type Angle } from '@/lib/prompts/mode
 import { buildTokenAnalysisPrompt, normalizeTicker } from '@/lib/prompts/tokenAnalysis';
 import { generateTweets } from '@/lib/pipeline/generateDraft';
 import { fetchSerper } from '@/lib/pipeline/serperStep';
-import { fetchCoinGecko } from '@/lib/pipeline/coingeckoStep';
+import { fetchCoinGecko, runCoinGeckoStep } from '@/lib/pipeline/coingeckoStep';
+import { fetchProtocolTvl, summarizeProtocolTvl } from '@/lib/pipeline/defiLlamaStep';
 import type { ModeDef } from './types';
 
 const VALID_ANGLES: Angle[] = ['bullish', 'bearish', 'skeptical'];
@@ -14,6 +15,20 @@ const VALID_ANGLES: Angle[] = ['bullish', 'bearish', 'skeptical'];
 // than generic results.
 function serperQueryFor(ticker: string): string {
   return `${ticker} crypto token price news catalyst`;
+}
+
+const joinSnippet = (...parts: (string | null)[]): string | null =>
+  parts.filter(Boolean).join('\n') || null;
+
+// On-chain TVL context (DefiLlama), soft: returns null for non-protocol tokens
+// or on any failure so the thread still ships on CoinGecko grounding alone.
+async function tvlLineFor(ticker: string, mcapUsd: number | null): Promise<string | null> {
+  try {
+    return summarizeProtocolTvl(await fetchProtocolTvl(ticker), mcapUsd);
+  } catch (e) {
+    console.error('[tokenAnalysis] defillama failed, continuing:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 export const tokenAnalysisMode: ModeDef = {
@@ -36,6 +51,13 @@ export const tokenAnalysisMode: ModeDef = {
         eventDescription: ticker, // fallback only; query + prompt are overridden
         angle,
         serperQuery: serperQueryFor(ticker),
+        // Fold DefiLlama TVL into the CoinGecko market step (same free,
+        // no-settle 'coingecko' lifecycle) so the prompt sees on-chain capital
+        // alongside price/momentum.
+        marketStep: async (c, emit) => {
+          const cg = await runCoinGeckoStep(c, emit);
+          return joinSnippet(summarizeMarket(cg), await tvlLineFor(ticker, cg.marketCapUsd));
+        },
         buildPrompt: ({ searchSummary, marketSnippet }) =>
           buildTokenAnalysisPrompt({ ticker, angle, searchSummary, marketSnippet }),
       },
@@ -61,7 +83,8 @@ export const tokenAnalysisMode: ModeDef = {
     }
     let marketSnippet: string | null = null;
     try {
-      marketSnippet = summarizeMarket(await fetchCoinGecko(ticker));
+      const cg = await fetchCoinGecko(ticker);
+      marketSnippet = joinSnippet(summarizeMarket(cg), await tvlLineFor(ticker, cg.marketCapUsd));
     } catch (e) {
       console.error('[tokenAnalysis.preview] coingecko failed, continuing:', e instanceof Error ? e.message : e);
     }

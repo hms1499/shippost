@@ -6,11 +6,27 @@ import { buildDailyRecapPrompt } from '@/lib/prompts/dailyRecap';
 import { generateTweets } from '@/lib/pipeline/generateDraft';
 import { fetchSerper } from '@/lib/pipeline/serperStep';
 import { fetchMarketOverview, runMarketOverviewStep } from '@/lib/pipeline/coingeckoStep';
+import { fetchDefiOverview } from '@/lib/pipeline/defiLlamaStep';
 import type { ModeDef } from './types';
 
 // One-tap mode: no user input. The grounding IS the input — today's market
 // snapshot + today's headlines.
-const SERPER_QUERY = 'crypto market today bitcoin ethereum biggest movers news';
+const SERPER_QUERY =
+  'crypto news today bitcoin ethereum etf regulation biggest market moves';
+
+const joinSnippet = (...parts: (string | null)[]): string | null =>
+  parts.filter(Boolean).join('\n') || null;
+
+// DeFi TVL + stablecoin supply macro backdrop (DefiLlama), soft: null on any
+// failure so the recap still ships on CoinGecko + Serper grounding.
+async function defiLine(): Promise<string | null> {
+  try {
+    return await fetchDefiOverview();
+  } catch (e) {
+    console.error('[dailyRecap] defillama failed, continuing:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
 
 export const dailyRecapMode: ModeDef = {
   id: 3,
@@ -29,7 +45,8 @@ export const dailyRecapMode: ModeDef = {
         angle: 'skeptical',
         eventDescription: 'crypto market today',
         serperQuery: SERPER_QUERY,
-        marketStep: runMarketOverviewStep,
+        marketStep: async (c, emit) =>
+          joinSnippet(await runMarketOverviewStep(c, emit), await defiLine()),
         buildPrompt: ({ searchSummary, marketSnippet }) =>
           buildDailyRecapPrompt({ searchSummary, marketSnippet }),
       },
@@ -54,7 +71,7 @@ export const dailyRecapMode: ModeDef = {
     }
     let marketSnippet: string | null = null;
     try {
-      marketSnippet = await fetchMarketOverview();
+      marketSnippet = joinSnippet(await fetchMarketOverview(), await defiLine());
     } catch (e) {
       console.error('[dailyRecap.preview] market overview failed, continuing:', e instanceof Error ? e.message : e);
     }
