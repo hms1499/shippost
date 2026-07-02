@@ -64,9 +64,8 @@ export function appendTraceLines(
     push({
       key: 'done',
       glyph: 'ok',
-      text: next.totalCostUsd
-        ? `run complete — agent spent $${next.totalCostUsd}`
-        : 'run complete',
+      text: next.totalCostUsd ? 'run complete — agent spent' : 'run complete',
+      amount: next.totalCostUsd ? `$${next.totalCostUsd}` : undefined,
     });
   }
   if (!prev.fatal && next.fatal) {
