@@ -8,56 +8,20 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, ornament = false, children, ...props }, ref) => (
+  ({ className, ornament, children, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "codex-card relative rounded-md border bg-card text-card-foreground",
+        "rounded-lg border border-border bg-card text-card-foreground",
         className
       )}
       {...props}
     >
-      {ornament && (
-        <>
-          <CornerMark className="absolute top-1.5 left-1.5" />
-          <CornerMark className="absolute top-1.5 right-1.5" rotate={90} />
-          <CornerMark className="absolute bottom-1.5 right-1.5" rotate={180} />
-          <CornerMark className="absolute bottom-1.5 left-1.5" rotate={270} />
-        </>
-      )}
       {children}
     </div>
   )
 )
 Card.displayName = "Card"
-
-function CornerMark({
-  className,
-  rotate = 0,
-}: {
-  className?: string
-  rotate?: number
-}) {
-  return (
-    <svg
-      viewBox="0 0 12 12"
-      width="10"
-      height="10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="0.8"
-      style={{ transform: `rotate(${rotate}deg)` }}
-      className={cn(
-        "text-[hsl(var(--ink-faded))] opacity-60 pointer-events-none",
-        className
-      )}
-      aria-hidden
-    >
-      <path d="M1 4 L1 1 L4 1" />
-      <circle cx="1" cy="1" r="0.6" fill="currentColor" />
-    </svg>
-  )
-}
 
 const CardHeader = React.forwardRef<
   HTMLDivElement,

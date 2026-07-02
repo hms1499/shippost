@@ -10,27 +10,20 @@ import { cn } from "@/lib/utils"
  * the call-to-action carries weight; outline variants stay quiet and warm.
  */
 const buttonVariants = cva(
-  [
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
-    "ring-offset-background transition-[background,color,border-color,transform] duration-200",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-    "disabled:pointer-events-none disabled:opacity-50",
-    "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-    "tracking-[0.06em] active:translate-y-px",
-  ].join(" "),
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md font-mono font-bold uppercase tracking-wide text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground border border-[hsl(var(--ink-deep))] hover:bg-[hsl(var(--ink-deep))] hover:text-primary-foreground",
+          "bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75",
         destructive:
           "bg-destructive text-destructive-foreground border border-destructive hover:bg-destructive/90",
         outline:
-          "border border-[hsl(var(--ink-faded))] bg-transparent text-foreground hover:bg-[hsl(var(--accent)/0.5)] hover:border-[hsl(var(--ink-deep))]",
+          "border border-primary/40 bg-transparent text-primary hover:bg-primary/10",
         secondary:
           "bg-secondary text-secondary-foreground border border-border hover:bg-secondary/80",
         ghost:
-          "hover:bg-[hsl(var(--accent)/0.4)] hover:text-accent-foreground",
+          "text-muted-foreground hover:text-foreground hover:bg-secondary",
         link:
           "text-primary underline-offset-4 hover:underline border-0",
       },
