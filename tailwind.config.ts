@@ -15,6 +15,7 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        money: 'hsl(var(--money))',
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
@@ -46,12 +47,12 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        // Engineer's codex hybrid: JBMono for body/UI/data; IM Fell DW Pica
-        // for display tier (h1/h2/h3, illuminated initials, drop cap). Both
-        // are loaded via next/font/google in app/layout.tsx.
-        sans: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        // Terminal: mono is the chrome; Inter (`font-sans`) is reserved for
+        // AI-generated tweet content. `display` is a compat alias for
+        // un-migrated codex call sites — removed in Task 8.
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        display: ['var(--font-display)', 'Garamond', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
     },
   },

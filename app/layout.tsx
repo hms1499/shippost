@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, IM_Fell_DW_Pica, EB_Garamond } from 'next/font/google';
+import { JetBrains_Mono, Inter } from 'next/font/google';
 import { Providers } from './providers';
-import { ThemeApplicator } from '@/components/ThemeApplicator';
 import './globals.css';
 
 const mono = JetBrains_Mono({
@@ -12,31 +11,17 @@ const mono = JetBrains_Mono({
   display: 'swap',
 });
 
-// IM Fell DW Pica — type cut by John Fell c. 1690, period-correct codex
-// hand-press feel with deliberate ink irregularity. Reserved for display
-// surfaces (hero, section titles, illuminated initials, drop cap).
-const display = IM_Fell_DW_Pica({
+// Inter is reserved for AI-generated thread content (`font-sans`): chrome is
+// machine (mono), the output is writing for humans (sans).
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['400'],
-  style: ['normal', 'italic'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-// EB Garamond — a legible, modern old-style serif in the same family as the
-// display tier. The reading workhorse: body copy, labels, buttons, inputs.
-// Replaces JetBrains Mono as the body face (mono is for code, not prose).
-const serif = EB_Garamond({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-serif',
+  variable: '--font-sans',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'ShipPost — pay-per-thread, written in ink',
-  description: 'A Renaissance for posting. Pay $0.05, agent crafts your thread.',
+  title: 'ShipPost — your agent writes, pays, ships',
+  description: 'Pay $0.05, an on-chain agent pays AI services per call and ships your X thread.',
   other: {
     'talentapp:project_verification': 'a716144f6408810e3737c83cfc3fd4e663c78686f3bc89e2945c4bd0346a196c4e46cc35371bf8137e929a2a73f5e6024aab7c9bf90ec93a4d34b052ddf144a8',
   },
@@ -46,7 +31,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#ede3ce',
+  // Single dark theme — set statically; ThemeApplicator (runtime MiniPay
+  // detection) is deleted.
+  themeColor: '#0A0D0A',
 };
 
 export default function RootLayout({
@@ -54,10 +41,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // `dark` is hardcoded so legacy `dark:` utilities keep resolving during the
+  // migration; Task 8 strips remaining `dark:` variants.
   return (
-    <html lang="en" className={`${mono.variable} ${display.variable} ${serif.variable}`}>
+    <html lang="en" className={`dark ${mono.variable} ${inter.variable}`}>
       <body>
-        <ThemeApplicator />
         <Providers>{children}</Providers>
       </body>
     </html>
