@@ -10,21 +10,17 @@ import { Button } from '@/components/ui/button';
 import { ScreenTransition } from '@/components/motion/ScreenTransition';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
-import { FolioMark } from '@/components/FolioMark';
-import { InkDivider } from '@/components/InkDivider';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
+import { TraceNote } from '@/components/terminal/TraceNote';
 import { ColophonIndex } from '@/components/ColophonIndex';
-import { MirrorScript } from '@/components/MirrorScript';
-import { Marginalia } from '@/components/Marginalia';
-import { InkBlot } from '@/components/InkBlot';
-import { InkText } from '@/components/InkText';
 
 const WalletMenu = dynamic(
   () => import('@/components/WalletMenu').then((m) => m.WalletMenu),
   {
     ssr: false,
     loading: () => (
-      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[hsl(var(--ink-faded))] heading-sub text-[10px] text-muted-foreground">
-        <Loader2 size={11} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border heading-sub text-[10px] text-muted-foreground">
+        <Loader2 size={11} className="animate-spin text-muted-foreground" aria-hidden />
         Loading…
       </span>
     ),
@@ -49,9 +45,7 @@ import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { useIsDesktop } from '@/lib/useIsDesktop';
 import { useKeyboardInset } from '@/lib/useKeyboardInset';
-import { FolioSpread } from '@/components/FolioSpread';
 import { ComposeSummary } from '@/components/ComposeSummary';
-import { RightLeafPlaceholder } from '@/components/RightLeafPlaceholder';
 
 const EducationalInput = dynamic(
   () => import('@/components/EducationalInput').then((m) => m.EducationalInput),
@@ -477,7 +471,7 @@ export default function HomeClient() {
       <Stagger className="w-full max-w-md flex flex-col gap-4">
         {degradedSteps.length > 0 && (
           <StaggerItem>
-            <div className="rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3 flex flex-col gap-2.5">
+            <div className="rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3 flex flex-col gap-2.5">
               <p className="text-sm text-muted-foreground">
                 Built without live data ({degradedSteps.join(', ')}). Still
                 usable — or request a refund if it falls short.
@@ -549,7 +543,7 @@ export default function HomeClient() {
           server's to decide. No button: any refund follows from the server's
           own fatal/done. */}
       {screen === 'generating' && gen.isSlow && !gen.isDone && !gen.fatal && (
-        <div className="w-full max-w-md rounded-md border border-[hsl(var(--ink-faded))] bg-[hsl(var(--ink-faded)/0.06)] px-4 py-3">
+        <div className="w-full max-w-md rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3">
           <p className="text-sm text-muted-foreground leading-snug">
             Taking longer than usual — the agent is still working. Your payment
             is safe; if it can&apos;t finish, a refund is sent automatically.
@@ -666,52 +660,31 @@ export default function HomeClient() {
           : undefined
       }
     >
-      {/* Decorative ink stains, light theme only — pulled to edges so they
-          don't sit on top of content. dark:hidden keeps MiniPay clean. */}
-      <InkBlot
-        variant={1}
-        size={42}
-        className="pointer-events-none absolute top-32 left-3 text-[hsl(var(--ink-deep))] opacity-[0.06] dark:hidden -rotate-12"
-      />
-      <InkBlot
-        variant={2}
-        size={32}
-        className="pointer-events-none absolute top-[60vh] right-4 text-[hsl(var(--ink-deep))] opacity-[0.05] dark:hidden rotate-[18deg]"
-      />
-
       <header className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col gap-3`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col leading-none">
-            <InkText
-              as="h1"
-              className="font-display italic text-[3.4rem] text-foreground leading-[0.9]"
-              delay={70}
-            >
+            <h1 className="font-mono font-bold tracking-tight text-[3.4rem] text-foreground leading-[0.9]">
               ShipPost
-            </InkText>
-            <span className="heading-sub text-[10px] mt-2 flex items-center gap-2">
-              Codex of Threads · Folio MMXXVI
-              <MirrorScript className="font-display italic text-[12px] opacity-50 normal-case tracking-normal text-[hsl(var(--ink-faded))]">
-                ShipPost
-              </MirrorScript>
+            </h1>
+            <span className="heading-sub text-[10px] mt-2">
+              AI thread writer, agent-run
             </span>
           </div>
           <div className="flex flex-col items-end gap-2 pt-2 shrink-0">
             {mounted && <WalletMenu />}
-            <FolioMark numeral="I" />
           </div>
         </div>
-        <InkDivider />
+        <RuleDivider />
         {mounted && !isMiniPay && (
-          <Marginalia side="right" className="-mt-1 self-end">
-            $0.05 per thread, paid in stable
-          </Marginalia>
+          <TraceNote side="right" className="-mt-1 self-end">
+            <span className="font-mono text-money">$0.05</span> per thread, paid in stable
+          </TraceNote>
         )}
       </header>
 
       {!mounted ? (
         <div className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+          <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden />
           Loading…
         </div>
       ) : !isConnected ? (
@@ -724,7 +697,7 @@ export default function HomeClient() {
             </div>
           ) : (
             <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
+              <Loader2 size={14} className="animate-spin text-muted-foreground" aria-hidden />
               Connecting MiniPay…
             </div>
           )
@@ -761,21 +734,19 @@ export default function HomeClient() {
         <>
           <WalletStatus />
           {spread ? (
-            <FolioSpread
-              leftKey={isInputScreen(screen) ? screen : 'summary'}
-              rightKey={isOutputScreen(screen) ? screen : 'placeholder'}
-              left={isInputScreen(screen) ? formNode : composeSummary}
-              right={
-                isOutputScreen(screen) ? (
+            <div className="w-full max-w-4xl grid grid-cols-2 gap-8">
+              <div className="w-full flex flex-col items-center gap-6">
+                {isInputScreen(screen) ? formNode : composeSummary}
+              </div>
+              <div className="w-full flex flex-col items-center gap-6">
+                {isOutputScreen(screen) && (
                   <div className="w-full flex flex-col items-center gap-4">
                     {resultNode}
                     {errorSurfaces}
                   </div>
-                ) : (
-                  <RightLeafPlaceholder />
-                )
-              }
-            />
+                )}
+              </div>
+            </div>
           ) : (
             <>
               <AnimatePresence mode="wait">
@@ -790,7 +761,7 @@ export default function HomeClient() {
       )}
 
       <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col items-center gap-4 mt-4`}>
-        <InkDivider />
+        <RuleDivider />
         <ColophonIndex />
       </footer>
     </main>

@@ -1,8 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
-import { GraduationCap, Flame, Loader2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Check, X, Loader2 } from 'lucide-react';
 
 interface Thread {
   chain_id: number;
@@ -25,6 +24,13 @@ interface Props {
   explorerBase: string;
 }
 
+const MODE_LABEL: Record<number, string> = {
+  0: 'EDU',
+  1: 'HOT',
+  2: 'TKN',
+  3: 'REC',
+};
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
@@ -43,19 +49,15 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
   if (isLoading)
     return (
       <p className="text-xs text-muted-foreground flex items-center gap-2">
-        <Loader2
-          size={12}
-          className="animate-spin text-[hsl(var(--ink-faded))]"
-          aria-hidden
-        />
-        Loading folios…
+        <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
+        Loading history…
       </p>
     );
 
   if (error)
     return (
       <p className="text-sm text-destructive">
-        The records are illegible. Refresh to try again.
+        Failed to load history. Refresh to try again.
       </p>
     );
 
@@ -64,12 +66,12 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
   if (threads.length === 0)
     return (
       <p className="text-sm text-muted-foreground">
-        No threads yet — your folio is blank parchment.
+        No threads yet — run your first one from the composer.
       </p>
     );
 
   return (
-    <ol className="w-full max-w-md flex flex-col gap-2 list-none">
+    <ol className="w-full max-w-md flex flex-col list-none font-mono">
       {threads.map((t, i) => (
         <HistoryEntry
           key={`${t.chain_id}-${t.onchain_thread_id}`}
@@ -80,9 +82,9 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
       ))}
 
       <style jsx>{`
-        @keyframes folio-reveal {
-          0% { opacity: 0; transform: translateY(10px); filter: blur(2px); }
-          100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+        @keyframes row-reveal {
+          0% { opacity: 0; transform: translateY(6px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </ol>
@@ -98,67 +100,40 @@ function HistoryEntry({
   explorerBase: string;
   index: number;
 }) {
-  const isEducational = thread.mode === 0;
-  const ModeIcon = isEducational ? GraduationCap : Flame;
-  const modeLabel = isEducational ? 'Educational' : 'Hot Take';
-  const completed = thread.status === 'completed';
+  const modeLabel = MODE_LABEL[thread.mode] ?? '???';
+
+  const statusGlyph =
+    thread.status === 'completed' ? (
+      <Check size={11} className="inline text-primary" aria-label="completed" />
+    ) : thread.status === 'failed' ? (
+      <X size={11} className="inline text-destructive" aria-label="failed" />
+    ) : (
+      <Loader2 size={11} className="inline animate-spin text-money" aria-label="processing" />
+    );
 
   return (
     <li
-      style={{
-        animation: `folio-reveal 0.5s ${index * 0.06}s cubic-bezier(.2,.6,.2,1) both`,
-      }}
+      className="border-b border-border"
+      style={{ animation: `row-reveal 0.4s ${index * 0.04}s ease-out both` }}
     >
-      <Card className="p-4 flex flex-col gap-2 transition-colors hover:border-[hsl(var(--ink-deep))]">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <ModeIcon
-              size={14}
-              className="text-[hsl(var(--ink-faded))] shrink-0"
-              aria-hidden
-            />
-            <span className="heading-sub text-[10px]">{modeLabel}</span>
-            {!completed && (
-              <span className="heading-sub text-[10px] text-destructive">
-                · {thread.status}
-              </span>
-            )}
-          </div>
-          <span className="font-mono text-[11px] text-[hsl(var(--ink-faded))] shrink-0">
-            {formatDate(thread.created_at)}
-          </span>
-        </div>
-
-        <p className="font-display italic text-base leading-snug line-clamp-2">
-          {thread.topic ?? '(no topic)'}
-        </p>
-
-        <div className="flex items-baseline gap-2 mt-1 text-[11px]">
-          <span className="text-muted-foreground">
-            Paid 0.05 {thread.token_symbol}
-          </span>
-          {thread.total_cost_usd && (
-            <>
-              <span aria-hidden className="text-[hsl(var(--ink-faded))]">·</span>
-              <span className="text-muted-foreground">
-                agent spent ${thread.total_cost_usd}
-              </span>
-            </>
-          )}
-          <span
-            aria-hidden
-            className="flex-1 border-b border-dotted border-[hsl(var(--ink-faded))] mb-1 opacity-50"
-          />
-          <a
-            href={`${explorerBase}/tx/${thread.pay_tx_hash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="heading-sub text-[10px] no-underline hover:text-primary transition-colors shrink-0"
-          >
-            tx →
-          </a>
-        </div>
-      </Card>
+      <a
+        href={`${explorerBase}/tx/${thread.pay_tx_hash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 py-2.5 text-xs no-underline hover:bg-primary/5 transition-colors"
+      >
+        <span className="text-muted-foreground shrink-0">
+          #{thread.onchain_thread_id}
+        </span>
+        <span className="heading-sub text-[10px] shrink-0">{modeLabel}</span>
+        <span className="flex-1 min-w-0 text-muted-foreground truncate">
+          {formatDate(thread.created_at)}
+        </span>
+        <span className="text-money shrink-0">
+          {thread.total_cost_usd ? `$${thread.total_cost_usd}` : '—'}
+        </span>
+        <span className="shrink-0">{statusGlyph}</span>
+      </a>
     </li>
   );
 }

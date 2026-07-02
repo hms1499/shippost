@@ -5,9 +5,8 @@ import useSWR from 'swr';
 import { useChainId } from 'wagmi';
 import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { InkText } from '@/components/InkText';
-import { InkDivider } from '@/components/InkDivider';
-import { FolioMark } from '@/components/FolioMark';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
+import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 
@@ -71,28 +70,21 @@ export default function StatsPage() {
   return (
     <main className="min-h-screen flex flex-col items-center gap-6 p-6 pt-10">
       <header className="w-full max-w-md flex flex-col gap-3">
-        <div className="flex items-start justify-between">
-          <Link
-            href="/"
-            className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
-          >
-            <ArrowLeft size={12} aria-hidden />
-            Back to composer
-          </Link>
-          <FolioMark numeral="II" />
-        </div>
+        <Link
+          href="/"
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+        >
+          <ArrowLeft size={12} aria-hidden />
+          Back to composer
+        </Link>
 
         <div>
           <p className="heading-sub text-[10px]">
             Public Stats · {chainLabel(chainId)}
           </p>
-          <InkText
-            as="h1"
-            className="font-display italic text-[2.6rem] leading-[0.95] mt-1"
-            delay={50}
-          >
-            Folio of records
-          </InkText>
+          <h1 className="text-2xl font-bold font-mono tracking-tight mt-1">
+            Stats
+          </h1>
         </div>
 
         <p className="text-sm text-muted-foreground leading-snug">
@@ -100,48 +92,35 @@ export default function StatsPage() {
         </p>
       </header>
 
-      <InkDivider />
+      <RuleDivider />
 
-      <section
-        className="w-full max-w-md flex flex-col gap-4 reveal"
-        style={{ animationDelay: '0.4s' }}
-      >
-        <p className="heading-sub text-[10px]">Index of metrics</p>
+      <section className="w-full max-w-md flex flex-col gap-4">
+        <p className="heading-sub text-[10px]">Metrics</p>
 
         {!stats && !statsError && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2
-              size={12}
-              className="animate-spin text-[hsl(var(--ink-faded))]"
-              aria-hidden
-            />
-            Reckoning the books…
+            <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
+            Loading stats…
           </div>
         )}
 
         {statsError && (
           <p className="text-sm text-destructive">
-            The records are illegible. Try again later.
+            Failed to load stats. Try again later.
           </p>
         )}
 
         {stats && (
-          <Card ornament className="relative p-5">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-              {/* Vertical ledger rule — separates the 2-col grid; stops above
-                  the audit link footer. */}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute top-5 bottom-[3.5rem] left-1/2 w-px bg-[hsl(var(--ink-faded)/0.3)]"
-              />
+          <>
+            <div className="grid grid-cols-2 gap-3">
               <Metric label="threads composed" value={stats.threads} />
-              <Metric label="unique scribes" value={stats.uniqueWallets} />
-              <Metric label="volume on chain" value={`$${stats.volumeUsd}`} />
+              <Metric label="unique wallets" value={stats.uniqueWallets} />
+              <Metric label="volume on chain" value={`$${stats.volumeUsd}`} money />
               <Metric label="x402 settlements" value={stats.x402Count} />
-              <Metric label="agent x402 spend" value={`$${stats.agentSpendUsd}`} />
-              <Metric label="repeat scribes" value={stats.repeatUsers} />
+              <Metric label="agent x402 spend" value={`$${stats.agentSpendUsd}`} money />
+              <Metric label="repeat wallets" value={stats.repeatUsers} />
             </div>
-            <div className="mt-4 flex flex-col gap-1">
+            <div className="flex flex-col gap-1">
               <a
                 href={`${explorer}/address/${getContracts(chainId).AgentWallet}`}
                 target="_blank"
@@ -161,16 +140,13 @@ export default function StatsPage() {
                 <ArrowRight size={11} aria-hidden />
               </a>
             </div>
-          </Card>
+          </>
         )}
       </section>
 
-      <InkDivider />
+      <RuleDivider />
 
-      <section
-        className="w-full max-w-md flex flex-col gap-3 reveal"
-        style={{ animationDelay: '0.7s' }}
-      >
+      <section className="w-full max-w-md flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
           <p className="heading-sub text-[10px]">Recent entries</p>
           {threads.length > 0 && (
@@ -182,11 +158,7 @@ export default function StatsPage() {
 
         {!threadsData && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2
-              size={12}
-              className="animate-spin text-[hsl(var(--ink-faded))]"
-              aria-hidden
-            />
+            <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
             Loading entries…
           </div>
         )}
@@ -198,13 +170,8 @@ export default function StatsPage() {
         )}
 
         <ol className="flex flex-col gap-2 list-none">
-          {threads.map((t, i) => (
-            <ThreadEntry
-              key={`${t.chain_id}-${t.onchain_thread_id}`}
-              thread={t}
-              explorer={explorer}
-              index={i}
-            />
+          {threads.map((t) => (
+            <ThreadEntry key={`${t.chain_id}-${t.onchain_thread_id}`} thread={t} explorer={explorer} />
           ))}
         </ol>
 
@@ -222,17 +189,6 @@ export default function StatsPage() {
           </Link>
         )}
       </section>
-
-      <style jsx>{`
-        @keyframes reveal-up {
-          0% { opacity: 0; transform: translateY(12px); filter: blur(2px); }
-          100% { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
-        .reveal {
-          opacity: 0;
-          animation: reveal-up 0.6s cubic-bezier(.2,.6,.2,1) forwards;
-        }
-      `}</style>
     </main>
   );
 }
@@ -240,42 +196,31 @@ export default function StatsPage() {
 function Metric({
   label,
   value,
+  money,
 }: {
   label: string;
   value: number | string;
+  money?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-display italic text-[2rem] text-foreground tabular-nums leading-none">
+    <TerminalPanel title={label}>
+      <span
+        className={`text-2xl font-bold font-mono tabular-nums leading-none ${
+          money ? 'text-money' : 'text-foreground'
+        }`}
+      >
         {value}
       </span>
-      <span className="heading-sub text-[10px]">{label}</span>
-    </div>
+    </TerminalPanel>
   );
 }
 
-function ThreadEntry({
-  thread,
-  explorer,
-  index,
-}: {
-  thread: Thread;
-  explorer: string;
-  index: number;
-}) {
+function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string }) {
   const ModeIcon = thread.mode === 0 ? GraduationCap : thread.mode === 3 ? Newspaper : Flame;
   return (
-    <li
-      style={{
-        animation: `reveal-up 0.5s ${0.7 + index * 0.05}s cubic-bezier(.2,.6,.2,1) both`,
-      }}
-    >
+    <li>
       <Card className="p-3 flex items-start gap-3">
-        <ModeIcon
-          size={14}
-          className="text-[hsl(var(--ink-faded))] shrink-0 mt-0.5"
-          aria-hidden
-        />
+        <ModeIcon size={14} className="text-muted-foreground shrink-0 mt-0.5" aria-hidden />
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           <p className="text-sm line-clamp-1 leading-tight">
             {thread.topic ?? '(no topic)'}
