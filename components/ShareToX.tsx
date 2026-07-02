@@ -100,7 +100,7 @@ export function ShareToX({ tweets }: Props) {
           </summary>
           <ol className="mt-2 flex flex-col gap-2 pl-4 list-decimal">
             {rest.map((t, i) => (
-              <li key={i} className="whitespace-pre-wrap">
+              <li key={i} className="whitespace-pre-wrap font-sans">
                 {t}
               </li>
             ))}

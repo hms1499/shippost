@@ -134,6 +134,9 @@ function HistoryEntry({
             {thread.total_cost_usd ? `$${thread.total_cost_usd}` : '—'}
           </span>
           <span className="shrink-0">{statusGlyph}</span>
+          <span className="shrink-0 text-muted-foreground/70" aria-hidden>
+            ↗
+          </span>
         </span>
         {thread.topic && (
           <span className="block min-w-0 truncate text-[11px] text-muted-foreground/70">

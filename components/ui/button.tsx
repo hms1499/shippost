@@ -5,12 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 /**
- * Buttons read like inscribed ledger entries: small caps tracking, a 1px ink
- * border, and a soft sepia hover. Default variant fills with primary ink so
- * the call-to-action carries weight; outline variants stay quiet and warm.
+ * Terminal buttons: bold mono uppercase with wide tracking. Default variant
+ * fills solid phosphor-green so the call-to-action carries weight; outline
+ * and ghost variants stay quiet on the dark surface.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md font-mono font-bold uppercase tracking-wide text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-mono font-bold uppercase tracking-wide text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
