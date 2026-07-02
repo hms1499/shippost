@@ -26,7 +26,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       </div>
 
       <Card className="p-4">
-        <p className="whitespace-pre-wrap text-sm">{firstTweet}</p>
+        <p className="whitespace-pre-wrap font-sans text-sm">{firstTweet}</p>
       </Card>
 
       <div className="relative flex flex-col gap-2" aria-hidden>
@@ -45,7 +45,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       </div>
 
       <Button onClick={onUnlock}>
-        Generate full thread · <span className="text-money">$0.05</span>
+        Generate full thread · $0.05
       </Button>
 
       <p className="text-xs text-muted-foreground text-center leading-snug">
