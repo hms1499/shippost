@@ -121,7 +121,7 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={disabled}
-                className="bg-transparent border-0 focus:ring-0 flex-1"
+                className="flex-1 h-auto min-h-0 border-0 bg-transparent px-0 py-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
             <p

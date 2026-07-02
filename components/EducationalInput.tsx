@@ -94,7 +94,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 disabled={disabled}
-                className="bg-transparent border-0 focus:ring-0 flex-1"
+                className="flex-1 h-auto border-0 bg-transparent px-0 py-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
           </div>

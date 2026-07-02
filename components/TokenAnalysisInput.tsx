@@ -115,7 +115,7 @@ export function TokenAnalysisInput({ onSubmit, onBack, disabled }: Props) {
                 autoCorrect="off"
                 spellCheck={false}
                 maxLength={MAX_LEN + 2}
-                className="bg-transparent border-0 focus:ring-0 flex-1"
+                className="flex-1 h-auto border-0 bg-transparent px-0 py-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
             <p className="text-xs font-mono text-muted-foreground">
