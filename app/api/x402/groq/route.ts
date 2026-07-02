@@ -78,7 +78,7 @@ export const POST = withX402(
       payTo: PAY_TO as `0x${string}`,
       maxTimeoutSeconds: 120,
     },
-    description: 'ShipPost AI thread generation (Groq)',
+    description: 'CoinOp AI thread generation (Groq)',
     mimeType: 'application/json',
   },
   getResourceServer(),

@@ -26,7 +26,7 @@ export function computeKeyboardInset(opts: {
 
 /**
  * Tracks the on-screen keyboard height in a mobile webview via the
- * VisualViewport API. ShipPost is mobile-only (MiniPay); when the keyboard
+ * VisualViewport API. CoinOp is mobile-only (MiniPay); when the keyboard
  * opens it shrinks the visual viewport, which we surface so the layout can add
  * matching bottom scroll-room and keep the bottom CTA reachable above the
  * keyboard. Returns 0 when there's no keyboard, no `visualViewport`, or on SSR.

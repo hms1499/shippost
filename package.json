@@ -1,8 +1,8 @@
 {
-  "name": "shippost",
+  "name": "coinop",
   "version": "0.0.1",
   "private": true,
-  "description": "Pay-per-post AI thread writer for crypto builders — MiniPay MiniApp",
+  "description": "Coin-operated AI thread writer — MiniPay MiniApp",
   "type": "module",
   "scripts": {
     "dev": "next dev",

@@ -20,8 +20,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'ShipPost — your agent writes, pays, ships',
-  description: 'Pay $0.05, an on-chain agent pays AI services per call and ships your X thread.',
+  title: 'CoinOp — coin-operated AI agent',
+  description: 'Drop $0.05 in. An on-chain agent pays AI services per call (x402) and hands you a ready-to-post X thread.',
   other: {
     'talentapp:project_verification': 'a716144f6408810e3737c83cfc3fd4e663c78686f3bc89e2945c4bd0346a196c4e46cc35371bf8137e929a2a73f5e6024aab7c9bf90ec93a4d34b052ddf144a8',
   },

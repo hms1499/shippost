@@ -1,5 +1,5 @@
 // Builds the text posted to X for the FIRST tweet, optionally appending a
-// ShipPost attribution. Attribution is added ONLY here (at share time), never
+// CoinOp attribution. Attribution is added ONLY here (at share time), never
 // to the user's editable tweets. The 280-char cap is approximated with string
 // length: X actually weighs any URL as 23 chars (t.co) and the ✍️ emoji as 2,
 // so `.length` over-counts the URL — that is safe, because the only effect of
@@ -17,9 +17,9 @@ export function buildShareText(
 ): string {
   if (!opts.attribution) return firstTweet;
   const url = opts.appUrl ?? shareAppUrl();
-  const full = `${firstTweet}\n\n✍️ made with ShipPost — ${url}`;
+  const full = `${firstTweet}\n\n✍️ made with CoinOp — ${url}`;
   if (full.length <= TWEET_MAX) return full;
-  const short = `${firstTweet}\n\nvia ShipPost ${url}`;
+  const short = `${firstTweet}\n\nvia CoinOp ${url}`;
   if (short.length <= TWEET_MAX) return short;
   return firstTweet;
 }

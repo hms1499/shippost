@@ -664,7 +664,7 @@ export default function HomeClient() {
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col leading-none">
             <h1 className="font-mono font-bold tracking-tight text-[clamp(2.25rem,10.5vw,3.4rem)] text-foreground leading-[0.9]">
-              ShipPost
+              CoinOp
             </h1>
             <span className="heading-sub text-[10px] mt-2">
               AI thread writer, agent-run
@@ -711,7 +711,7 @@ export default function HomeClient() {
           // toggle, so guide the user there instead.
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
             <p className="text-sm text-destructive">
-              Wrong network (chainId {chainId}). ShipPost runs on {targetChainName()}.
+              Wrong network (chainId {chainId}). CoinOp runs on {targetChainName()}.
             </p>
             <p className="text-xs text-muted-foreground leading-snug">
               In MiniPay, open <span className="font-medium text-foreground">Settings → About</span>,
@@ -722,7 +722,7 @@ export default function HomeClient() {
               ) : (
                 <>turn <span className="font-medium text-foreground">Use Testnet off</span></>
               )}{' '}
-              and reopen ShipPost.
+              and reopen CoinOp.
             </p>
           </div>
         ) : (

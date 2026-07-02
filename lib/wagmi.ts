@@ -20,7 +20,7 @@ const rpcUrl =
     : 'https://forno.celo.org';
 
 export const wagmiConfig = getDefaultConfig({
-  appName: 'ShipPost',
+  appName: 'CoinOp',
   projectId,
   chains: [targetChain],
   transports: {

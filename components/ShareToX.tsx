@@ -77,7 +77,7 @@ export function ShareToX({ tweets }: Props) {
           onChange={(e) => setCredit(e.target.checked)}
           className="accent-primary"
         />
-        Add a small &#8220;made with ShipPost&#8221; credit to the first tweet
+        Add a small &#8220;made with CoinOp&#8221; credit to the first tweet
       </label>
 
       <Button variant="outline" onClick={copyAll}>

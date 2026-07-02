@@ -6,7 +6,7 @@ const URL = 'https://shippost.app';
 describe('buildShareText', () => {
   it('appends the full attribution when there is room', () => {
     const out = buildShareText('gm', { attribution: true, appUrl: URL });
-    expect(out).toBe(`gm\n\n✍️ made with ShipPost — ${URL}`);
+    expect(out).toBe(`gm\n\n✍️ made with CoinOp — ${URL}`);
   });
 
   it('returns the tweet unchanged when attribution is off', () => {
@@ -15,11 +15,11 @@ describe('buildShareText', () => {
   });
 
   it('falls back to the short form when the full form would overflow 280', () => {
-    const shortSuffixLen = `\n\nvia ShipPost ${URL}`.length;
+    const shortSuffixLen = `\n\nvia CoinOp ${URL}`.length;
     const tweet = 'a'.repeat(280 - shortSuffixLen); // tweet + short == exactly 280
-    expect((tweet + `\n\n✍️ made with ShipPost — ${URL}`).length).toBeGreaterThan(280);
+    expect((tweet + `\n\n✍️ made with CoinOp — ${URL}`).length).toBeGreaterThan(280);
     const out = buildShareText(tweet, { attribution: true, appUrl: URL });
-    expect(out).toBe(`${tweet}\n\nvia ShipPost ${URL}`);
+    expect(out).toBe(`${tweet}\n\nvia CoinOp ${URL}`);
     expect(out.length).toBeLessThanOrEqual(280);
   });
 
