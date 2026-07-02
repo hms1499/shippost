@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { TraceNote } from '@/components/terminal/TraceNote';
 import { TokenSelector } from './TokenSelector';
 import { UrlPreviewCard, type UrlPreview } from './UrlPreviewCard';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
@@ -170,7 +169,6 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
             ) : (
               <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
             )}
-            <TraceNote side="right">same cost either angle</TraceNote>
           </div>
 
           {/* Cost row + Submit */}

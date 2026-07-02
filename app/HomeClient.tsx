@@ -11,7 +11,6 @@ import { ScreenTransition } from '@/components/motion/ScreenTransition';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { TraceNote } from '@/components/terminal/TraceNote';
 import { ColophonIndex } from '@/components/ColophonIndex';
 
 const WalletMenu = dynamic(
@@ -675,11 +674,6 @@ export default function HomeClient() {
           </div>
         </div>
         <RuleDivider />
-        {mounted && !isMiniPay && (
-          <TraceNote side="right" className="-mt-1 self-end">
-            <span className="font-mono text-money">$0.05</span> per thread, paid in stable
-          </TraceNote>
-        )}
       </header>
 
       {!mounted ? (

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { TraceNote } from '@/components/terminal/TraceNote';
 import { TokenSelector } from './TokenSelector';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
@@ -137,7 +136,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
                 onSelect={setSelectedToken}
               />
             )}
-            <TraceNote side="right">highest balance pre-selected</TraceNote>
+            <p className="text-xs font-sans text-muted-foreground">Highest balance pre-selected.</p>
           </div>
 
           {/* Cost row + Submit */}

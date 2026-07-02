@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { TraceNote } from '@/components/terminal/TraceNote';
 import { TokenSelector } from './TokenSelector';
 import { useBalances } from '@/lib/useBalances';
 import type { TokenBalance } from '@/lib/useBalances';
@@ -161,7 +160,6 @@ export function TokenAnalysisInput({ onSubmit, onBack, disabled }: Props) {
             ) : (
               <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
             )}
-            <TraceNote side="right">same cost either angle</TraceNote>
           </div>
 
           {/* Cost row + Submit */}

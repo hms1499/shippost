@@ -5,7 +5,6 @@ import { ArrowLeft, Loader2, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { TraceNote } from '@/components/terminal/TraceNote';
 import { TokenSelector } from './TokenSelector';
 import { useBalances } from '@/lib/useBalances';
 import type { TokenBalance } from '@/lib/useBalances';
@@ -96,7 +95,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
             ) : (
               <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
             )}
-            <TraceNote side="right">fresh data every run</TraceNote>
+            <p className="text-xs font-sans text-muted-foreground">Fresh data every run.</p>
           </div>
 
           {/* Cost row + Submit */}

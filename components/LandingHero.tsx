@@ -4,7 +4,6 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
-import { TraceNote } from '@/components/terminal/TraceNote';
 
 /**
  * Pre-connect landing hero. Terminal mission-control framing: headline copy,
@@ -18,13 +17,12 @@ export function LandingHero() {
   return (
     <section className="relative w-full max-w-md flex flex-col items-center gap-6">
       <div className="text-center flex flex-col items-center gap-2">
-        <p className="heading-sub text-[10px]">SHIPPOST // AGENT</p>
         <h1 className="text-3xl font-bold tracking-tight">
-          Your agent writes, <span className="text-primary">pays</span>, ships.
+          One coin in. <span className="text-primary">One thread out.</span>
         </h1>
-        <p className="text-sm text-muted-foreground max-w-xs font-mono">
-          Pay <span className="text-money">$0.05</span> once — an on-chain agent pays
-          AI services per call (x402) and delivers a ready-to-post X thread.
+        <p className="text-sm text-muted-foreground max-w-xs font-sans">
+          Drop <span className="font-mono text-money">$0.05</span> — the agent pays AI
+          services per call (x402) and delivers a ready-to-post X thread.
         </p>
       </div>
 
@@ -44,7 +42,9 @@ export function LandingHero() {
             aria-hidden
           />
         </Button>
-        <TraceNote side="right">or sign in from the corner ↗</TraceNote>
+        <p className="text-xs font-sans text-muted-foreground text-center">
+          or sign in from the corner ↗
+        </p>
       </div>
     </section>
   );
