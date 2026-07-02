@@ -38,3 +38,6 @@ pnpm-debug.log*
 
 # Playwright MCP debug snapshots
 .playwright-mcp/
+
+# Superpowers brainstorm sessions
+.superpowers/
