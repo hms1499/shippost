@@ -5,10 +5,8 @@
 @layer base {
   /* Agent Terminal — single dark theme. Phosphor-green console: near-black
      green-tinted ground, green = action/agent, amber = money, red = error.
-     The `dark` class is hardcoded on <html> so legacy `dark:` variants keep
-     resolving during migration; :root and .dark share one token set. */
-  :root,
-  .dark {
+     Tokens live on :root — there is no light theme. */
+  :root {
     --background: 120 13% 5%;        /* #0A0D0A */
     --foreground: 120 21% 93%;       /* #E8F0E8 */
     --card: 120 13% 8%;              /* #111611 */
@@ -30,12 +28,6 @@
 
     /* Terminal extras */
     --money: 40 100% 64%;            /* #FFC247 — every $ amount */
-
-    /* Compat aliases — codex names still referenced by un-migrated
-       components. Deleted in Task 8. */
-    --ink-deep: 120 21% 93%;
-    --ink-faded: 120 8% 53%;
-    --vermillion: 0 100% 68%;
   }
 }
 
@@ -128,17 +120,6 @@
     vertical-align: text-bottom;
     background: hsl(var(--primary));
     animation: cursor-blink 1.1s steps(1) infinite;
-  }
-
-  /* Compat shims for un-migrated call sites — flattened to plain panels.
-     Deleted in Task 8 along with their last usages. */
-  .codex-card {
-    box-shadow: 0 0 0 1px hsl(var(--border));
-  }
-  .folio::before { content: none; }
-  .drop-cap::first-letter { all: unset; }
-  .ink-draw path, .ink-draw circle, .ink-draw rect, .ink-draw line, .ink-draw polyline {
-    animation: none;
   }
 }
 

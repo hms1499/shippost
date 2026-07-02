@@ -1,8 +1,7 @@
 import * as React from 'react';
 
 /**
- * Dim mono annotation — terminal replacement for Marginalia. Prop-identical
- * so call sites swap 1:1.
+ * Dim mono annotation rendered beside a step or field, offset to one side.
  */
 export function TraceNote({
   side = 'right',

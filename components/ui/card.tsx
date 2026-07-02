@@ -2,13 +2,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Render small ink-corner ornaments on the card. */
-  ornament?: boolean
-}
+type CardProps = React.HTMLAttributes<HTMLDivElement>
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, ornament, children, ...props }, ref) => (
+  ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(

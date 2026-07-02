@@ -41,10 +41,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // `dark` is hardcoded so legacy `dark:` utilities keep resolving during the
-  // migration; Task 8 strips remaining `dark:` variants.
   return (
-    <html lang="en" className={`dark ${mono.variable} ${inter.variable}`}>
+    <html lang="en" className={`${mono.variable} ${inter.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

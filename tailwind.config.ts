@@ -48,11 +48,9 @@ const config: Config = {
       },
       fontFamily: {
         // Terminal: mono is the chrome; Inter (`font-sans`) is reserved for
-        // AI-generated tweet content. `display` is a compat alias for
-        // un-migrated codex call sites — removed in Task 8.
+        // AI-generated tweet content.
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
     },
   },
