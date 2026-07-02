@@ -11,7 +11,7 @@ export { celoSepolia };
 // at runtime the WalletConnect option will fail to init but injected/Coinbase
 // wallets still work, which covers MiniPay (the priority surface).
 const projectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'shippost-placeholder';
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'coinop-placeholder';
 
 const targetChain = getTargetChain();
 const rpcUrl =

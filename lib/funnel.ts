@@ -3,7 +3,7 @@
 import { FunnelStage, FunnelEventInput } from './funnelTypes';
 
 const ENDPOINT = '/api/public/funnel';
-const SID_KEY = 'shippost.funnel.sid';
+const SID_KEY = 'coinop.funnel.sid';
 
 let cachedSid: string | null = null;
 
