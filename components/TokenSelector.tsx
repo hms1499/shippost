@@ -38,7 +38,7 @@ export function TokenSelector({ balances, selected, onSelect }: Props) {
             <SelectItem key={b.symbol} value={b.symbol} textValue={b.symbol}>
               <span className="flex items-baseline gap-2">
                 <span className="font-medium">{b.symbol}</span>
-                <span className="text-muted-foreground font-mono text-xs">
+                <span className="text-money font-mono text-xs">
                   {Number(formatUnits(b.balance, b.decimals)).toFixed(2)}
                 </span>
               </span>

@@ -1,13 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CodexFrame } from './CodexFrame';
-import { IllumQuill } from './IllumIcons';
-import { InkText } from './InkText';
-import { InkDivider } from './InkDivider';
-import { Marginalia } from './Marginalia';
+import { TerminalPanel } from '@/components/terminal/TerminalPanel';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
+import { TraceNote } from '@/components/terminal/TraceNote';
 import { TokenSelector } from './TokenSelector';
 import { useBalances } from '@/lib/useBalances';
 import type { TokenBalance } from '@/lib/useBalances';
@@ -54,128 +52,90 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
           onClick={onBack}
           disabled={disabled}
           className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ animation: 'form-reveal 0.45s 0s cubic-bezier(.2,.6,.2,1) both' }}
         >
           <ArrowLeft size={12} aria-hidden />
-          Folio I · Modes
+          Modes
         </button>
       )}
 
-      {/* Header: folio numeral + icon + title */}
-      <div
-        className="flex items-stretch gap-4"
-        style={{ animation: 'form-reveal 0.55s 0s cubic-bezier(.2,.6,.2,1) both' }}
-      >
-        <div className="relative w-16 h-16 shrink-0 flex items-center justify-center text-primary">
-          <CodexFrame
-            animated
-            className="absolute inset-0 w-full h-full text-[hsl(var(--ink-faded))] opacity-70"
-          />
-          <span
-            className="relative font-display italic text-[2.4rem] leading-none select-none"
-            aria-hidden
-          >
-            IV
-          </span>
-          <IllumQuill
-            size={16}
-            className="absolute bottom-1 right-1 text-[hsl(var(--ink-faded))]"
-          />
-        </div>
-        <div className="flex flex-col justify-center gap-0.5">
-          <p className="heading-sub text-[10px]">Folio IV · Daily Recap</p>
-          <InkText
-            as="h2"
-            className="font-display italic text-2xl leading-tight"
-            delay={40}
-          >
-            Today, in one thread
-          </InkText>
+      <TerminalPanel className="w-full">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2.5">
+            <PenLine size={18} className="text-primary shrink-0" aria-hidden />
+            <div className="flex flex-col gap-0.5">
+              <p className="heading-sub text-[10px]">Daily recap</p>
+              <h2 className="font-mono font-bold text-xl leading-tight tracking-tight">
+                Today, in one thread
+              </h2>
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground leading-snug">
             Nothing to type. The agent reads today&apos;s prices, movers &amp; headlines.
           </p>
-        </div>
-      </div>
 
-      <InkDivider />
+          <RuleDivider />
 
-      {/* I · What the agent will do */}
-      <div
-        className="flex flex-col gap-2"
-        style={{ animation: 'form-reveal 0.55s 0.10s cubic-bezier(.2,.6,.2,1) both' }}
-      >
-        <p className="heading-sub text-[10px]">I · The recipe</p>
-        <InkDivider />
-        <ul className="text-sm text-muted-foreground leading-snug list-disc pl-4 flex flex-col gap-1">
-          <li>Top-10 prices &amp; 24h moves, live from market data</li>
-          <li>Today&apos;s crypto headlines via search</li>
-          <li>One neutral digest, fact-checked, closing on a thing to watch</li>
-        </ul>
-      </div>
-
-      {/* II · Token */}
-      <div
-        className="flex flex-col gap-2"
-        style={{ animation: 'form-reveal 0.55s 0.20s cubic-bezier(.2,.6,.2,1) both' }}
-      >
-        <p className="heading-sub text-[10px]">II · Token</p>
-        <InkDivider />
-        {isLoading ? (
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 size={12} className="animate-spin text-[hsl(var(--ink-faded))]" aria-hidden />
-            Loading balances…
-          </p>
-        ) : (
-          <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
-        )}
-        <Marginalia side="right">fresh data every run</Marginalia>
-      </div>
-
-      {/* Cost row + Submit */}
-      <div
-        className="flex flex-col gap-3"
-        style={{ animation: 'form-reveal 0.55s 0.30s cubic-bezier(.2,.6,.2,1) both' }}
-      >
-        {effectiveToken && (
-          <div className="flex items-baseline gap-2 text-[11px]">
-            <span className="text-muted-foreground">You pay</span>
-            <span
-              aria-hidden
-              className="flex-1 border-b border-dotted border-[hsl(var(--ink-faded))] mb-1 opacity-50"
-            />
-            <span className="font-mono text-[hsl(var(--ink-faded))]">
-              {amountStr} {effectiveToken.symbol}
-            </span>
+          {/* What the agent will do */}
+          <div className="flex flex-col gap-2">
+            <p className="heading-sub text-[10px]">The recipe</p>
+            <ul className="text-sm text-muted-foreground leading-snug list-disc pl-4 flex flex-col gap-1">
+              <li>Top-10 prices &amp; 24h moves, live from market data</li>
+              <li>Today&apos;s crypto headlines via search</li>
+              <li>One neutral digest, fact-checked, closing on a thing to watch</li>
+            </ul>
           </div>
-        )}
-        {insufficient && effectiveToken && (
-          <p className="text-xs text-destructive leading-snug">
-            You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
-            pick another token above.
-          </p>
-        )}
-        <Button
-          disabled={!canSubmit}
-          onClick={() => {
-            if (canSubmit && effectiveToken) {
-              onSubmit({ token: effectiveToken });
-            }
-          }}
-        >
-          {!effectiveToken
-            ? 'Select token'
-            : insufficient
-              ? `Not enough ${effectiveToken.symbol}`
-              : `Recap today for ${amountStr} ${effectiveToken.symbol} →`}
-        </Button>
-      </div>
 
-      <style jsx>{`
-        @keyframes form-reveal {
-          0%   { opacity: 0; transform: translateY(10px); filter: blur(1.5px); }
-          100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
-        }
-      `}</style>
+          {/* Token */}
+          <div className="flex flex-col gap-2">
+            <p className="heading-sub text-[10px]">Token</p>
+            {isLoading ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
+                Loading balances…
+              </p>
+            ) : (
+              <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
+            )}
+            <TraceNote side="right">fresh data every run</TraceNote>
+          </div>
+
+          {/* Cost row + Submit */}
+          <div className="flex flex-col gap-3">
+            {effectiveToken && (
+              <div className="flex items-baseline gap-2 text-[11px]">
+                <span className="text-muted-foreground">You pay</span>
+                <span
+                  aria-hidden
+                  className="flex-1 border-b border-dotted border-border mb-1 opacity-50"
+                />
+                <span className="font-mono text-money">
+                  {amountStr} {effectiveToken.symbol}
+                </span>
+              </div>
+            )}
+            {insufficient && effectiveToken && (
+              <p className="text-xs text-destructive leading-snug">
+                You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
+                pick another token above.
+              </p>
+            )}
+            <Button
+              disabled={!canSubmit}
+              onClick={() => {
+                if (canSubmit && effectiveToken) {
+                  onSubmit({ token: effectiveToken });
+                }
+              }}
+            >
+              {!effectiveToken
+                ? 'Select token'
+                : insufficient
+                  ? `Not enough ${effectiveToken.symbol}`
+                  : `Recap today for ${amountStr} ${effectiveToken.symbol} →`}
+            </Button>
+          </div>
+        </div>
+      </TerminalPanel>
     </section>
   );
 }

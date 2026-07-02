@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { InkDivider } from './InkDivider';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 interface ComposeSummaryProps {
   mode: 0 | 1 | 2 | 3;
@@ -31,7 +31,7 @@ export function ComposeSummary({
   angle,
   ticker,
 }: ComposeSummaryProps) {
-  const numeral = mode === 0 ? 'II' : mode === 1 ? 'I' : mode === 2 ? 'III' : 'IV';
+  const order = mode === 1 ? 1 : mode === 0 ? 2 : mode === 2 ? 3 : 4;
   const label =
     mode === 0 ? 'Educational' : mode === 1 ? 'Hot Take' : mode === 2 ? 'Token Analysis' : 'Daily Recap';
 
@@ -41,13 +41,13 @@ export function ComposeSummary({
         <p className="heading-sub text-[10px]">Your brief</p>
         <span
           aria-hidden
-          className="font-display italic text-2xl leading-none text-[hsl(var(--ink-faded))]"
+          className="font-mono font-bold text-sm leading-none text-muted-foreground"
         >
-          {numeral}
+          {String(order).padStart(2, '0')}
         </span>
       </div>
-      <h3 className="font-display italic text-xl leading-tight">{label}</h3>
-      <InkDivider />
+      <h3 className="font-mono font-bold text-xl leading-tight tracking-tight">{label}</h3>
+      <RuleDivider />
       <dl className="flex flex-col gap-2 text-sm">
         {mode === 0 ? (
           <>
@@ -76,7 +76,7 @@ export function ComposeSummary({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="heading-sub text-[9px] text-[hsl(var(--ink-faded))]">
+      <dt className="heading-sub text-[9px] text-muted-foreground">
         {label}
       </dt>
       <dd className="text-foreground leading-snug">{value}</dd>

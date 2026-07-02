@@ -12,10 +12,10 @@ function shorten(addr: string): string {
 }
 
 /**
- * Reads like a treasurer's ledger entry: a heading-sub label, leader-dot rows
- * for each stable, the wallet's shortened seal in monospace, and a faint
- * primary marker on the token with the highest balance — the default the
- * input forms will pre-select.
+ * Wallet balance panel: a heading-sub label, leader-dot rows for each
+ * stable, the wallet's shortened address in monospace, and a primary marker
+ * on the token with the highest balance — the default the input forms will
+ * pre-select.
  */
 export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
@@ -30,9 +30,9 @@ export function WalletStatus() {
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="heading-sub text-[10px]">Coffer · Your stables</p>
+        <p className="heading-sub text-[10px]">Wallet · balances</p>
         {isMiniPay && (
-          <span className="font-mono text-[11px] text-[hsl(var(--ink-faded))]">
+          <span className="font-mono text-[11px] text-muted-foreground">
             {shorten(address)}
           </span>
         )}
@@ -43,10 +43,10 @@ export function WalletStatus() {
           <li className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2
               size={12}
-              className="animate-spin text-[hsl(var(--ink-faded))]"
+              className="animate-spin text-muted-foreground"
               aria-hidden
             />
-            Reckoning balances…
+            Loading balances…
           </li>
         )}
 
@@ -73,21 +73,18 @@ export function WalletStatus() {
                     aria-hidden
                     className={
                       'block w-1.5 h-1.5 rounded-full ' +
-                      (isTop
-                        ? 'bg-primary'
-                        : 'bg-[hsl(var(--ink-faded)/0.3)]')
+                      (isTop ? 'bg-primary' : 'bg-muted-foreground/30')
                     }
                   />
                   <span className={isTop ? 'font-medium' : ''}>{b.symbol}</span>
                 </span>
                 <span
                   aria-hidden
-                  className="flex-1 border-b border-dotted border-[hsl(var(--ink-faded))] mb-1 opacity-50"
+                  className="flex-1 border-b border-dotted border-border mb-1 opacity-50"
                 />
                 <span
                   className={
-                    'font-mono tabular-nums ' +
-                    (dim ? 'text-muted-foreground' : 'text-foreground')
+                    'font-mono tabular-nums text-money ' + (isTop ? 'font-bold' : '')
                   }
                 >
                   {amount.toFixed(2)}
@@ -98,9 +95,9 @@ export function WalletStatus() {
       </ul>
 
       {isMiniPay && connector?.name && (
-        <p className="text-[11px] text-[hsl(var(--ink-faded))] flex items-center gap-1.5 mt-0.5">
+        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
           <Wallet size={10} aria-hidden />
-          Sealed via {connector.name}
+          Connected via {connector.name}
         </p>
       )}
     </Card>

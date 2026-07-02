@@ -8,7 +8,7 @@ import { ArrowLeftRight, Loader2, Wallet, X as XIcon } from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
-import { InkDivider } from './InkDivider';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -19,7 +19,7 @@ function shorten(addr: string): string {
  * lives in the footer ColophonIndex, not here. Three visible states:
  *   1. Pre-connect (web)        — "Sign in" pill, opens RainbowKit modal.
  *   2. Pre-connect (MiniPay)    — "Connecting…" spinner pill (auto-connect runs in HomeClient).
- *   3. Connected                — address chip; click opens a folio-styled
+ *   3. Connected                — address chip; click opens a terminal-styled
  *                                 menu with wallet management and chain switching.
  */
 export function WalletMenu() {
@@ -99,7 +99,7 @@ export function WalletMenu() {
             <button
               type="button"
               onClick={openConnectModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[hsl(var(--ink-deep))] bg-primary text-primary-foreground heading-sub text-[10px] hover:bg-[hsl(var(--ink-deep))] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary bg-primary text-primary-foreground heading-sub text-[10px] hover:bg-primary/90 transition-colors"
             >
               <Wallet size={11} aria-hidden />
               Sign in
@@ -142,7 +142,7 @@ export function WalletMenu() {
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-card transition-colors ' +
                   (isMiniPay
                     ? 'border-primary/50 hover:border-primary'
-                    : 'border-[hsl(var(--ink-faded))] hover:border-[hsl(var(--ink-deep))]')
+                    : 'border-border hover:border-primary/50')
                 }
               >
                 <span
@@ -156,10 +156,10 @@ export function WalletMenu() {
               {connectorLabel && (
                 <span
                   className={
-                    'heading-sub text-[9px] italic leading-none ' +
+                    'heading-sub text-[9px] leading-none ' +
                     (isMiniPay
                       ? 'text-primary'
-                      : 'text-[hsl(var(--ink-faded))]')
+                      : 'text-muted-foreground')
                   }
                 >
                   via {connectorLabel}
@@ -177,7 +177,7 @@ export function WalletMenu() {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     onClick={() => setOpen(false)}
-                    className="fixed inset-0 z-40 bg-[hsl(var(--ink-deep)/0.45)] backdrop-blur-sm"
+                    className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
                     aria-hidden
                   />
 
@@ -190,11 +190,11 @@ export function WalletMenu() {
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
                     transition={{ type: 'spring', damping: 28, stiffness: 240 }}
-                    className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-[0_-12px_40px_-8px_hsl(var(--ink-deep)/0.35)]"
+                    className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-[0_-12px_40px_-8px_hsl(var(--background)/0.7)]"
                   >
                     <div className="w-full max-w-md mx-auto px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex flex-col gap-4">
                       <div
-                        className="self-center w-10 h-1 rounded-full bg-[hsl(var(--ink-faded)/0.35)]"
+                        className="self-center w-10 h-1 rounded-full bg-muted-foreground/35"
                         aria-hidden
                       />
 
@@ -217,7 +217,7 @@ export function WalletMenu() {
                         </button>
                       </div>
 
-                      <div className="rounded-md border border-[hsl(var(--ink-faded)/0.4)] p-3 flex flex-col gap-1.5">
+                      <div className="rounded-md border border-border p-3 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <span
@@ -240,9 +240,9 @@ export function WalletMenu() {
                           </button>
                         </div>
                         {connectorLabel && (
-                          <p className="text-[11px] text-[hsl(var(--ink-faded))] flex items-center gap-1.5">
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                             <Wallet size={10} aria-hidden />
-                            Sealed via {connectorLabel}
+                            Connected via {connectorLabel}
                           </p>
                         )}
                       </div>
@@ -251,7 +251,7 @@ export function WalletMenu() {
                           action only makes sense on web wallets. */}
                       {!isOnTargetChain && !isMiniPay && (
                         <>
-                          <InkDivider />
+                          <RuleDivider />
                           <button
                             type="button"
                             onClick={() => {
@@ -285,11 +285,11 @@ function ChipShell({
   loading?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[hsl(var(--ink-faded))] heading-sub text-[10px] text-muted-foreground">
+    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border heading-sub text-[10px] text-muted-foreground">
       {loading && (
         <Loader2
           size={11}
-          className="animate-spin text-[hsl(var(--ink-faded))]"
+          className="animate-spin text-muted-foreground"
           aria-hidden
         />
       )}
