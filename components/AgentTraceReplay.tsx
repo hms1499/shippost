@@ -41,7 +41,18 @@ export function AgentTraceReplay() {
   }, [cycle]);
 
   return (
-    <div key={cycle} aria-hidden className="pointer-events-none select-none">
+    <div
+      key={cycle}
+      aria-hidden
+      className="pointer-events-none select-none"
+      // React 18's DOM types/reconciler don't know the `inert` IDL attribute,
+      // so setting it via JSX props is unreliable. Set it imperatively on
+      // mount instead — this is what actually strips the subtree from the
+      // tab order and the accessibility tree (aria-hidden alone does not).
+      ref={(el) => {
+        if (el) el.inert = true;
+      }}
+    >
       <AgentTrace
         gen={state}
         payTxHash={'0xdemo000000000000000000000000000000000000000000000000000000000000'}
