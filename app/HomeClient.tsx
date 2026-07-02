@@ -69,8 +69,8 @@ const DailyRecapInput = dynamic(
   () => import('@/components/DailyRecapInput').then((m) => m.DailyRecapInput),
   { ssr: false },
 );
-const GeneratingStatus = dynamic(
-  () => import('@/components/GeneratingStatus').then((m) => m.GeneratingStatus),
+const AgentTrace = dynamic(
+  () => import('@/components/AgentTrace').then((m) => m.AgentTrace),
   { ssr: false },
 );
 const ThreadPreview = dynamic(
@@ -465,7 +465,7 @@ export default function HomeClient() {
         regenerating={previewLoading}
       />
     ) : screen === 'generating' ? (
-      <GeneratingStatus
+      <AgentTrace
         gen={gen}
         payStatus={status}
         payTxHash={txHash}
