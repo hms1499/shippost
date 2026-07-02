@@ -78,7 +78,9 @@ export function ModePicker({ onSelect }: Props) {
                 </span>
                 <m.Icon size={16} className="text-primary shrink-0" aria-hidden />
                 <span className="font-bold text-sm flex-1">{m.label}</span>
-                <span className="text-money text-xs">{m.cost}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  agent <span className="text-money">{m.cost}</span>
+                </span>
                 <ArrowRight size={14} className="text-muted-foreground" aria-hidden />
               </div>
               <p className="mt-1.5 pl-[3.35rem] text-xs text-muted-foreground leading-snug">
@@ -93,6 +95,9 @@ export function ModePicker({ onSelect }: Props) {
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-[11px] font-mono text-muted-foreground text-center">
+        flat <span className="text-money">$0.05</span>/thread — mode only changes the agent&apos;s recipe
+      </p>
     </TerminalPanel>
   );
 }
