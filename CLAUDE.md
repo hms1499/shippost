@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ShipPost** — a pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread; an ERC-8004 agent wallet then makes 1–4 x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread. Content-only (the Flux thumbnail step was scrapped 2026-05-01). Competition: Proof of Ship — MiniPay MiniApp (AI Agents).
+**CoinOp** (formerly ShipPost) — a coin-operated, pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 cUSD/USDT/USDC per thread; an ERC-8004 agent wallet then makes 1–4 x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread. Content-only (the Flux thumbnail step was scrapped 2026-05-01). Competition: Proof of Ship — MiniPay MiniApp (AI Agents).
 
 ## Tech Stack
 

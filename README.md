@@ -1,8 +1,10 @@
-# ShipPost
+# CoinOp
+
+> Formerly **ShipPost** — the on-chain contract keeps the historical name `ShipPostPayment`.
 
 > Pay $0.05. Get a ready-to-post X thread. No subscription, no prompt engineering.
 
-ShipPost is a pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Each thread costs $0.05 in cUSD, USDT, or USDC. An ERC-8004 agent wallet makes 1–4 micro-payments (x402) to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread, streamed live with cost transparency.
+CoinOp is a pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Each thread costs $0.05 in cUSD, USDT, or USDC. An ERC-8004 agent wallet makes 1–4 micro-payments (x402) to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread, streamed live with cost transparency.
 
 **Proof of Ship — MiniPay MiniApp (AI Agents) category** · Celo mainnet · April–May 2026
 
@@ -10,7 +12,7 @@ ShipPost is a pay-per-use AI thread writer running as a MiniApp inside Opera's M
 
 ## How it works
 
-1. User opens ShipPost inside MiniPay on Android
+1. User opens CoinOp inside MiniPay on Android
 2. Picks a mode (Educational or Hot Take) and enters a topic
 3. Approves a one-time $0.05 stablecoin payment via `payForThread`
 4. The agent wallet makes x402 micro-payments to AI services in real time
@@ -47,7 +49,7 @@ ShipPost is a pay-per-use AI thread writer running as a MiniApp inside Opera's M
 
 ### Two-layer model
 
-ShipPost spans **two chains on purpose** — each is a separate layer with one chain,
+CoinOp spans **two chains on purpose** — each is a separate layer with one chain,
 not a "multi-chain" app. The mental model is one sentence: **users pay on Celo; the
 agent pays AI services via x402 on Base.**
 
@@ -91,7 +93,7 @@ where the agent settles its AI spend. Config reflects this split —
 
 ```
 MiniPay (Android)
-    └─ ShipPost frontend (Next.js 14, App Router)
+    └─ CoinOp frontend (Next.js 14, App Router)
            ├─ ShipPostPayment.sol  ← pulls $0.05, splits 50/40/10 to agent/treasury/reserve
            ├─ AgentWallet.sol      ← ERC-8004, $10/day spend cap, executes x402 calls
            └─ /api/generate/stream (SSE)
