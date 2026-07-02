@@ -120,19 +120,26 @@ function HistoryEntry({
         href={`${explorerBase}/tx/${thread.pay_tx_hash}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-3 py-2.5 text-xs no-underline hover:bg-primary/5 transition-colors"
+        className="flex flex-col gap-0.5 py-2.5 text-xs no-underline hover:bg-primary/5 transition-colors"
       >
-        <span className="text-muted-foreground shrink-0">
-          #{thread.onchain_thread_id}
+        <span className="flex items-center gap-3">
+          <span className="text-muted-foreground shrink-0">
+            #{thread.onchain_thread_id}
+          </span>
+          <span className="heading-sub text-[10px] shrink-0">{modeLabel}</span>
+          <span className="flex-1 min-w-0 text-muted-foreground truncate">
+            {formatDate(thread.created_at)}
+          </span>
+          <span className="text-money shrink-0">
+            {thread.total_cost_usd ? `$${thread.total_cost_usd}` : '—'}
+          </span>
+          <span className="shrink-0">{statusGlyph}</span>
         </span>
-        <span className="heading-sub text-[10px] shrink-0">{modeLabel}</span>
-        <span className="flex-1 min-w-0 text-muted-foreground truncate">
-          {formatDate(thread.created_at)}
-        </span>
-        <span className="text-money shrink-0">
-          {thread.total_cost_usd ? `$${thread.total_cost_usd}` : '—'}
-        </span>
-        <span className="shrink-0">{statusGlyph}</span>
+        {thread.topic && (
+          <span className="block min-w-0 truncate text-[11px] text-muted-foreground/70">
+            └ {thread.topic}
+          </span>
+        )}
       </a>
     </li>
   );
