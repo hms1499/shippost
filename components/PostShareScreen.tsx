@@ -3,7 +3,7 @@
 import { Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { InkDivider } from './InkDivider';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 interface Props {
   paidAmountUsd: string;
@@ -16,9 +16,9 @@ interface Props {
 }
 
 /**
- * Reads like a Renaissance accounting ledger ("Liber Rationum"). Leader-dot
- * rows align costs in tabular monospace; the agent profit line is set in the
- * primary ink so it lifts off the page.
+ * A terminal-style spend ledger. Leader-dot rows align costs in tabular
+ * monospace; the agent profit line is set in the primary agent-green so it
+ * lifts off the page.
  */
 export function PostShareScreen({
   paidAmountUsd,
@@ -37,12 +37,12 @@ export function PostShareScreen({
   const agentProfit = (Number(agentShare) - spent).toFixed(3);
 
   return (
-    <Card ornament className="w-full max-w-md p-6 flex flex-col gap-4">
+    <Card className="w-full max-w-md p-6 flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <Wallet size={18} className="text-primary mt-1 shrink-0" aria-hidden />
         <div>
           <p className="heading-sub text-[10px]">Ledger · The Account</p>
-          <h3 className="font-display italic text-2xl leading-tight mt-0.5">
+          <h3 className="text-2xl leading-tight mt-0.5">
             Where did your {tokenSymbol} go?
           </h3>
         </div>
@@ -52,7 +52,7 @@ export function PostShareScreen({
         <LedgerLine left="You paid" right={`$${paidAmountUsd}`} bold />
 
         <li className="my-1">
-          <InkDivider />
+          <RuleDivider />
         </li>
 
         <LedgerLine left="→ Agent wallet (50%)" right={`$${agentShare}`} />
@@ -60,12 +60,12 @@ export function PostShareScreen({
         <LedgerLine left="→ Reserve pool (10%)" right={`$${reserveShare}`} />
 
         <li className="my-1">
-          <InkDivider />
+          <RuleDivider />
         </li>
 
         <LedgerLine left="Agent spent on x402" right={`$${agentSpentUsd}`} />
         <LedgerLine
-          left="Agent profit on this folio"
+          left="Agent profit on this run"
           right={`$${agentProfit}`}
           accent
         />
@@ -114,20 +114,19 @@ function LedgerLine({
     <li className="flex items-baseline gap-2">
       <span
         className={
-          (accent ? 'text-primary italic ' : 'text-foreground ') +
+          (accent ? 'text-primary ' : 'text-foreground ') +
           (bold ? 'font-semibold' : 'text-muted-foreground')
         }
       >
         {left}
       </span>
       <span
-        className="flex-1 border-b border-dotted border-[hsl(var(--ink-faded))] mb-1 opacity-50"
+        className="flex-1 border-b border-dotted border-border mb-1 opacity-50"
         aria-hidden
       />
       <span
         className={
-          'font-mono ' +
-          (accent ? 'text-primary font-semibold' : 'text-foreground')
+          'font-mono text-money ' + (accent || bold ? 'font-semibold' : '')
         }
       >
         {right}

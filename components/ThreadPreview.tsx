@@ -5,28 +5,12 @@ import { Pencil, X as XIcon, ChevronUp, ChevronDown, Trash2 } from 'lucide-react
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { InkDivider } from './InkDivider';
-import { InkText } from './InkText';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { moveTweet, deleteTweet } from '@/lib/threadEdits';
 import { detectBannedPhrases } from '@/lib/bannedPhrases';
 
-const ROMAN_PAIRS: [number, string][] = [
-  [10, 'X'],
-  [9, 'IX'],
-  [5, 'V'],
-  [4, 'IV'],
-  [1, 'I'],
-];
-function toRoman(n: number): string {
-  let out = '';
-  let rem = n;
-  for (const [num, sym] of ROMAN_PAIRS) {
-    while (rem >= num) {
-      out += sym;
-      rem -= num;
-    }
-  }
-  return out || String(n);
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
 }
 
 interface Props {
@@ -35,9 +19,9 @@ interface Props {
 }
 
 /**
- * Each tweet is rendered as a "folio leaf" of a manuscript: a Roman-numeral
- * page mark in the upper-left, an edit nib in the upper-right, drop-cap on
- * the opening leaf, and live inline highlighting of banned slop phrases.
+ * Each tweet renders as a terminal card: a zero-padded index in the
+ * upper-left, an edit control in the upper-right, and live inline
+ * highlighting of banned slop phrases.
  */
 export function ThreadPreview({ tweets, onChange }: Props) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -83,24 +67,18 @@ export function ThreadPreview({ tweets, onChange }: Props) {
   }
 
   const anyEditing = editingIdx !== null;
-  const totalRoman = toRoman(tweets.length);
+  const total = tweets.length;
 
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">
-          Calligraphed · {totalRoman} {tweets.length === 1 ? 'leaf' : 'leaves'}
+          {tweets.length} {tweets.length === 1 ? 'tweet' : 'tweets'} · ready to review
         </p>
-        <InkText
-          as="h2"
-          className="font-display italic text-3xl leading-tight"
-          delay={55}
-        >
-          Your thread is ready
-        </InkText>
+        <h2 className="text-3xl leading-tight">Your thread is ready</h2>
       </div>
 
-      <InkDivider />
+      <RuleDivider />
 
       <ol className="flex flex-col gap-3 list-none">
         {tweets.map((tw, i) => {
@@ -108,10 +86,9 @@ export function ThreadPreview({ tweets, onChange }: Props) {
           return (
             <FolioLeaf
               key={i}
-              numeral={toRoman(i + 1)}
-              total={totalRoman}
+              numeral={pad2(i + 1)}
+              total={pad2(total)}
               text={tw}
-              isFirst={i === 0}
               isEditing={isEditing}
               draft={draft}
               onDraftChange={setDraft}
@@ -145,7 +122,6 @@ interface LeafProps {
   numeral: string;
   total: string;
   text: string;
-  isFirst: boolean;
   isEditing: boolean;
   draft: string;
   onDraftChange: (v: string) => void;
@@ -166,7 +142,6 @@ function FolioLeaf({
   numeral,
   total,
   text,
-  isFirst,
   isEditing,
   draft,
   onDraftChange,
@@ -188,12 +163,12 @@ function FolioLeaf({
         animation: `leaf-reveal 0.55s ${animationDelay}s cubic-bezier(.2,.6,.2,1) both`,
       }}
     >
-      <Card className="relative p-5 pt-4 flex flex-col gap-3 transition-colors duration-200 hover:border-[hsl(var(--ink-deep))]">
-        {/* Folio numeral marker — top-left */}
+      <Card className="relative p-5 pt-4 flex flex-col gap-3 transition-colors duration-200 hover:border-primary/50">
+        {/* Tweet index marker — top-left */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-2 leading-none">
             <span
-              className="font-display italic text-[2rem] text-[hsl(var(--ink-faded))]"
+              className="font-mono font-bold text-2xl text-muted-foreground"
               aria-hidden
             >
               {numeral}
@@ -263,15 +238,10 @@ function FolioLeaf({
             onChange={(e) => onDraftChange(e.target.value)}
             rows={5}
             autoFocus
-            className="text-sm leading-relaxed"
+            className="font-sans text-[15px] leading-normal"
           />
         ) : (
-          <p
-            className={
-              'text-sm leading-relaxed whitespace-pre-wrap ' +
-              (isFirst ? 'drop-cap' : '')
-            }
-          >
+          <p className="font-sans text-[15px] leading-normal whitespace-pre-wrap">
             <HighlightedText text={text} />
           </p>
         )}
@@ -292,9 +262,9 @@ function FolioLeaf({
 }
 
 /**
- * A small square nib button used for the per-leaf reorder/delete controls. The
- * glyph stays small to match the codex line work, but the button holds a 36px
- * (h-9 w-9) hit area so it's comfortable under a thumb.
+ * A small square button used for the per-tweet reorder/delete controls. The
+ * glyph stays small, but the button holds a 36px (h-9 w-9) hit area so it's
+ * comfortable under a thumb.
  */
 function LeafNib({
   label,
@@ -317,7 +287,7 @@ function LeafNib({
       aria-label={label}
       title={label}
       className={
-        'flex items-center justify-center h-9 w-9 rounded text-[hsl(var(--ink-faded))] no-underline transition-colors disabled:opacity-30 disabled:cursor-not-allowed ' +
+        'flex items-center justify-center h-9 w-9 rounded text-muted-foreground no-underline transition-colors disabled:opacity-30 disabled:cursor-not-allowed ' +
         (danger ? 'hover:text-destructive' : 'hover:text-primary')
       }
     >
@@ -327,9 +297,9 @@ function LeafNib({
 }
 
 /**
- * Renders tweet text with banned phrases wrapped in a wavy-underline <mark>.
- * Detection is live: it recomputes on every text change so a phrase the creator
- * deletes stops being flagged immediately.
+ * Renders tweet text with banned phrases wrapped in an amber-highlighted
+ * <mark>. Detection is live: it recomputes on every text change so a phrase
+ * the creator deletes stops being flagged immediately.
  */
 function HighlightedText({ text }: { text: string }) {
   const matches = useMemo(() => detectBannedPhrases(text), [text]);
@@ -344,7 +314,7 @@ function HighlightedText({ text }: { text: string }) {
       <mark
         key={i}
         title={`${m.group.replace('-', ' ')} — cut or replace`}
-        className="bg-transparent underline decoration-wavy underline-offset-2 decoration-[hsl(var(--vermillion))] text-[hsl(var(--vermillion))]"
+        className="bg-money/20 text-money underline decoration-money/60"
       >
         {text.slice(m.start, m.end)}
       </mark>,

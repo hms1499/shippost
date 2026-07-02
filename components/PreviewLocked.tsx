@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import { Lock, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -20,8 +20,8 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">Sample · First tweet free</p>
         <p className="text-sm text-muted-foreground leading-snug">
-          A free taste of the opening. Pay $0.05 to generate your full thread —
-          freshly written and fact-checked.
+          A free taste of the opening. Pay <span className="text-money">$0.05</span> to
+          generate your full thread — freshly written and fact-checked.
         </p>
       </div>
 
@@ -31,19 +31,22 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
 
       <div className="relative flex flex-col gap-2" aria-hidden>
         {Array.from({ length: Math.min(Math.max(lockedCount, 0), 4) }).map((_, i) => (
-          <Card key={i} className="p-4 select-none">
-            <div className="h-3 w-3/4 rounded bg-[hsl(var(--ink-faded)/0.25)] blur-[1.5px]" />
-            <div className="mt-2 h-3 w-1/2 rounded bg-[hsl(var(--ink-faded)/0.2)] blur-[1.5px]" />
+          <Card key={i} className="p-4 select-none border-l-2 border-l-money">
+            <div className="h-3 w-3/4 rounded bg-muted-foreground/25 blur-[1.5px]" />
+            <div className="mt-2 h-3 w-1/2 rounded bg-muted-foreground/20 blur-[1.5px]" />
           </Card>
         ))}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--ink-faded))] bg-background/80 px-3 py-1 text-xs text-muted-foreground">
-            ≈ {totalTweets} {totalTweets === 1 ? 'tweet' : 'tweets'} in the full thread
+          <span className="flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-mono text-muted-foreground">
+            <Lock size={11} className="text-money" aria-hidden />
+            unlocks after payment · ≈ {totalTweets} {totalTweets === 1 ? 'tweet' : 'tweets'}
           </span>
         </div>
       </div>
 
-      <Button onClick={onUnlock}>Generate full thread · $0.05</Button>
+      <Button onClick={onUnlock}>
+        Generate full thread · <span className="text-money">$0.05</span>
+      </Button>
 
       <p className="text-xs text-muted-foreground text-center leading-snug">
         Generated fresh, so the final wording may differ from this sample.

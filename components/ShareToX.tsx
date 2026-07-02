@@ -75,7 +75,7 @@ export function ShareToX({ tweets }: Props) {
           type="checkbox"
           checked={credit}
           onChange={(e) => setCredit(e.target.checked)}
-          className="accent-[hsl(var(--ink-deep))]"
+          className="accent-primary"
         />
         Add a small &#8220;made with ShipPost&#8221; credit to the first tweet
       </label>

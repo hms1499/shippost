@@ -63,6 +63,10 @@ export function ErrorSurface({
     kind === 'partial' ||
     kind === 'full-fail' ||
     kind === 'cap-hit';
+  // full-fail / cap-hit are total failures — the pipeline produced nothing,
+  // so the refund is automatic. partial still delivers the working part of
+  // the thread, so it doesn't get the "nothing was delivered" line.
+  const isAutoRefundNoDelivery = kind === 'full-fail' || kind === 'cap-hit';
   const primary = isRefundKind ? onRefundRequest : onRetry;
 
   const buttonLabel = isRefundKind && refundStatus === 'sending'
@@ -73,19 +77,24 @@ export function ErrorSurface({
   const disabled = isRefundKind && (refundStatus === 'sending' || refundStatus === 'sent');
 
   return (
-    <Card className="w-full max-w-md p-4 flex flex-col gap-3 border-destructive/40">
-      <h3 className="text-sm font-semibold">{c.title}</h3>
-      <p className="text-sm text-muted-foreground">{c.body}</p>
+    <Card className="w-full max-w-md p-4 flex flex-col gap-3 border-destructive/50 bg-destructive/10">
+      <h3 className="text-sm font-semibold font-mono">✗ {c.title}</h3>
+      <p className="text-sm font-mono text-muted-foreground">{c.body}</p>
+      {isAutoRefundNoDelivery && (
+        <p className="text-xs font-mono text-muted-foreground">
+          auto refund queued — nothing was delivered
+        </p>
+      )}
       {buttonLabel && primary && (
         <Button variant="outline" onClick={primary} disabled={disabled}>
           {buttonLabel}
         </Button>
       )}
       {isRefundKind && refundStatus === 'sent' && (
-        <p className="text-xs text-muted-foreground">Operator will process within 24h.</p>
+        <p className="text-xs font-mono text-muted-foreground">Operator will process within 24h.</p>
       )}
       {isRefundKind && refundStatus === 'error' && refundError && (
-        <p className="text-xs text-destructive">{refundError}</p>
+        <p className="text-xs font-mono text-destructive">{refundError}</p>
       )}
     </Card>
   );
