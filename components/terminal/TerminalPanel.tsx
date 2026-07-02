@@ -15,10 +15,10 @@ export function TerminalPanel({
       className={`rounded-lg border border-border bg-card p-4 ${className ?? ''}`}
     >
       {title && (
-        <div className="flex items-center gap-2 mb-3" aria-hidden>
-          <span className="h-px w-4 bg-border" />
+        <div className="flex items-center gap-2 mb-3">
+          <span className="h-px w-4 bg-border" aria-hidden />
           <span className="heading-sub text-[10px]">{title}</span>
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-border" aria-hidden />
         </div>
       )}
       {children}
