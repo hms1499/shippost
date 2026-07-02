@@ -663,7 +663,7 @@ export default function HomeClient() {
       <header className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col gap-3`}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col leading-none">
-            <h1 className="font-mono font-bold tracking-tight text-[3.4rem] text-foreground leading-[0.9]">
+            <h1 className="font-mono font-bold tracking-tight text-[clamp(2.25rem,10.5vw,3.4rem)] text-foreground leading-[0.9]">
               ShipPost
             </h1>
             <span className="heading-sub text-[10px] mt-2">
