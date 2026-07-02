@@ -108,7 +108,12 @@ export function AgentTrace({
             >
               <div className="font-bold tracking-wider">{CELL_LABEL[id]}</div>
               <div className="mt-0.5">
-                {s.status === 'settled' && (s.costAmount ? `✓ $${s.costAmount}` : '✓')}
+                {s.status === 'settled' &&
+                  (s.costAmount ? (
+                    <>✓ <span className="text-money">${s.costAmount}</span></>
+                  ) : (
+                    '✓'
+                  ))}
                 {s.status === 'running' && '⣷ run'}
                 {s.status === 'failed' && '✗ fail'}
               </div>
