@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="above-slit"><rect x="0" y="0" width="512" height="372"/></clipPath>
+  </defs>
+  <!-- page -->
+  <rect width="512" height="512" fill="#0A0D0A"/>
+  <!-- slot first; the coin is clipped at the slit's centerline so it covers
+       the slot's top stroke and reads as inserted -->
+  <rect x="106" y="352" width="300" height="40" rx="20" fill="#111611" stroke="#59F87D" stroke-width="10"/>
+  <g clip-path="url(#above-slit)">
+    <circle cx="256" cy="242" r="130" fill="#FFC247"/>
+    <circle cx="256" cy="242" r="130" fill="none" stroke="#8A5A00" stroke-width="6" opacity="0.55"/>
+    <circle cx="256" cy="242" r="104" fill="none" stroke="#8A5A00" stroke-width="4" opacity="0.4"/>
+    <text x="256" y="244" text-anchor="middle" dominant-baseline="central"
+          font-family="ui-monospace, Menlo, 'JetBrains Mono', monospace"
+          font-size="104" font-weight="700" fill="#0A0D0A">5&#162;</text>
+  </g>
+</svg>
