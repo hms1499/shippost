@@ -6,24 +6,27 @@
 
 CoinOp is a pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Each thread costs $0.05 in cUSD, USDT, or USDC. An ERC-8004 agent wallet makes 1–4 micro-payments (x402) to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread, streamed live with cost transparency.
 
-**Proof of Ship — MiniPay MiniApp (AI Agents) category** · Celo mainnet · April–May 2026
+**Proof of Ship — MiniPay MiniApp (AI Agents) category** · live on Celo mainnet
 
 ---
 
 ## How it works
 
-1. User opens CoinOp inside MiniPay on Android
-2. Picks a mode (Educational or Hot Take) and enters a topic
-3. Approves a one-time $0.05 stablecoin payment via `payForThread`
-4. The agent wallet makes x402 micro-payments to AI services in real time
-5. A multi-tweet thread streams back, editable and shareable to X
+1. User opens CoinOp inside MiniPay on Android — the wallet auto-connects
+2. Picks one of four modes and enters a topic (Daily Recap needs no input at all)
+3. Reads the opening tweet as a **free sample** before paying anything
+4. Approves a one-time $0.05 stablecoin payment via `payForThread` to unlock the full thread
+5. The agent wallet makes x402 micro-payments to AI services, streamed live as a trace log
+6. The thread arrives editable and shareable to X, closed by a printed **receipt** of the agent's per-call on-chain spend
 
 ### Modes
 
-| Mode | Steps | Cost breakdown |
-|------|-------|---------------|
-| **A — Educational** | Groq generate | ~$0.01 Groq |
-| **B — Hot Take** | Serper search → CoinGecko price → Groq generate → fact-check | ~$0.01–0.02 total |
+| Mode | Steps | Agent spend |
+|------|-------|-------------|
+| **I — Hot Take** | Serper search → CoinGecko market → Groq draft → fact-check | ~$0.003 |
+| **II — Educational** | Serper (soft grounding) → Groq draft | ~$0.001 |
+| **III — Token Analysis** | Serper → CoinGecko + DefiLlama TVL → Groq draft → fact-check | ~$0.003 |
+| **IV — Daily Recap** | Serper headlines → CoinGecko market overview + DefiLlama → Groq draft → fact-check | ~$0.003 |
 
 ---
 
@@ -97,8 +100,8 @@ MiniPay (Android)
            ├─ ShipPostPayment.sol  ← pulls $0.05, splits 50/40/10 to agent/treasury/reserve
            ├─ AgentWallet.sol      ← ERC-8004, $10/day spend cap, executes x402 calls
            └─ /api/generate/stream (SSE)
-                  └─ in-process pipeline: groq · serper · coingecko · fact-check
-                     steps — each settles via AgentWallet (Model 1, no HTTP route)
+                  └─ in-process pipeline: serper · coingecko · defillama · groq ·
+                     fact-check — each settles via AgentWallet (Model 1, no HTTP route)
 ```
 
 ### On-chain
@@ -118,50 +121,6 @@ MiniPay (Android)
 
 ---
 
-## Demo
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center" width="33%">
-        <img 
-          src="./screenshots/1-mode-selection.png" 
-          alt="Mode Selection Screen" 
-          width="280"
-          style="border-radius: 8px; border: 1px solid #e5e7eb;"
-        />
-        <br />
-        <b>Mode Selection</b><br/>
-        <small>Choose Educational or Hot Take mode</small>
-      </td>
-      <td align="center" width="33%">
-        <img 
-          src="./screenshots/2-progress.png" 
-          alt="Progress Theatre" 
-          width="280"
-          style="border-radius: 8px; border: 1px solid #e5e7eb;"
-        />
-        <br />
-        <b>Live Progress</b><br/>
-        <small>Real-time x402 cost breakdown per step</small>
-      </td>
-      <td align="center" width="33%">
-        <img 
-          src="./screenshots/3-thread-preview.png" 
-          alt="Thread Preview" 
-          width="280"
-          style="border-radius: 8px; border: 1px solid #e5e7eb;"
-        />
-        <br />
-        <b>Thread Preview</b><br/>
-        <small>Editable tweet cards, ready to share</small>
-      </td>
-    </tr>
-  </table>
-</div>
-
----
-
 ## Tech stack
 
 | Layer | Tech |
@@ -170,7 +129,7 @@ MiniPay (Android)
 | Wallet | wagmi v2, viem, RainbowKit (MiniPay auto-connect via injected provider) |
 | Contracts | Solidity 0.8.24, Hardhat, hardhat-toolbox-viem |
 | AI | Groq (llama-3.3-70b), Serper, CoinGecko |
-| Database | Supabase (server-side only, thread metadata) |
+| Database | Supabase (server-side only: threads, refund queue, funnel events) |
 | Chain | Celo mainnet + Celo Sepolia testnet |
 
 ---
@@ -204,6 +163,13 @@ Copy `.env.example` to `.env.local` and fill in:
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional | Reown project ID (not needed for MiniPay) |
 | `NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET` | Frontend | ShipPostPayment mainnet address |
 | `NEXT_PUBLIC_AGENT_WALLET_MAINNET` | Frontend | AgentWallet mainnet address |
+| `NEXT_PUBLIC_PAYMENT_CONTRACT_TESTNET` | Testnet builds | ShipPostPayment on Celo Sepolia |
+| `NEXT_PUBLIC_AGENT_WALLET_TESTNET` | Testnet builds | AgentWallet on Celo Sepolia |
+| `NEXT_PUBLIC_TARGET_CHAIN_ID` | Frontend | `42220` (default) or `11142220` — which chain the build targets |
+| `NEXT_PUBLIC_APP_URL` | Optional | Canonical app URL for metadata/share links |
+| `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET` | Model 2 only | Coinbase CDP facilitator creds for `/api/x402/groq` |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Server | Rate limiting (free preview + public APIs) |
+| `PREVIEW_DAILY_CAP` | Optional | Per-IP daily cap on free previews |
 
 Mainnet contract addresses are already filled in `.env.example` after deployment.
 
@@ -219,15 +185,17 @@ pnpm lint                   # ESLint
 
 # Contracts
 pnpm compile                # Compile Solidity
-pnpm test:contracts         # Hardhat tests (13 tests)
-pnpm test:lib               # Vitest unit tests (threadParser, etc.)
+pnpm test:contracts         # Hardhat tests (17 tests)
+pnpm test:lib               # Vitest unit tests over lib/ and app/
 pnpm deploy:testnet         # Deploy to Celo Sepolia
 
 # Mainnet deploy
 npx hardhat run scripts/deploy-mainnet.ts --network celo
 
 # Operations
-pnpm refund                 # Admin refund CLI
+pnpm refund:list            # List queued refund requests
+pnpm refund:process <id>    # Settle one queued refund (REFUND_ADMIN_KEY)
+pnpm refund                 # Legacy one-off admin refund CLI
 pnpm hardhat run scripts/pause.ts --network celo    # Emergency pause
 pnpm analyze                # Bundle size analysis
 ```
@@ -239,17 +207,20 @@ pnpm analyze                # Bundle size analysis
 ```
 app/
   api/
-    generate/stream/     # SSE endpoint — runs pipeline, logs to Supabase
-    x402/                # groq / serper / coingecko / fact-check proxies
-    public/              # analytics + threads public API
+    generate/stream/     # SSE endpoint — verifies payment on-chain, runs pipeline
+    preview/             # free first-tweet sample (rate-limited)
+    x402/groq/           # Model 2: real x402 endpoint we SELL (Base, CDP facilitator)
+    refund-request/      # self-service refund queue
+    public/              # stats, funnel ingest, threads public API
   history/               # per-wallet thread history
   stats/                 # public analytics page
-  HomeClient.tsx         # main app UI (mode picker → payment → generation → preview)
+  HomeClient.tsx         # main app UI (mode → free sample → pay → generate → receipt)
 components/
-  GeneratingStatus.tsx   # progress theatre with live x402 cost per step
+  AgentTrace.tsx         # live trace log with x402 cost per step
   ThreadPreview.tsx      # tweet cards with inline edit
   ShareToX.tsx           # twitter:// deep link + web fallback
-  ErrorSurface.tsx       # 8 error states (insufficient / cap-hit / paused / …)
+  PostShareScreen.tsx    # printed receipt: split + per-call x402 spend, tx links
+  ErrorSurface.tsx       # error states (insufficient / cap-hit / paused / …)
 contracts/
   AgentWallet.sol
   ShipPostPayment.sol
@@ -269,7 +240,7 @@ deployments/
   celo.json              # mainnet deployment record
   celoSepolia.json       # testnet deployment record
 supabase/
-  migrations/            # schema (threads table)
+  migrations/            # schema (threads, refund_requests, funnel_events)
 ```
 
 ---
