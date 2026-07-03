@@ -1,6 +1,14 @@
 import { http } from 'wagmi';
 import { celo } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import {
+  injectedWallet,
+  safeWallet,
+  rainbowWallet,
+  base,
+  metaMaskWallet,
+  walletConnectWallet,
+} from '@rainbow-me/rainbowkit/wallets';
 import { celoSepolia } from './chains';
 import { TARGET_CHAIN_ID, getTargetChain } from './targetChain';
 
@@ -22,6 +30,16 @@ const rpcUrl =
 export const wagmiConfig = getDefaultConfig({
   appName: 'CoinOp',
   projectId,
+  // MiniPay only surfaces window.ethereum (no EIP-6963), so the injected
+  // connector must be configured explicitly — RainbowKit's default wallet
+  // list omits it, leaving auto-connect nothing to attach to. Keep it first;
+  // HomeClient auto-connect looks it up by id 'injected'.
+  wallets: [
+    {
+      groupName: 'Popular',
+      wallets: [injectedWallet, safeWallet, rainbowWallet, base, metaMaskWallet, walletConnectWallet],
+    },
+  ],
   chains: [targetChain],
   transports: {
     [TARGET_CHAIN_ID]: http(rpcUrl),
