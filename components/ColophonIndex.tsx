@@ -67,7 +67,7 @@ export function ColophonIndex() {
                       {item.label}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-snug">
+                  <p className="text-xs font-sans text-muted-foreground leading-snug">
                     {item.description}
                   </p>
                 </div>

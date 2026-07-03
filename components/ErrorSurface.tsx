@@ -79,9 +79,9 @@ export function ErrorSurface({
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-3 border-destructive/50 bg-destructive/10">
       <h3 className="text-sm font-semibold font-mono">✗ {c.title}</h3>
-      <p className="text-sm font-mono text-muted-foreground">{c.body}</p>
+      <p className="text-sm font-sans text-muted-foreground">{c.body}</p>
       {isAutoRefundNoDelivery && (
-        <p className="text-xs font-mono text-muted-foreground">
+        <p className="text-xs font-sans text-muted-foreground">
           auto refund queued — nothing was delivered
         </p>
       )}
@@ -91,10 +91,10 @@ export function ErrorSurface({
         </Button>
       )}
       {isRefundKind && refundStatus === 'sent' && (
-        <p className="text-xs font-mono text-muted-foreground">Operator will process within 24h.</p>
+        <p className="text-xs font-sans text-muted-foreground">Operator will process within 24h.</p>
       )}
       {isRefundKind && refundStatus === 'error' && refundError && (
-        <p className="text-xs font-mono text-destructive">{refundError}</p>
+        <p className="text-xs font-sans text-destructive">{refundError}</p>
       )}
     </Card>
   );

@@ -56,7 +56,7 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
 
   if (error)
     return (
-      <p className="text-sm text-destructive">
+      <p className="text-sm font-sans text-destructive">
         Failed to load history. Refresh to try again.
       </p>
     );
@@ -65,7 +65,7 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
 
   if (threads.length === 0)
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm font-sans text-muted-foreground">
         No threads yet — run your first one from the composer.
       </p>
     );

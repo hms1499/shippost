@@ -77,7 +77,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
           {/* What the agent will do */}
           <div className="flex flex-col gap-2">
             <p className="heading-sub text-[10px]">The recipe</p>
-            <ul className="text-sm text-muted-foreground leading-snug list-disc pl-4 flex flex-col gap-1">
+            <ul className="text-sm font-sans text-muted-foreground leading-snug list-disc pl-4 flex flex-col gap-1">
               <li>Top-10 prices &amp; 24h moves, live from market data</li>
               <li>Today&apos;s crypto headlines via search</li>
               <li>One neutral digest, fact-checked, closing on a thing to watch</li>
@@ -113,7 +113,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
               </div>
             )}
             {insufficient && effectiveToken && (
-              <p className="text-xs text-destructive leading-snug">
+              <p className="text-xs font-sans text-destructive leading-snug">
                 You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
                 pick another token above.
               </p>

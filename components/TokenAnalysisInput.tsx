@@ -93,7 +93,7 @@ export function TokenAnalysisInput({ onSubmit, onBack, disabled }: Props) {
               </h2>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground leading-snug">
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
             Name a token. The agent reads price, mcap &amp; catalysts.
           </p>
 
@@ -177,7 +177,7 @@ export function TokenAnalysisInput({ onSubmit, onBack, disabled }: Props) {
               </div>
             )}
             {insufficient && effectiveToken && (
-              <p className="text-xs text-destructive leading-snug">
+              <p className="text-xs font-sans text-destructive leading-snug">
                 You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
                 pick another token above.
               </p>

@@ -156,7 +156,7 @@ export function WalletMenu() {
               {connectorLabel && (
                 <span
                   className={
-                    'heading-sub text-[9px] leading-none ' +
+                    'font-mono text-[11px] leading-none ' +
                     (isMiniPay
                       ? 'text-primary'
                       : 'text-muted-foreground')
@@ -210,7 +210,7 @@ export function WalletMenu() {
                           type="button"
                           onClick={() => setOpen(false)}
                           aria-label="Close menu"
-                          className="flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-destructive transition-colors"
+                          className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors"
                         >
                           <XIcon size={11} aria-hidden />
                           close
@@ -234,7 +234,7 @@ export function WalletMenu() {
                               setOpen(false);
                               openAccountModal();
                             }}
-                            className="heading-sub text-[10px] no-underline hover:text-primary transition-colors shrink-0"
+                            className="font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors shrink-0"
                           >
                             manage →
                           </button>
@@ -258,7 +258,7 @@ export function WalletMenu() {
                               setOpen(false);
                               switchToTarget();
                             }}
-                            className="flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-destructive transition-colors self-start"
+                            className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
                           >
                             <ArrowLeftRight size={11} aria-hidden />
                             Switch to {targetChainName()}

@@ -19,8 +19,8 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
     <section className="w-full max-w-md flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">Sample · First tweet free</p>
-        <p className="text-sm text-muted-foreground leading-snug">
-          A free taste of the opening. Pay <span className="text-money">$0.05</span> to
+        <p className="text-sm font-sans text-muted-foreground leading-snug">
+          A free taste of the opening. Pay <span className="font-mono text-money">$0.05</span> to
           generate your full thread — freshly written and fact-checked.
         </p>
       </div>
@@ -48,7 +48,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
         Generate full thread · $0.05
       </Button>
 
-      <p className="text-xs text-muted-foreground text-center leading-snug">
+      <p className="text-xs font-sans text-muted-foreground text-center leading-snug">
         Generated fresh, so the final wording may differ from this sample.
       </p>
 
@@ -56,7 +56,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
         type="button"
         onClick={onRegenerate}
         disabled={regenerating}
-        className="self-center inline-flex items-center gap-1.5 heading-sub text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+        className="self-center inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
       >
         <RefreshCw size={11} className={regenerating ? 'animate-spin' : ''} aria-hidden />
         {regenerating ? 'Regenerating…' : 'Regenerate sample'}

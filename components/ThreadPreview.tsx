@@ -173,7 +173,7 @@ function FolioLeaf({
             >
               {numeral}
             </span>
-            <span className="heading-sub text-[10px]">of {total}</span>
+            <span className="font-mono text-[11px] text-muted-foreground">of {total}</span>
           </div>
 
           {/* Right cluster: reorder + delete nibs, then the edit/cancel nib.
@@ -213,7 +213,7 @@ function FolioLeaf({
               <button
                 type="button"
                 onClick={onStartEdit}
-                className="flex items-center gap-1 px-2 h-9 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+                className="flex items-center gap-1 px-2 h-9 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
               >
                 <Pencil size={11} aria-hidden />
                 edit
@@ -222,7 +222,7 @@ function FolioLeaf({
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex items-center gap-1 px-2 h-9 heading-sub text-[10px] no-underline hover:text-destructive transition-colors"
+                className="flex items-center gap-1 px-2 h-9 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors"
               >
                 <XIcon size={11} aria-hidden />
                 cancel

@@ -76,7 +76,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
               </h2>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground leading-snug">
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
             Describe the concept and the reader.
           </p>
 
@@ -154,7 +154,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
               </div>
             )}
             {insufficient && effectiveToken && (
-              <p className="text-xs text-destructive leading-snug">
+              <p className="text-xs font-sans text-destructive leading-snug">
                 You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
                 pick another token above.
               </p>
