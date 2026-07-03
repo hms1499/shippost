@@ -57,7 +57,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
         </button>
       )}
 
-      <TerminalPanel className="w-full">
+      <TerminalPanel variant="plain" className="w-full">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2.5">
             <PenLine size={18} className="text-primary shrink-0" aria-hidden />

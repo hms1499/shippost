@@ -12,10 +12,9 @@ function shorten(addr: string): string {
 }
 
 /**
- * Wallet balance panel: a heading-sub label, leader-dot rows for each
- * stable, the wallet's shortened address in monospace, and a primary marker
- * on the token with the highest balance — the default the input forms will
- * pre-select.
+ * Wallet balance panel: a heading-sub label, one inline row of stables,
+ * the wallet's shortened address in monospace, and emphasis on the token
+ * with the highest balance — the default the input forms will pre-select.
  */
 export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
@@ -28,7 +27,7 @@ export function WalletStatus() {
   const topSymbol = sorted[0] && sorted[0].balance > 0n ? sorted[0].symbol : null;
 
   return (
-    <Card className="w-full max-w-md p-4 flex flex-col gap-3">
+    <Card className="w-full max-w-md p-5 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
         <p className="heading-sub text-[10px]">Wallet · balances</p>
         {isMiniPay && (
@@ -38,61 +37,37 @@ export function WalletStatus() {
         )}
       </div>
 
-      <ul className="flex flex-col gap-1.5 text-sm">
-        {isLoading && (
-          <li className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2
-              size={12}
-              className="animate-spin text-muted-foreground"
-              aria-hidden
-            />
+      <div className="flex items-center gap-4 text-sm">
+        {isLoading ? (
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 size={12} className="animate-spin" aria-hidden />
             Loading balances…
-          </li>
-        )}
-
-        {!isLoading && balances.length === 0 && (
-          <li className="text-xs text-muted-foreground">
+          </span>
+        ) : balances.length === 0 ? (
+          <span className="text-xs font-sans text-muted-foreground">
             No stable balances on this chain.
-          </li>
-        )}
-
-        {!isLoading &&
+          </span>
+        ) : (
           balances.map((b) => {
             const amount = Number(formatUnits(b.balance, b.decimals));
             const isTop = b.symbol === topSymbol;
-            const dim = !isTop;
             return (
-              <li key={b.symbol} className="flex items-baseline gap-2">
+              <span key={b.symbol} className="flex items-baseline gap-1.5">
                 <span
                   className={
-                    'flex items-center gap-1.5 ' +
-                    (dim ? 'text-muted-foreground' : 'text-foreground')
+                    'text-xs ' + (isTop ? 'text-foreground font-medium' : 'text-muted-foreground')
                   }
                 >
-                  <span
-                    aria-hidden
-                    className={
-                      'block w-1.5 h-1.5 rounded-full ' +
-                      (isTop ? 'bg-primary' : 'bg-muted-foreground/30')
-                    }
-                  />
-                  <span className={isTop ? 'font-medium' : ''}>{b.symbol}</span>
+                  {b.symbol}
                 </span>
-                <span
-                  aria-hidden
-                  className="flex-1 border-b border-dotted border-border mb-1 opacity-50"
-                />
-                <span
-                  className={
-                    'font-mono tabular-nums text-money ' + (isTop ? 'font-bold' : '')
-                  }
-                >
+                <span className={'font-mono tabular-nums text-money ' + (isTop ? 'font-bold' : '')}>
                   {amount.toFixed(2)}
                 </span>
-              </li>
+              </span>
             );
-          })}
-      </ul>
+          })
+        )}
+      </div>
 
       {isMiniPay && connector?.name && (
         <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
