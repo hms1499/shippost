@@ -19,11 +19,13 @@ interface Props {
   onSubmit: (p: DailyRecapSubmitPayload) => void;
   onBack?: () => void;
   disabled?: boolean;
+  /** free-preview draft in flight — disables the form and swaps the CTA label */
+  submitting?: boolean;
 }
 
 // Deliberately input-free: the agent grounds itself in today's market
 // snapshot and headlines. The only choice here is which token pays.
-export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
+export function DailyRecapInput({ onSubmit, onBack, disabled, submitting }: Props) {
   const { balances, isLoading } = useBalances();
 
   const defaultToken = useMemo(() => {
@@ -37,7 +39,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
     effectiveToken !== null &&
     effectiveToken.balance < computeTokenAmount(effectiveToken);
 
-  const canSubmit = effectiveToken !== null && !insufficient && !disabled;
+  const canSubmit = effectiveToken !== null && !insufficient && !disabled && !submitting;
 
   const amountStr = effectiveToken
     ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
@@ -49,7 +51,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
         <button
           type="button"
           onClick={onBack}
-          disabled={disabled}
+          disabled={disabled || submitting}
           className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
@@ -126,7 +128,12 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
                 }
               }}
             >
-              {!effectiveToken
+              {submitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                  Drafting sample…
+                </>
+              ) : !effectiveToken
                 ? 'Select token'
                 : insufficient
                   ? `Not enough ${effectiveToken.symbol}`

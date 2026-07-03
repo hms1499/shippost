@@ -30,6 +30,8 @@ interface Props {
   onSubmit: (p: HotTakeSubmitPayload) => void;
   onBack?: () => void;
   disabled?: boolean;
+  /** free-preview draft in flight — disables the form and swaps the CTA label */
+  submitting?: boolean;
 }
 
 const MIN_LEN = 10;
@@ -41,7 +43,7 @@ const ANGLE_OPTIONS: { value: Angle; label: string }[] = [
   { value: 'skeptical', label: 'Skeptical' },
 ];
 
-export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
+export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) {
   const { balances, isLoading } = useBalances();
   const [input, setInput] = useState('');
   const [angle, setAngle] = useState<Angle>('skeptical');
@@ -71,7 +73,8 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
     trimmedLen <= MAX_LEN &&
     effectiveToken !== null &&
     !insufficient &&
-    !disabled;
+    !disabled &&
+    !submitting;
 
   const amountStr = effectiveToken
     ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
@@ -83,7 +86,7 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
         <button
           type="button"
           onClick={onBack}
-          disabled={disabled}
+          disabled={disabled || submitting}
           className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
@@ -216,7 +219,12 @@ export function HotTakeInput({ onSubmit, onBack, disabled }: Props) {
                 }
               }}
             >
-              {!effectiveToken
+              {submitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                  Drafting sample…
+                </>
+              ) : !effectiveToken
                 ? 'Select token'
                 : insufficient
                   ? `Not enough ${effectiveToken.symbol}`

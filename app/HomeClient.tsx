@@ -324,6 +324,9 @@ export default function HomeClient() {
 
   // Try a free preview first; if it's unavailable for any reason, fall straight
   // through to the existing pay-first flow. A failed preview never blocks paying.
+  // The ref guard covers the window before `previewLoading` re-renders the
+  // form's disabled state — a double-tap must not fire a second preview.
+  const previewInFlight = useRef(false);
   const beginFlow = useCallback(
     async (
       payload:
@@ -334,6 +337,8 @@ export default function HomeClient() {
       mode: 0 | 1 | 2 | 3,
     ) => {
       if (!address) return;
+      if (previewInFlight.current) return;
+      previewInFlight.current = true;
       track('submit', { mode, chainId, wallet: address });
       setPreviewLoading(true);
       const args: PreviewArgs =
@@ -360,15 +365,20 @@ export default function HomeClient() {
                   angle: (payload as HotTakeSubmitPayload).angle,
                   eventContext: (payload as HotTakeSubmitPayload).eventContext,
                 };
-      const preview = await fetchPreview(args);
-      setPreviewLoading(false);
-      if (preview) {
-        setPreviewData(preview);
-        track('preview', { mode, chainId, wallet: address });
-        setScreen('preview-locked');
-      } else {
-        setScreen('generating');
-        await pay(payload.token, mode);
+      try {
+        const preview = await fetchPreview(args);
+        setPreviewLoading(false);
+        if (preview) {
+          setPreviewData(preview);
+          track('preview', { mode, chainId, wallet: address });
+          setScreen('preview-locked');
+        } else {
+          setScreen('generating');
+          await pay(payload.token, mode);
+        }
+      } finally {
+        previewInFlight.current = false;
+        setPreviewLoading(false);
       }
     },
     [address, chainId, pay],
@@ -406,6 +416,7 @@ export default function HomeClient() {
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
+        submitting={previewLoading}
       />
     ) : screen === 'hot-take' ? (
       <HotTakeInput
@@ -418,6 +429,7 @@ export default function HomeClient() {
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
+        submitting={previewLoading}
       />
     ) : screen === 'token-analysis' ? (
       <TokenAnalysisInput
@@ -430,6 +442,7 @@ export default function HomeClient() {
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
+        submitting={previewLoading}
       />
     ) : screen === 'daily-recap' ? (
       <DailyRecapInput
@@ -442,6 +455,7 @@ export default function HomeClient() {
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
+        submitting={previewLoading}
       />
     ) : null;
 

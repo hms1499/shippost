@@ -21,6 +21,8 @@ interface Props {
   onSubmit: (payload: EducationalSubmitPayload) => void;
   onBack?: () => void;
   disabled?: boolean;
+  /** free-preview draft in flight — disables the form and swaps the CTA label */
+  submitting?: boolean;
 }
 
 const AUDIENCE_OPTIONS = [
@@ -29,7 +31,7 @@ const AUDIENCE_OPTIONS = [
   { value: 'advanced' as const, label: 'Advanced' },
 ];
 
-export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
+export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Props) {
   const { balances, isLoading } = useBalances();
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
@@ -45,7 +47,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
     effectiveToken !== null &&
     effectiveToken.balance < computeTokenAmount(effectiveToken);
   const canSubmit =
-    topic.trim().length > 0 && effectiveToken !== null && !insufficient && !disabled;
+    topic.trim().length > 0 && effectiveToken !== null && !insufficient && !disabled && !submitting;
 
   const amountStr = effectiveToken
     ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
@@ -57,7 +59,7 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
         <button
           type="button"
           onClick={onBack}
-          disabled={disabled}
+          disabled={disabled || submitting}
           className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
@@ -167,7 +169,12 @@ export function EducationalInput({ onSubmit, onBack, disabled }: Props) {
                 }
               }}
             >
-              {!effectiveToken
+              {submitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                  Drafting sample…
+                </>
+              ) : !effectiveToken
                 ? 'Select token'
                 : insufficient
                   ? `Not enough ${effectiveToken.symbol}`
