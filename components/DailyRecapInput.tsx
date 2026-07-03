@@ -68,7 +68,7 @@ export function DailyRecapInput({ onSubmit, onBack, disabled }: Props) {
               </h2>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground leading-snug">
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
             Nothing to type. The agent reads today&apos;s prices, movers &amp; headlines.
           </p>
 
