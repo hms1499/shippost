@@ -45,14 +45,6 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* CRT scanlines — approved texture. Repeating 3px gradient, ~0 perf cost. */
-    background-image: repeating-linear-gradient(
-      0deg,
-      transparent 0px,
-      transparent 2px,
-      hsl(120 40% 2% / 0.35) 2px,
-      hsl(120 40% 2% / 0.35) 3px
-    );
   }
 
   h1, h2, h3 {
@@ -105,6 +97,17 @@
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
   }
+}
+
+/* CRT scanlines — landing hero only (Quiet Terminal: texture off content screens). */
+.scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    hsl(120 40% 2% / 0.35) 2px,
+    hsl(120 40% 2% / 0.35) 3px
+  );
 }
 
 @layer components {

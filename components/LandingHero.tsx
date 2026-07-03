@@ -15,7 +15,7 @@ export function LandingHero() {
   const { openConnectModal } = useConnectModal();
 
   return (
-    <section className="relative w-full max-w-md flex flex-col items-center gap-6">
+    <section className="relative w-full max-w-md flex flex-col items-center gap-6 scanlines rounded-lg">
       <div className="text-center flex flex-col items-center gap-2">
         <h1 className="text-3xl font-bold tracking-tight">
           One coin in. <span className="text-primary">One thread out.</span>
