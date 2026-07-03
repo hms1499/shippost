@@ -48,6 +48,13 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
         Generate full thread · $0.05
       </Button>
 
+      {/* Placed at the moment of hesitation: the refund promise the backend
+          already keeps (ErrorSurface copy, refund queue) — the UI just says
+          it out loud where the user decides to pay. */}
+      <p className="text-center font-mono text-[11px] text-muted-foreground -mt-0.5">
+        if the run fails · full refund · within 24h
+      </p>
+
       <p className="text-xs font-sans text-muted-foreground text-center leading-snug">
         Generated fresh, so the final wording may differ from this sample.
       </p>

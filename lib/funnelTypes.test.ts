@@ -8,7 +8,7 @@ import {
 } from './funnelTypes';
 
 describe('funnelTypes', () => {
-  it('lists the six stages in funnel order', () => {
+  it('lists the stages in funnel order', () => {
     expect(FUNNEL_STAGES).toEqual([
       'connect',
       'mode_select',
@@ -16,6 +16,7 @@ describe('funnelTypes', () => {
       'preview',
       'pay',
       'share',
+      'receipt_copied',
     ]);
   });
 

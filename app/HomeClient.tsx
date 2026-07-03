@@ -528,14 +528,17 @@ export default function HomeClient() {
       </Stagger>
     ) : screen === 'post-share' && activeToken ? (
       <PostShareScreen
+        threadId={threadId}
         paidAmountUsd={Number(
           formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
         ).toFixed(3)}
         agentSpentUsd={gen.totalCostUsd ?? '0.001'}
         tokenSymbol={activeToken.symbol}
         payTxHash={txHash}
+        steps={gen.steps}
         agentWalletAddress={getContracts(chainId).AgentWallet}
         explorerBase={explorerBase(chainId)}
+        onReceiptCopied={() => track('receipt_copied', { chainId, wallet: address ?? undefined })}
         onWriteAnother={() => {
           reset();
           resetGen();

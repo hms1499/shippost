@@ -9,6 +9,7 @@ export const FUNNEL_STAGES = [
   'preview',
   'pay',
   'share',
+  'receipt_copied',
 ] as const;
 
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
