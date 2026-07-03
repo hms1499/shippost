@@ -72,7 +72,7 @@ export default function StatsPage() {
       <header className="w-full max-w-md flex flex-col gap-3">
         <Link
           href="/"
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+          className="self-start flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
         >
           <ArrowLeft size={12} aria-hidden />
           Back to composer
@@ -87,7 +87,7 @@ export default function StatsPage() {
           </h1>
         </div>
 
-        <p className="text-sm text-muted-foreground leading-snug">
+        <p className="text-sm font-sans text-muted-foreground leading-snug">
           Pulled live from the chain. Refreshed every 30 seconds.
         </p>
       </header>
@@ -105,7 +105,7 @@ export default function StatsPage() {
         )}
 
         {statsError && (
-          <p className="text-sm text-destructive">
+          <p className="text-sm font-sans text-destructive">
             Failed to load stats. Try again later.
           </p>
         )}
@@ -125,7 +125,7 @@ export default function StatsPage() {
                 href={`${explorer}/address/${getContracts(chainId).AgentWallet}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
               >
                 Audit the agent wallet on-chain
                 <ArrowRight size={11} aria-hidden />
@@ -134,7 +134,7 @@ export default function StatsPage() {
                 href={`${explorer}/address/${getContracts(chainId).ShipPostPayment}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
               >
                 Inspect the payment contract on-chain
                 <ArrowRight size={11} aria-hidden />
@@ -150,7 +150,7 @@ export default function StatsPage() {
         <div className="flex items-baseline justify-between gap-3">
           <p className="heading-sub text-[10px]">Recent entries</p>
           {threads.length > 0 && (
-            <span className="heading-sub text-[10px]">
+            <span className="font-mono text-[11px] text-muted-foreground">
               last {threads.length}
             </span>
           )}
@@ -164,7 +164,7 @@ export default function StatsPage() {
         )}
 
         {threadsData && threads.length === 0 && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-sans text-muted-foreground">
             No threads yet on this chain.
           </p>
         )}
@@ -178,7 +178,7 @@ export default function StatsPage() {
         {couldHaveMore && (
           <Link
             href="/history"
-            className="self-end mt-1 flex items-center gap-1 heading-sub text-[10px] no-underline hover:text-primary transition-colors group"
+            className="self-end mt-1 flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors group"
           >
             See more
             <ArrowRight
@@ -233,7 +233,7 @@ function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string })
           href={`${explorer}/tx/${thread.pay_tx_hash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="heading-sub text-[10px] no-underline hover:text-primary transition-colors shrink-0 self-center"
+          className="font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors shrink-0 self-center"
         >
           tx →
         </a>

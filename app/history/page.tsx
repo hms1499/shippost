@@ -22,7 +22,7 @@ export default function HistoryPage() {
       <header className="w-full max-w-md flex flex-col gap-3">
         <Link
           href="/"
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+          className="self-start flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
         >
           <ArrowLeft size={12} aria-hidden />
           Back to composer
@@ -37,7 +37,7 @@ export default function HistoryPage() {
           </h1>
         </div>
 
-        <p className="text-sm text-muted-foreground leading-snug">
+        <p className="text-sm font-sans text-muted-foreground leading-snug">
           Every thread you&apos;ve run, in order.
         </p>
       </header>
@@ -45,7 +45,7 @@ export default function HistoryPage() {
       <RuleDivider />
 
       {!isConnected || !address ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm font-sans text-muted-foreground">
           Connect a wallet to view your history.
         </p>
       ) : (

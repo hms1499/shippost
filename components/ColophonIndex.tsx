@@ -44,7 +44,7 @@ export function ColophonIndex() {
 
   return (
     <nav aria-label="Index" className="w-full flex flex-col gap-2">
-      <p className="heading-sub text-[10px] self-center">$ index</p>
+      <p className="heading-sub text-[10px] self-center">Index</p>
       <ul className="flex flex-col gap-1.5">
         {entries.map((item) => {
           const { Icon } = item;
