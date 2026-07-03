@@ -11,8 +11,9 @@ const mono = JetBrains_Mono({
   display: 'swap',
 });
 
-// Inter is reserved for AI-generated thread content (`font-sans`): chrome is
-// machine (mono), the output is writing for humans (sans).
+// Inter (`font-sans`) is for writing addressed to humans: AI-generated thread
+// content and explanatory prose (error bodies, help notes, descriptions).
+// Chrome, labels, status lines, and data stay machine (mono, the default).
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',

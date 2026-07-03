@@ -47,8 +47,9 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        // Terminal: mono is the chrome; Inter (`font-sans`) is reserved for
-        // AI-generated tweet content.
+        // Terminal: mono is the chrome; Inter (`font-sans`) is for writing
+        // addressed to humans — AI-generated tweet content and explanatory
+        // prose (error bodies, help notes, descriptions).
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },

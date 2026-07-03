@@ -485,12 +485,12 @@ export default function HomeClient() {
         {degradedSteps.length > 0 && (
           <StaggerItem>
             <div className="rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3 flex flex-col gap-2.5">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-sans text-muted-foreground">
                 Built without live data ({degradedSteps.join(', ')}). Still
                 usable — or request a refund if it falls short.
               </p>
               {refundStatus === 'sent' ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs font-sans text-muted-foreground">
                   Refund requested. Operator will process within 24h.
                 </p>
               ) : (
@@ -505,7 +505,7 @@ export default function HomeClient() {
                 </Button>
               )}
               {refundStatus === 'error' && refundError && (
-                <p className="text-xs text-destructive">{refundError}</p>
+                <p className="text-xs font-sans text-destructive">{refundError}</p>
               )}
             </div>
           </StaggerItem>
@@ -560,7 +560,7 @@ export default function HomeClient() {
           own fatal/done. */}
       {screen === 'generating' && gen.isSlow && !gen.isDone && !gen.fatal && (
         <div className="w-full max-w-md rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3">
-          <p className="text-sm text-muted-foreground leading-snug">
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
             Taking longer than usual — the agent is still working. Your payment
             is safe; if it can&apos;t finish, a refund is sent automatically.
           </p>
@@ -702,7 +702,7 @@ export default function HomeClient() {
         isMiniPay ? (
           miniPayTimeout ? (
             <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-              <p className="text-sm text-destructive">
+              <p className="text-sm font-sans text-destructive">
                 Could not connect to MiniPay. Try closing and reopening the app.
               </p>
             </div>
@@ -721,10 +721,10 @@ export default function HomeClient() {
           // fail silently. The chain is set by MiniPay's own "Use Testnet"
           // toggle, so guide the user there instead.
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-            <p className="text-sm text-destructive">
+            <p className="text-sm font-sans text-destructive">
               Wrong network (chainId {chainId}). CoinOp runs on {targetChainName()}.
             </p>
-            <p className="text-xs text-muted-foreground leading-snug">
+            <p className="text-xs font-sans text-muted-foreground leading-snug">
               In MiniPay, open <span className="font-medium text-foreground">Settings → About</span>,
               tap the <span className="font-medium text-foreground">Version</span> number a few times to
               unlock <span className="font-medium text-foreground">Developer Settings</span>, then{' '}

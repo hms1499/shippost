@@ -36,8 +36,9 @@
     @apply border-border;
   }
 
-  /* Mono-first chrome. Inter (--font-sans) is reserved for AI-generated
-     tweet content via the `font-sans` utility. */
+  /* Mono-first chrome. Inter (--font-sans, via the `font-sans` utility) is
+     for writing addressed to humans: AI-generated tweet content AND
+     explanatory prose (error bodies, help notes, descriptions). */
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;

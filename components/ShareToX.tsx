@@ -61,7 +61,7 @@ export function ShareToX({ tweets }: Props) {
     <Card className="w-full max-w-md p-4 flex flex-col gap-3">
       <h3 className="text-sm font-semibold">Share to X</h3>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs font-sans text-muted-foreground">
         X mobile can&apos;t post a full thread at once. Tap <b>Post first tweet</b> below — then in
         X, use the <b>+</b> button under your own tweet to add each follow-up from the clipboard.
       </p>
@@ -91,7 +91,7 @@ export function ShareToX({ tweets }: Props) {
         )}
       </Button>
 
-      {copyError && <p className="text-xs text-destructive">{copyError}</p>}
+      {copyError && <p className="text-xs font-sans text-destructive">{copyError}</p>}
 
       {rest.length > 0 && (
         <details className="text-xs">

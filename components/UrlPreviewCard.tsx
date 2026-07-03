@@ -54,7 +54,7 @@ export function UrlPreviewCard({ url, onResolved }: Props) {
   if (loading) return <p className="text-xs text-muted-foreground">Loading preview…</p>;
   if (!preview || preview.error) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs font-sans text-muted-foreground">
         Could not preview URL — thread will run on the URL text only.
       </p>
     );
@@ -68,9 +68,9 @@ export function UrlPreviewCard({ url, onResolved }: Props) {
       )}
       <div className="flex flex-col gap-1 flex-1 min-w-0">
         <p className="text-xs text-muted-foreground">{preview.host}</p>
-        <p className="text-sm font-medium truncate">{preview.title || '(no title)'}</p>
+        <p className="text-sm font-sans font-medium truncate">{preview.title || '(no title)'}</p>
         {preview.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">{preview.description}</p>
+          <p className="text-xs font-sans text-muted-foreground line-clamp-2">{preview.description}</p>
         )}
       </div>
     </Card>
