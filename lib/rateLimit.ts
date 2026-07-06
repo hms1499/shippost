@@ -120,6 +120,26 @@ export async function claimGenerationOnce(key: string): Promise<GenerationClaim>
   }
 }
 
+// Throttle for recurring ops alerts (e.g. the wallet-low heartbeat that fires
+// every 15 min). SET NX with a TTL: the first caller within the window claims
+// the key and alerts; the rest are suppressed until it expires. Fails OPEN —
+// when Redis is missing or errors we alert anyway, because missing a low-balance
+// page is worse than sending a duplicate.
+export async function claimAlertOnce(key: string, ttlSec: number): Promise<boolean> {
+  const r = getRedis();
+  if (!r) return true;
+  try {
+    const res = await r.set(`alert:once:${key}`, '1', { nx: true, ex: ttlSec });
+    return res === 'OK';
+  } catch (e) {
+    console.error(
+      '[rateLimit] alert-once error — alerting anyway:',
+      e instanceof Error ? e.message : e,
+    );
+    return true;
+  }
+}
+
 // Vercel sets x-forwarded-for; take the client (first) entry. Missing header
 // buckets together under a sentinel rather than throwing.
 export function getClientIp(req: Request): string {

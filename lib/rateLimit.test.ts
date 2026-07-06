@@ -256,6 +256,41 @@ describe('claimGenerationOnce', () => {
   });
 });
 
+describe('claimAlertOnce', () => {
+  it('fails OPEN (alerts) and never touches Redis when env is missing', async () => {
+    clearUpstashEnv();
+    const { claimAlertOnce } = await load();
+    expect(await claimAlertOnce('agent-wallet-low:42220', 21600)).toBe(true);
+    expect(redisCtor).not.toHaveBeenCalled();
+    expect(setMock).not.toHaveBeenCalled();
+  });
+
+  it('claims (returns true) the first time via SET NX with the TTL', async () => {
+    setUpstashEnv();
+    setMock.mockResolvedValue('OK');
+    const { claimAlertOnce } = await load();
+    expect(await claimAlertOnce('agent-wallet-low:42220', 21600)).toBe(true);
+    expect(setMock).toHaveBeenCalledWith('alert:once:agent-wallet-low:42220', '1', {
+      nx: true,
+      ex: 21600,
+    });
+  });
+
+  it('suppresses (returns false) while the key still exists', async () => {
+    setUpstashEnv();
+    setMock.mockResolvedValue(null);
+    const { claimAlertOnce } = await load();
+    expect(await claimAlertOnce('agent-wallet-low:42220', 21600)).toBe(false);
+  });
+
+  it('fails OPEN (alerts) when Redis throws', async () => {
+    setUpstashEnv();
+    setMock.mockRejectedValue(new Error('upstash down'));
+    const { claimAlertOnce } = await load();
+    expect(await claimAlertOnce('agent-wallet-low:42220', 21600)).toBe(true);
+  });
+});
+
 describe('getClientIp', () => {
   it('returns the first IP from x-forwarded-for', async () => {
     const { getClientIp } = await load();
