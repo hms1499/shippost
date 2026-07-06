@@ -16,6 +16,7 @@ import { formatUnits, parseUnits } from 'viem';
 import { refundThread, getOnChainPaidAmount } from '../lib/agent/orchestrator';
 import { getTokens } from '../lib/tokens';
 import { getSupabaseServer } from '../lib/supabase';
+import { alertOps } from '../lib/alert';
 
 type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
 
@@ -187,6 +188,13 @@ async function main() {
         `   Check ${request.wallet_address} on the explorer before any retry.\n` +
         `   To retry: confirm no transfer landed, then reset status to 'pending' manually.`,
     );
+    await alertOps('refund send FAILED — verify on-chain before retry (queue worker)', {
+      requestId,
+      chainId: request.chain_id,
+      onchainThreadId: request.onchain_thread_id,
+      to: request.wallet_address,
+      error: msg,
+    });
     throw e;
   }
 
