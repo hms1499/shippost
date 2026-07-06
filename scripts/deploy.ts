@@ -27,11 +27,13 @@ async function main() {
   const agentWallet = await viem.deployContract('AgentWallet', []);
   console.log('AgentWallet:', agentWallet.address);
 
-  // Use deployer as both treasury and reservePool for MVP simplicity
+  // Use deployer as treasury for MVP simplicity. The reserve is retained
+  // in-contract now, so there is no reservePool address; startThreadId is
+  // offset so a redeploy never collides with a prior contract's thread ids.
   const payment = await viem.deployContract('ShipPostPayment', [
     agentWallet.address,
     deployer.account.address, // treasury
-    deployer.account.address, // reservePool
+    100000n, // startThreadId
   ]);
   console.log('ShipPostPayment:', payment.address);
 

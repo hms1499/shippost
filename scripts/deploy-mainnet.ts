@@ -60,11 +60,13 @@ async function main() {
   const agentWallet = await viem.deployContract('AgentWallet', []);
   console.log('AgentWallet:', agentWallet.address);
 
-  // 2. Deploy ShipPostPayment — treasury and reservePool both = deployer (MVP)
+  // 2. Deploy ShipPostPayment — treasury = deployer (MVP). Reserve is retained
+  // in-contract; startThreadId is offset so a redeploy never collides with a
+  // prior contract's thread ids (the backend replay guard keys on threadId).
   const payment = await viem.deployContract('ShipPostPayment', [
     agentWallet.address,
     deployerAddr, // treasury
-    deployerAddr, // reservePool
+    100000n, // startThreadId
   ]);
   console.log('ShipPostPayment:', payment.address);
 

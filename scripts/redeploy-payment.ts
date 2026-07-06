@@ -40,12 +40,14 @@ function requireAddrEnv(name: string): `0x${string}` {
 }
 
 async function main() {
-  // Payout targets are env-driven now — never hardcoded again (the original
-  // deploy hardcoded treasury/reservePool to the deployer EOA, which is the
-  // bug this redeploy fixes).
+  // Payout targets are env-driven. The reserve is retained in-contract now
+  // (v2), so there is no reservePool address. startThreadId MUST be above the
+  // OLD contract's highest threadId or fresh payments collide with existing DB
+  // rows on the (chainId, threadId) replay guard — default 100000 is safely past
+  // the current ~32.
   const treasury = requireAddrEnv('TREASURY_ADDRESS');
-  const reservePool = requireAddrEnv('RESERVE_POOL_ADDRESS');
   const newOwner = requireAddrEnv('NEW_OWNER_ADDRESS');
+  const startThreadId = BigInt(process.env.START_THREAD_ID ?? '100000');
 
   // Reuse the live AgentWallet — do NOT deploy a new one (it holds funds and
   // already has daily caps + correct owner).
@@ -77,14 +79,14 @@ async function main() {
   console.log('Deployer    :', deployerAddr);
   console.log('AgentWallet :', agentWallet, '(reused, not redeployed)');
   console.log('Treasury    :', treasury);
-  console.log('ReservePool :', reservePool);
+  console.log('StartThreadId:', startThreadId.toString());
   console.log('New owner   :', newOwner);
 
-  // 1. Deploy ShipPostPayment with the corrected payout targets
+  // 1. Deploy ShipPostPayment v2 (reserve retained in-contract)
   const payment = await viem.deployContract('ShipPostPayment', [
     agentWallet,
     treasury,
-    reservePool,
+    startThreadId,
   ]);
   console.log('\nShipPostPayment deployed:', payment.address);
 
@@ -95,7 +97,7 @@ async function main() {
     deployer: deployerAddr,
     contracts: { ShipPostPayment: payment.address, AgentWallet: agentWallet },
     treasury,
-    reservePool,
+    startThreadId: startThreadId.toString(),
     status: 'partial — configuration in progress',
     deployedAt: new Date().toISOString(),
   };
@@ -130,7 +132,7 @@ async function main() {
     owner: newOwner,
     contracts: { ShipPostPayment: payment.address, AgentWallet: agentWallet },
     treasury,
-    reservePool,
+    startThreadId: startThreadId.toString(),
     tokens: MAINNET_TOKENS,
     dailyCapsUSD: 10,
     deployedAt: new Date().toISOString(),
@@ -144,6 +146,9 @@ async function main() {
   console.log('  1. vercel env: set NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET =', payment.address, '(Production)');
   console.log('  2. Update README + deployments/celo.json references');
   console.log('  3. Redeploy frontend so the new contract is used');
+  console.log('  4. Seed the refund reserve: transfer a small stablecoin float');
+  console.log('     to', payment.address, '— refunds are paid from its balance,');
+  console.log('     which starts at 0 and only accrues 10% of new payments.');
 }
 
 main().catch((e) => {
