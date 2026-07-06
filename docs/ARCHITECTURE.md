@@ -120,11 +120,11 @@ flowchart LR
     U["👤 user"] -->|"transferFrom $0.05"| C["ShipPostPayment"]
     C -->|"agentBp 5000 = 50%"| A["AgentWallet"]
     C -->|"treasuryBp 4000 = 40%"| T[("treasury")]
-    C -->|"phần còn lại = 10%"| R[("reservePool")]
+    C -->|"reserveBp 1000 = 10% · giữ in-contract"| R[("reserve<br/>= balance của ShipPostPayment")]
     C -.->|"emit"| E["ThreadRequested(user, threadId, mode, token, amount)"]
 ```
 
-- **Làm gì:** thu tiền, chia 50/40/10, phát `ThreadRequested`.
+- **Làm gì:** thu tiền, chia 50/40/10 (10% **giữ lại làm reserve on-chain** — nguồn trả refund), phát `ThreadRequested`. v2 thêm `refund()` / `withdrawReserve()` (owner-only).
 - **Invariant:** đa token không hardcode decimals (`requiredAmount` đọc `decimals()`); wei lẻ luôn
   rơi vào reserve (dùng phép trừ); `ThreadRequested` chính là API mà backend đọc ngược để verify.
 
@@ -357,11 +357,17 @@ rút tối đa $10/token/ngày (mainnet; $50 testnet). `Pausable` đóng băng `
 `'pending'` — trạng thái tệ nhất (đã trả, không content, không tự refund). Tự race timeout sớm hơn →
 đi qua `catch` bình thường → `'failed'` + `fatal` → **refundable**.
 
-## 3.5 ⚠️ Accounting caveat (tech debt đã biết)
+## 3.5 ✅ Reserve-funded refund (đã fix — v2, deployed 2026-07-06)
 
-Comment trên `refundThread`: contract chỉ route **10%** vào reserve, nhưng **full refund trả 100%**.
-Phần chênh đang lấy từ balance của deployer EOA → **không bền vững**. Fix đúng là một `refund()`
-on-chain rút từ reserve tích lũy. **Đừng scale full-refund trên path này.**
+**Trước (v1):** contract chỉ route **10%** vào reserve *bên ngoài*, nhưng **full refund trả 100%**
+lấy từ balance của deployer EOA → trợ giá thuần, không bền vững (§insolvency).
+
+**Nay (v2 · mainnet `0x0dea32414e884253b51a43b19a6a8c6b8f3b1800`):** 10% được **giữ lại
+trong chính contract**; `refundThread` gọi `ShipPostPayment.refund(threadId, token, to, amount)`
+(owner-signed) trả từ reserve tích lũy đó — **hard-cap** theo số dư giữ, **idempotent** on-chain qua
+`refunded[threadId]`, callable khi paused. Solvent chừng nào tỷ lệ refund ≤ `reserveBp` (10%); nâng
+được bằng `updateFeeSplit` không cần redeploy. Reserve mới deploy = 0 → **cần seed** một khoản đệm
+trước khi mở traffic thật (xem `docs/reserve-refund-migration.md`).
 
 ## 3.6 Preview drain-safety — vì sao tách khỏi luồng phí
 
@@ -444,7 +450,7 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | **pipeline step** | Một bước trong `lib/pipeline/`: gọi API thật + settle, phát ra một `PipelineEvent`. |
 | **PREVIEW_DAILY_CAP** | Trần global số lượt preview miễn phí mỗi ngày (mặc định 500) — bảo vệ Serper free tier. Env tunable, dùng ở `checkPreviewAllowed`. |
 | **replay guard** | Chống dùng lại 1 payment 2 lần — unique index `(chain_id, onchain_thread_id)` trên `threads`. |
-| **reservePool / treasury** | Ví nhận 10% / 40% của mỗi khoản thanh toán. |
+| **reserve / treasury** | reserve = 10% mỗi payment **giữ lại trong `ShipPostPayment`** (nguồn trả `refund()` on-chain, v2); treasury = ví nhận 40%. |
 | **RLS** | Row Level Security (Postgres/Supabase). `refund_requests` bật RLS, không policy → anon bị chặn. |
 | **service role** | Key Supabase **bypass RLS**; chỉ dùng server-side (`getSupabaseServer`). Không có anon client. |
 | **settle / settlement** | Chuyển stablecoin on-chain để "thanh toán" một lần gọi dịch vụ (`settleX402Call` → `executeX402Call`). |

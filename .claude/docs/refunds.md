@@ -1,6 +1,6 @@
 # Refund operations (runbook)
 
-> Canonical model + diagram: [`docs/ARCHITECTURE.md` §2.6](../../docs/ARCHITECTURE.md); funding caveat: §3.5. This file holds the operational recovery procedure not in that doc.
+> Canonical model + diagram: [`docs/ARCHITECTURE.md` §2.6](../../docs/ARCHITECTURE.md); funding model (reserve-funded, v2): §3.5; migration: [`docs/reserve-refund-migration.md`](../../docs/reserve-refund-migration.md). This file holds the operational recovery procedure not in that doc.
 
 Two settlement paths, both call `refundThread` (`lib/agent/orchestrator.ts`): the admin endpoint `/api/refund` (one-off, `x-admin-key`) and the queue worker `pnpm refund:process <requestId>`.
 
@@ -17,6 +17,6 @@ Safety properties (don't regress):
 1. Read `rejection_reason` on the `refund_requests` row.
 2. Check the user's `wallet_address` on Celoscan for an inbound transfer of the refund token around `processed_at`.
 3. **If a transfer landed:** set `status = completed`, and set `refund_tx_hash` on **both** the `refund_requests` row and the parent `threads` row (the idempotency guard depends on the `threads` stamp).
-4. **If no transfer landed:** fix the root cause (commonly the refund EOA out of funds — `refundThread` balance-checks and names the shortfall), then reset `status = pending` and re-run `pnpm refund:process <requestId>`.
+4. **If no transfer landed:** fix the root cause (v2: commonly the **contract reserve drained** — `refundThread` reads `ShipPostPayment`'s own token balance and names the shortfall as `RESERVE_INSUFFICIENT`; top it up by sending the refund token to the payment contract address), then reset `status = pending` and re-run `pnpm refund:process <requestId>`.
 
 **Never reset to `pending` without confirming on-chain that no transfer landed — that is the double-refund path.**
