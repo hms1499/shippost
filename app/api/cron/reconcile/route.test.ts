@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const reconcileStuckThreads = vi.fn();
 const checkAgentWalletBalance = vi.fn();
+const checkReserveBalance = vi.fn();
 const claimAlertOnce = vi.fn();
 const alertOps = vi.fn();
 const getSupabaseServer = vi.fn(() => ({}));
 
 vi.mock('@/lib/agent/reconcile', () => ({ reconcileStuckThreads }));
-vi.mock('@/lib/agent/walletHealth', () => ({ checkAgentWalletBalance }));
+vi.mock('@/lib/agent/walletHealth', () => ({ checkAgentWalletBalance, checkReserveBalance }));
 vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));
 vi.mock('@/lib/alert', () => ({ alertOps }));
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
@@ -26,8 +27,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env = { ...ORIG, CRON_SECRET: 'sekret' };
   reconcileStuckThreads.mockResolvedValue({ swept: 0, enqueued: 0, errors: [] });
-  // Healthy wallet by default so the reconcile-focused tests stay isolated.
+  // Healthy balances by default so the reconcile-focused tests stay isolated.
   checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
+  checkReserveBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
   claimAlertOnce.mockResolvedValue(true);
 });
 
@@ -97,6 +99,20 @@ describe('GET /api/cron/reconcile', () => {
 
   it('still returns 200 with the reconcile summary when the health check throws', async () => {
     checkAgentWalletBalance.mockRejectedValue(new Error('rpc down'));
+    const res = await GET(req(auth));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
+  });
+
+  it('alerts when the refund reserve is low', async () => {
+    checkReserveBalance.mockResolvedValue({ low: ['cUSD'], balances: { cUSD: 0.1, USDT: 5, USDC: 5 } });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledOnce();
+    expect(alertOps.mock.calls[0][0]).toMatch(/reserve low/i);
+  });
+
+  it('still returns 200 when the reserve check throws', async () => {
+    checkReserveBalance.mockRejectedValue(new Error('rpc down'));
     const res = await GET(req(auth));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });

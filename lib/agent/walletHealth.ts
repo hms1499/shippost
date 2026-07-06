@@ -3,28 +3,31 @@ import { getChain } from '../chains';
 import { getContracts } from '../contracts';
 import { getTokens, type TokenSymbol } from '../tokens';
 
-// Heartbeat check for the agent wallet's stablecoin balances. settleX402Call
-// spends in whatever token the user paid, so a dry token means every run paid in
-// that token hard-fails (refundable, but silently and en masse). This reports
-// which tokens are below a USD floor so the cron can page a human while there is
-// still time to top up. All three tokens are ~$1 pegged, so the decimal-adjusted
-// balance is treated directly as USD.
+// Heartbeat checks for the two money-holding addresses:
+//   - the AgentWallet, which settles x402 in whatever token the user paid, so a
+//     dry token silently mass-fails every run paid in it;
+//   - the payment contract's reserve, which funds refunds, so a dry reserve
+//     makes refunds fail.
+// Both are per-token (all three stablecoins are ~$1 pegged, so the decimal-
+// adjusted balance is treated directly as USD). Reports which tokens sit below a
+// floor so the cron can page a human while there is still time to top up.
 
 export type BalanceReader = (tokenAddress: Address) => Promise<bigint>;
 
-export interface WalletHealth {
+export interface BalanceHealth {
   low: TokenSymbol[]; // tokens strictly below minUsd
   balances: Record<TokenSymbol, number>; // human ≈USD per token
 }
 
-export async function checkAgentWalletBalance(params: {
+async function checkHolderBalances(params: {
   chainId: number;
+  holder: Address;
   minUsd: number;
   readBalanceOf?: BalanceReader;
-}): Promise<WalletHealth> {
-  const { chainId, minUsd } = params;
+}): Promise<BalanceHealth> {
+  const { chainId, holder, minUsd } = params;
   const tokens = getTokens(chainId);
-  const read = params.readBalanceOf ?? defaultReader(chainId);
+  const read = params.readBalanceOf ?? defaultReader(chainId, holder);
 
   const balances = {} as Record<TokenSymbol, number>;
   const low: TokenSymbol[] = [];
@@ -40,16 +43,31 @@ export async function checkAgentWalletBalance(params: {
   return { low, balances };
 }
 
-// Real reader: erc20 balanceOf(AgentWallet) via a viem public client. Resolved
-// lazily so callers that inject a reader (tests) never touch RPC or contract env.
-function defaultReader(chainId: number): BalanceReader {
-  const agentWallet = getContracts(chainId).AgentWallet;
+export function checkAgentWalletBalance(params: {
+  chainId: number;
+  minUsd: number;
+  readBalanceOf?: BalanceReader;
+}): Promise<BalanceHealth> {
+  return checkHolderBalances({ ...params, holder: getContracts(params.chainId).AgentWallet });
+}
+
+export function checkReserveBalance(params: {
+  chainId: number;
+  minUsd: number;
+  readBalanceOf?: BalanceReader;
+}): Promise<BalanceHealth> {
+  return checkHolderBalances({ ...params, holder: getContracts(params.chainId).ShipPostPayment });
+}
+
+// Real reader: erc20 balanceOf(holder) via a viem public client. When a reader
+// is injected (tests) this is never constructed, so no RPC is touched.
+function defaultReader(chainId: number, holder: Address): BalanceReader {
   const publicClient = createPublicClient({ chain: getChain(chainId), transport: http() });
   return (tokenAddress) =>
     publicClient.readContract({
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'balanceOf',
-      args: [agentWallet],
+      args: [holder],
     }) as Promise<bigint>;
 }

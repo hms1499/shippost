@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseUnits, type Address } from 'viem';
 import { getTokens } from '../tokens';
-import { checkAgentWalletBalance } from './walletHealth';
+import { checkAgentWalletBalance, checkReserveBalance } from './walletHealth';
 
 const CHAIN = 42220; // Celo mainnet
 const T = getTokens(CHAIN);
@@ -53,5 +53,15 @@ describe('checkAgentWalletBalance', () => {
       readBalanceOf: readerFrom({ cUSD: '2', USDT: '1.99', USDC: '2' }),
     });
     expect(health.low).toEqual(['USDT']);
+  });
+
+  it('checkReserveBalance flags low reserve tokens the same way', async () => {
+    const health = await checkReserveBalance({
+      chainId: CHAIN,
+      minUsd: 0.5,
+      readBalanceOf: readerFrom({ cUSD: '1', USDT: '0.1', USDC: '2' }),
+    });
+    expect(health.low).toEqual(['USDT']);
+    expect(health.balances).toEqual({ cUSD: 1, USDT: 0.1, USDC: 2 });
   });
 });
