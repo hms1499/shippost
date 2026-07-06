@@ -3,7 +3,7 @@ import { celo } from 'wagmi/chains';
 import { celoSepolia } from './chains';
 
 export const shipPostPaymentAbi = [
-  { inputs: [{ internalType: 'address', name: '_agentWallet', type: 'address' }, { internalType: 'address', name: '_treasury', type: 'address' }, { internalType: 'address', name: '_reservePool', type: 'address' }], stateMutability: 'nonpayable', type: 'constructor' },
+  { inputs: [{ internalType: 'address', name: '_agentWallet', type: 'address' }, { internalType: 'address', name: '_treasury', type: 'address' }, { internalType: 'uint256', name: '_startThreadId', type: 'uint256' }], stateMutability: 'nonpayable', type: 'constructor' },
   { inputs: [], name: 'EnforcedPause', type: 'error' },
   { inputs: [], name: 'ExpectedPause', type: 'error' },
   { inputs: [{ internalType: 'address', name: 'owner', type: 'address' }], name: 'OwnableInvalidOwner', type: 'error' },
@@ -12,7 +12,8 @@ export const shipPostPaymentAbi = [
   { anonymous: false, inputs: [{ indexed: false, internalType: 'uint256', name: 'agentBp', type: 'uint256' }, { indexed: false, internalType: 'uint256', name: 'treasuryBp', type: 'uint256' }, { indexed: false, internalType: 'uint256', name: 'reserveBp', type: 'uint256' }], name: 'FeeSplitUpdated', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'previous', type: 'address' }, { indexed: true, internalType: 'address', name: 'current', type: 'address' }], name: 'AgentWalletUpdated', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'previous', type: 'address' }, { indexed: true, internalType: 'address', name: 'current', type: 'address' }], name: 'TreasuryUpdated', type: 'event' },
-  { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'previous', type: 'address' }, { indexed: true, internalType: 'address', name: 'current', type: 'address' }], name: 'ReservePoolUpdated', type: 'event' },
+  { anonymous: false, inputs: [{ indexed: true, internalType: 'uint256', name: 'threadId', type: 'uint256' }, { indexed: true, internalType: 'address', name: 'token', type: 'address' }, { indexed: true, internalType: 'address', name: 'to', type: 'address' }, { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'Refunded', type: 'event' },
+  { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'token', type: 'address' }, { indexed: true, internalType: 'address', name: 'to', type: 'address' }, { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'ReserveWithdrawn', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'previousOwner', type: 'address' }, { indexed: true, internalType: 'address', name: 'newOwner', type: 'address' }], name: 'OwnershipTransferred', type: 'event' },
   { anonymous: false, inputs: [{ indexed: false, internalType: 'address', name: 'account', type: 'address' }], name: 'Paused', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'user', type: 'address' }, { indexed: true, internalType: 'uint256', name: 'threadId', type: 'uint256' }, { indexed: false, internalType: 'uint8', name: 'mode', type: 'uint8' }, { indexed: false, internalType: 'address', name: 'token', type: 'address' }, { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'ThreadRequested', type: 'event' },
@@ -27,11 +28,11 @@ export const shipPostPaymentAbi = [
   { inputs: [{ internalType: 'address', name: 'token', type: 'address' }, { internalType: 'uint8', name: 'mode', type: 'uint8' }], name: 'payForThread', outputs: [{ internalType: 'uint256', name: 'threadId', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'renounceOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'address', name: 'token', type: 'address' }], name: 'requiredAmount', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ internalType: 'uint256', name: 'threadId', type: 'uint256' }, { internalType: 'address', name: 'token', type: 'address' }, { internalType: 'address', name: 'to', type: 'address' }, { internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'refund', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], name: 'refunded', outputs: [{ internalType: 'bool', name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'reserveBp', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
-  { inputs: [], name: 'reservePool', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'address', name: '_agentWallet', type: 'address' }], name: 'setAgentWallet', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'address', name: 'token', type: 'address' }, { internalType: 'bool', name: 'allowed', type: 'bool' }], name: 'setAllowedToken', outputs: [], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ internalType: 'address', name: '_reservePool', type: 'address' }], name: 'setReservePool', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'address', name: '_treasury', type: 'address' }], name: 'setTreasury', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'threadCounter', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'address', name: 'newOwner', type: 'address' }], name: 'transferOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
@@ -39,6 +40,7 @@ export const shipPostPaymentAbi = [
   { inputs: [], name: 'treasuryBp', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'unpause', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_agentBp', type: 'uint256' }, { internalType: 'uint256', name: '_treasuryBp', type: 'uint256' }, { internalType: 'uint256', name: '_reserveBp', type: 'uint256' }], name: 'updateFeeSplit', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'address', name: 'token', type: 'address' }, { internalType: 'address', name: 'to', type: 'address' }, { internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'withdrawReserve', outputs: [], stateMutability: 'nonpayable', type: 'function' },
 ] as const;
 
 export const agentWalletAbi = [

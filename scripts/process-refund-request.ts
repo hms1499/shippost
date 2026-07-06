@@ -167,6 +167,7 @@ async function main() {
   try {
     txHash = await refundThread({
       chainId: request.chain_id,
+      onchainThreadId: request.onchain_thread_id,
       to: request.wallet_address as `0x${string}`,
       tokenSymbol,
       amountHuman,

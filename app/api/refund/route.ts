@@ -74,6 +74,7 @@ export async function POST(req: Request) {
   try {
     const txHash = await refundThread({
       chainId: body.chainId,
+      onchainThreadId: body.onchainThreadId,
       to: body.to as Address,
       tokenSymbol: body.tokenSymbol,
       amountHuman: body.amountHuman,

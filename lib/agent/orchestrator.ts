@@ -158,6 +158,7 @@ export async function verifyPayment(params: {
 // follow-up; do not scale full-refund volume on this path.
 export async function refundThread(params: {
   chainId: number;
+  onchainThreadId: string;
   to: Address;
   tokenSymbol: TokenSymbol;
   amountHuman: string;
@@ -173,27 +174,30 @@ export async function refundThread(params: {
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
   const amount = parseUnits(params.amountHuman, token.decimals);
+  const contracts = getContracts(params.chainId);
 
-  // Fail with a clear, actionable error instead of an opaque ERC20 revert when
-  // the refund source is drained.
-  const balance = (await publicClient.readContract({
+  // Refunds are paid from the payment contract's accumulated reserve (its own
+  // token balance), NOT the deployer EOA — see ShipPostPayment.refund. The
+  // deployer key here is the contract owner that authorizes the call. Pre-check
+  // the reserve for a clear "drained" error instead of an opaque revert.
+  const reserve = (await publicClient.readContract({
     address: token.address,
     abi: erc20Abi,
     functionName: 'balanceOf',
-    args: [account.address],
+    args: [contracts.ShipPostPayment],
   })) as bigint;
-  if (balance < amount) {
+  if (reserve < amount) {
     throw new Error(
-      `refund source ${account.address} has insufficient ${params.tokenSymbol}: ` +
-        `need ${params.amountHuman}, have ${formatUnits(balance, token.decimals)} — top up before retrying`,
+      `refund reserve on ${contracts.ShipPostPayment} has insufficient ${params.tokenSymbol}: ` +
+        `need ${params.amountHuman}, have ${formatUnits(reserve, token.decimals)} — top up the reserve before retrying`,
     );
   }
 
   const hash = await wallet.writeContract({
-    address: token.address,
-    abi: erc20Abi,
-    functionName: 'transfer',
-    args: [params.to, amount],
+    address: contracts.ShipPostPayment,
+    abi: shipPostPaymentAbi,
+    functionName: 'refund',
+    args: [BigInt(params.onchainThreadId), token.address, params.to, amount],
   });
   // Bound the wait so refund:process can't hang indefinitely on a dead RPC.
   // The tx is already broadcast here — a timeout is the "on-chain state

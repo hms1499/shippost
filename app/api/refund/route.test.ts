@@ -99,9 +99,10 @@ describe('POST /api/refund', () => {
     expect(alertOps.mock.calls[0][0]).toMatch(/not (stamped|recorded)|double-send/i);
   });
 
-  it('stays silent on a clean refund', async () => {
+  it('stays silent on a clean refund and threads the onchainThreadId through', async () => {
     const res = await POST(req(VALID_BODY));
     expect(res.status).toBe(200);
     expect(alertOps).not.toHaveBeenCalled();
+    expect(refundThread.mock.calls[0][0]).toMatchObject({ onchainThreadId: '7' });
   });
 });
