@@ -9,6 +9,7 @@ import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
+import { threadLabel } from '@/lib/threadLabel';
 
 interface Stats {
   threads: number;
@@ -223,7 +224,7 @@ function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string })
         <ModeIcon size={14} className="text-muted-foreground shrink-0 mt-0.5" aria-hidden />
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           <p className="text-sm line-clamp-1 leading-tight">
-            {thread.topic ?? '(no topic)'}
+            {threadLabel(thread)}
           </p>
           <p className="text-[11px] text-muted-foreground font-mono">
             {thread.token_symbol} · {formatDate(thread.created_at)}
