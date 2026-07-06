@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refundThread } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
+import { alertOps } from '@/lib/alert';
 import type { Address } from 'viem';
 
 interface RefundRequest {
@@ -79,6 +80,9 @@ export async function POST(req: Request) {
       reason: body.reason,
     });
 
+    // Money has left the wallet. If we can't stamp refund_tx_hash, the DB no
+    // longer knows this thread was paid out — the cross-path idempotency guard
+    // goes blind and a retry could double-send. This is a page-a-human event.
     try {
       const supabase = getSupabaseServer();
       const { error } = await supabase
@@ -86,16 +90,38 @@ export async function POST(req: Request) {
         .update({ refund_tx_hash: txHash, refund_reason: body.reason })
         .eq('chain_id', body.chainId)
         .eq('onchain_thread_id', body.onchainThreadId);
-      if (error) console.error('[refund] supabase update failed:', error.message);
+      if (error) {
+        console.error('[refund] supabase update failed:', error.message);
+        await alertOps('refund SENT but DB not stamped — double-send risk', {
+          chainId: body.chainId,
+          onchainThreadId: body.onchainThreadId,
+          txHash,
+          to: body.to,
+          error: error.message,
+        });
+      }
     } catch (e) {
       console.error('[refund] supabase unavailable:', e);
+      await alertOps('refund SENT but DB not stamped — double-send risk', {
+        chainId: body.chainId,
+        onchainThreadId: body.onchainThreadId,
+        txHash,
+        to: body.to,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
 
     return NextResponse.json({ txHash });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'refund failed' },
-      { status: 502 },
-    );
+    // Send failed: the transfer may or may not have broadcast, so on-chain state
+    // is unknown. Verify before any retry.
+    const message = e instanceof Error ? e.message : 'refund failed';
+    await alertOps('refund send FAILED — verify on-chain before retry', {
+      chainId: body.chainId,
+      onchainThreadId: body.onchainThreadId,
+      to: body.to,
+      error: message,
+    });
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
