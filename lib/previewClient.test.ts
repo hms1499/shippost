@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchPreview } from './previewClient';
+import { fetchPreview, fetchGuestPreview } from './previewClient';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -24,5 +24,24 @@ describe('fetchPreview', () => {
   it('returns null when fetch throws', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network'); }));
     expect(await fetchPreview(args)).toBeNull();
+  });
+});
+
+describe('fetchGuestPreview', () => {
+  it('posts a wallet-less mode-0 body and returns the preview', async () => {
+    let sentBody = '';
+    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init: RequestInit) => {
+      sentBody = String(init.body);
+      return { ok: true, json: async () => ({ firstTweet: 'hi', totalTweets: 5 }) };
+    }));
+    expect(await fetchGuestPreview('zk rollups')).toEqual({ firstTweet: 'hi', totalTweets: 5 });
+    const body = JSON.parse(sentBody);
+    expect(body).toEqual({ mode: 0, topic: 'zk rollups', audience: 'beginner' });
+    expect(body).not.toHaveProperty('walletAddress');
+  });
+
+  it('returns null on any failure (fail-soft to connect)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ available: false }) })));
+    expect(await fetchGuestPreview('t')).toBeNull();
   });
 });

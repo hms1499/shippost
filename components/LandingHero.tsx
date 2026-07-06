@@ -4,6 +4,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
+import { GuestTaste } from '@/components/GuestTaste';
 
 /**
  * Pre-connect landing hero. Terminal mission-control framing: headline copy,
@@ -25,6 +26,8 @@ export function LandingHero() {
           <span className="font-mono text-money">$0.05</span> only if you keep it.
         </p>
       </div>
+
+      <GuestTaste onUnlock={openConnectModal} />
 
       <div className="w-full flex flex-col items-center gap-2">
         <AgentTraceReplay />
