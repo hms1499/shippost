@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { checkPreviewAllowed, getClientIp } from '@/lib/rateLimit';
+import { checkPreviewAllowed, checkPreviewGuestAllowed, getClientIp } from '@/lib/rateLimit';
 import { runPreview, type PreviewInput } from '@/lib/pipeline/runPreview';
 import type { EventContext } from '@/lib/eventContext';
 
@@ -28,11 +28,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
-  if (typeof body.walletAddress !== 'string' || body.walletAddress.length === 0) {
-    return NextResponse.json({ error: 'walletAddress required' }, { status: 400 });
-  }
   if (body.mode !== 0 && body.mode !== 1 && body.mode !== 2 && body.mode !== 3) {
     return NextResponse.json({ error: 'mode must be 0, 1, 2, or 3' }, { status: 400 });
+  }
+
+  // walletAddress is optional: absent means a pre-connect guest tasting from the
+  // landing. Guests are restricted to Educational (mode 0) — the only one-field
+  // mode — and gated on IP + global budget only. Connected callers keep the full
+  // mode range and the per-wallet gate.
+  const walletAddress = typeof body.walletAddress === 'string' ? body.walletAddress : '';
+  const isGuest = walletAddress.length === 0;
+  if (isGuest && body.mode !== 0) {
+    return NextResponse.json({ error: 'walletAddress required for this mode' }, { status: 400 });
   }
 
   let input: PreviewInput;
@@ -68,7 +75,10 @@ export async function POST(request: Request) {
 
   // Fail-closed gate: deny → fall back to pay-first on the client. Per-IP is
   // bounded too, so a forged walletAddress can't rotate past the limit.
-  const gate = await checkPreviewAllowed(body.walletAddress, getClientIp(request));
+  const ip = getClientIp(request);
+  const gate = isGuest
+    ? await checkPreviewGuestAllowed(ip)
+    : await checkPreviewAllowed(walletAddress, ip);
   if (!gate.allowed) {
     return NextResponse.json({ available: false }, { status: 200 });
   }

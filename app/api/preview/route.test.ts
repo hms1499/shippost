@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const checkPreviewAllowed = vi.fn();
+const checkPreviewGuestAllowed = vi.fn();
 const runPreview = vi.fn();
 
-// Override only the gate; keep the real getClientIp (pure header parsing) so the
+// Override only the gates; keep the real getClientIp (pure header parsing) so the
 // IP-wiring test exercises the actual extraction.
 vi.mock('@/lib/rateLimit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rateLimit')>();
-  return { ...actual, checkPreviewAllowed };
+  return { ...actual, checkPreviewAllowed, checkPreviewGuestAllowed };
 });
 vi.mock('@/lib/pipeline/runPreview', () => ({ runPreview }));
 
@@ -24,6 +25,7 @@ function req(body: unknown, headers: Record<string, string> = {}): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   checkPreviewAllowed.mockResolvedValue({ allowed: true });
+  checkPreviewGuestAllowed.mockResolvedValue({ allowed: true });
 });
 
 describe('POST /api/preview', () => {
@@ -44,9 +46,31 @@ describe('POST /api/preview', () => {
     expect(JSON.stringify(body)).not.toContain('secret');
   });
 
-  it('400 on missing walletAddress', async () => {
-    const res = await POST(req({ mode: 0, topic: 't', audience: 'beginner' }));
+  it('allows a guest (no wallet) mode-0 taste via the guest gate', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook', '2/ body'] });
+    const res = await POST(
+      req({ mode: 0, topic: 't', audience: 'beginner' }, { 'x-forwarded-for': '203.0.113.7' }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ firstTweet: '1/ hook', totalTweets: 2 });
+    // guest gate is used, keyed by IP; the per-wallet gate is never consulted.
+    expect(checkPreviewGuestAllowed).toHaveBeenCalledWith('203.0.113.7');
+    expect(checkPreviewAllowed).not.toHaveBeenCalled();
+  });
+
+  it('rejects a guest (no wallet) for any non-Educational mode', async () => {
+    const res = await POST(req({ mode: 3 }));
     expect(res.status).toBe(400);
+    expect(runPreview).not.toHaveBeenCalled();
+    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
+  });
+
+  it('falls back to pay-first when the guest gate denies', async () => {
+    checkPreviewGuestAllowed.mockResolvedValue({ allowed: false, reason: 'ip' });
+    const res = await POST(req({ mode: 0, topic: 't', audience: 'beginner' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ available: false });
+    expect(runPreview).not.toHaveBeenCalled();
   });
 
   it('502 when generation throws', async () => {

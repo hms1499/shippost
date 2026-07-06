@@ -163,3 +163,28 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
     return { allowed: false, reason: 'unavailable' };
   }
 }
+
+// Guest variant for the pre-connect landing taste: no wallet exists yet, so we
+// gate on per-IP + the global daily budget only. runPreview stays settle-free
+// (no x402, no agent spend, no persisted row), so relaxing identity adds no new
+// spend path — the per-IP + global caps are the whole abuse bound. Same
+// fail-CLOSED discipline as checkPreviewAllowed, and per-IP runs first so a
+// request we'd reject never depletes the shared global budget.
+export async function checkPreviewGuestAllowed(ip: string): Promise<PreviewGate> {
+  const perIp = getLimiter('free-preview-ip');
+  const global = getLimiter('free-preview-global');
+  if (!perIp || !global) return { allowed: false, reason: 'unavailable' };
+  try {
+    const i = await perIp.limit(`ip:${ip}`);
+    if (!i.success) return { allowed: false, reason: 'ip' };
+    const g = await global.limit('global');
+    if (!g.success) return { allowed: false, reason: 'global' };
+    return { allowed: true };
+  } catch (e) {
+    console.error(
+      '[rateLimit] guest preview gate error — failing closed:',
+      e instanceof Error ? e.message : e,
+    );
+    return { allowed: false, reason: 'unavailable' };
+  }
+}

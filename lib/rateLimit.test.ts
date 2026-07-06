@@ -172,6 +172,50 @@ describe('checkPreviewAllowed', () => {
   });
 });
 
+describe('checkPreviewGuestAllowed', () => {
+  it('fails CLOSED (unavailable) when Upstash env is missing', async () => {
+    clearUpstashEnv();
+    const { checkPreviewGuestAllowed } = await load();
+    expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
+  });
+
+  it('allows when per-IP and global both pass (no per-wallet limiter)', async () => {
+    setUpstashEnv();
+    limitMock.mockResolvedValue({ success: true, limit: 10, remaining: 9, reset: 0 });
+    const { checkPreviewGuestAllowed } = await load();
+    expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: true });
+    // ip + global only — the per-wallet limiter is never consulted for guests.
+    expect(limitMock).toHaveBeenCalledTimes(2);
+    expect(limitMock).toHaveBeenCalledWith('ip:1.2.3.4');
+    expect(limitMock).not.toHaveBeenCalledWith(expect.stringContaining('wallet:'));
+  });
+
+  it('blocks with reason "ip" and does not consume the global budget', async () => {
+    setUpstashEnv();
+    limitMock.mockResolvedValueOnce({ success: false, limit: 10, remaining: 0, reset: 0 }); // ip
+    const { checkPreviewGuestAllowed } = await load();
+    expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'ip' });
+    // ip only — global (the 2nd) is never called.
+    expect(limitMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks with reason "global" when the daily cap is hit (IP ok)', async () => {
+    setUpstashEnv();
+    limitMock
+      .mockResolvedValueOnce({ success: true, limit: 10, remaining: 9, reset: 0 }) // ip
+      .mockResolvedValueOnce({ success: false, limit: 500, remaining: 0, reset: 0 }); // global
+    const { checkPreviewGuestAllowed } = await load();
+    expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'global' });
+  });
+
+  it('fails CLOSED when the limiter throws', async () => {
+    setUpstashEnv();
+    limitMock.mockRejectedValue(new Error('redis down'));
+    const { checkPreviewGuestAllowed } = await load();
+    expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
+  });
+});
+
 describe('claimGenerationOnce', () => {
   it('returns "unavailable" and never touches Redis when env is missing', async () => {
     clearUpstashEnv();
