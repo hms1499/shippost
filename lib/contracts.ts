@@ -85,9 +85,9 @@ export const CONTRACTS: Record<number, ContractAddresses> = {
     AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_TESTNET ?? '0x7538627c5eef2193fa4960f03157f482eca333be') as Address,
   },
   [celo.id]: {
-    // Filled in Week 2 mainnet deploy
-    ShipPostPayment: (process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET ?? '0x0000000000000000000000000000000000000000') as Address,
-    AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_MAINNET ?? '0x0000000000000000000000000000000000000000') as Address,
+    // ShipPostPayment v2 (reserve-funded refund), deployed 2026-07-06
+    ShipPostPayment: (process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET ?? '0x0dea32414e884253b51a43b19a6a8c6b8f3b1800') as Address,
+    AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_MAINNET ?? '0x006cBA3012139C299Aa4A522697B4A0c49F38895') as Address,
   },
 };
 

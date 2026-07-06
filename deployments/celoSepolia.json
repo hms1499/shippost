@@ -1,17 +1,17 @@
 {
   "network": "celoSepolia",
   "chainId": 11142220,
-  "deployer": "0xcfab15c950093391fa1ca3b9810880839b05bcbc",
+  "deployer": "0x64ad61211c1b0b7f20b3e04b49661f30f152ae78",
   "contracts": {
-    "ShipPostPayment": "0x277e140933d600cafcad38e2f1018e4fbd5476b2",
-    "AgentWallet": "0x7538627c5eef2193fa4960f03157f482eca333be",
-    "MockCUSD": "0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5",
-    "MockUSDT": "0xd589cc6f20103401c1e168b9d2b3075e8b5fabca",
-    "MockUSDC": "0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1"
+    "ShipPostPayment": "0xa15bded7b53111e6477d63294c6643e82cba1c07",
+    "AgentWallet": "0x99de757e348c22e4c1ffc0d707540ba203639bad",
+    "MockCUSD": "0x0fbbc7c678b1575831cb8f862549806eccd4d2fa",
+    "MockUSDT": "0xde5ffcaf01761fc8764f6da50f52e3e9ce968a3c",
+    "MockUSDC": "0x827a9b6a1e0af0f3cfbe1b9a237165e43e1afd98"
   },
   "tokens": {
-    "cUSD": "0xb7e155e9d4ab5a97f950c3259dace91b0f6c33f5",
-    "USDT": "0xd589cc6f20103401c1e168b9d2b3075e8b5fabca",
-    "USDC": "0x6bba6a2326fd6ab4694de5c9369001d7a3720dc1"
+    "cUSD": "0x0fbbc7c678b1575831cb8f862549806eccd4d2fa",
+    "USDT": "0xde5ffcaf01761fc8764f6da50f52e3e9ce968a3c",
+    "USDC": "0x827a9b6a1e0af0f3cfbe1b9a237165e43e1afd98"
   }
 }

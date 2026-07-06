@@ -36,7 +36,7 @@ CoinOp is a pay-per-use AI thread writer running as a MiniApp inside Opera's Min
 
 | Contract | Address |
 |----------|---------|
-| ShipPostPayment | [`0xfe9a248ea318ef0169cb542e299b183748009b81`](https://celo.blockscout.com/address/0xfe9a248ea318ef0169cb542e299b183748009b81#code) |
+| ShipPostPayment | [`0x0dea32414e884253b51a43b19a6a8c6b8f3b1800`](https://celo.blockscout.com/address/0x0dea32414e884253b51a43b19a6a8c6b8f3b1800#code) |
 | AgentWallet | [`0x006cba3012139c299aa4a522697b4a0c49f38895`](https://celo.blockscout.com/address/0x006cba3012139c299aa4a522697b4a0c49f38895#code) |
 
 ### Celo Sepolia Testnet (chainId 11142220)
