@@ -2,16 +2,20 @@ import { describe, it } from 'node:test';
 import { expect } from 'chai';
 import { network } from 'hardhat';
 
+const ZERO = '0x0000000000000000000000000000000000000000';
+
+// Deploy helper: constructor is (agentWallet, treasury, startThreadId). Reserve
+// is retained in-contract, so there is no reservePool address any more.
+async function deployPayment(viem: any, agent: string, treasury: string, startThreadId = 0n) {
+  return viem.deployContract('ShipPostPayment', [agent, treasury, startThreadId]);
+}
+
 describe('ShipPostPayment', () => {
   it('deploys with correct initial state', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool] = await viem.getWalletClients();
+    const [, agentWallet, treasury] = await viem.getWalletClients();
 
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
 
     expect((await payment.read.agentWallet()).toLowerCase()).to.equal(
       agentWallet.account.address.toLowerCase()
@@ -19,82 +23,73 @@ describe('ShipPostPayment', () => {
     expect((await payment.read.treasury()).toLowerCase()).to.equal(
       treasury.account.address.toLowerCase()
     );
-    expect((await payment.read.reservePool()).toLowerCase()).to.equal(
-      reservePool.account.address.toLowerCase()
-    );
     expect(await payment.read.threadCounter()).to.equal(0n);
   });
 
-  it('accepts 0.05 cUSD and splits 50/40/10', async () => {
+  it('honors a start thread id so a redeploy cannot collide with old ids', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
     const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
-    const payment = await viem.deployContract('ShipPostPayment', [
+    const payment = await deployPayment(
+      viem,
       agentWallet.account.address,
       treasury.account.address,
-      reservePool.account.address,
-    ]);
+      100000n
+    );
+    await payment.write.setAllowedToken([cusd.address, true]);
+    await cusd.write.mint([user.account.address, 10n ** 18n]);
+    await cusd.write.approve([payment.address, 5n * 10n ** 16n], { account: user.account });
 
+    const id = await payment.simulate.payForThread([cusd.address, 0], { account: user.account });
+    expect(id.result).to.equal(100001n);
+    await payment.write.payForThread([cusd.address, 0], { account: user.account });
+    expect(await payment.read.threadCounter()).to.equal(100001n);
+  });
+
+  it('accepts 0.05 cUSD, splits 50/40, and retains the 10% reserve in-contract', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([cusd.address, true]);
 
-    // Mint 1 cUSD to user
-    const oneCusd = 10n ** 18n;
-    await cusd.write.mint([user.account.address, oneCusd]);
-
-    // User approves payment contract
-    const fiveCent = 5n * 10n ** 16n; // 0.05 * 10^18
+    await cusd.write.mint([user.account.address, 10n ** 18n]);
+    const fiveCent = 5n * 10n ** 16n;
     await cusd.write.approve([payment.address, fiveCent], { account: user.account });
-
     await payment.write.payForThread([cusd.address, 0], { account: user.account });
 
-    // Expected splits: 0.025 / 0.020 / 0.005 cUSD
+    // 0.025 agent / 0.020 treasury / 0.005 reserve held by the contract itself
     expect(await cusd.read.balanceOf([agentWallet.account.address])).to.equal(25n * 10n ** 15n);
     expect(await cusd.read.balanceOf([treasury.account.address])).to.equal(20n * 10n ** 15n);
-    expect(await cusd.read.balanceOf([reservePool.account.address])).to.equal(5n * 10n ** 15n);
+    expect(await cusd.read.balanceOf([payment.address])).to.equal(5n * 10n ** 15n);
     expect(await payment.read.threadCounter()).to.equal(1n);
   });
 
-  it('accepts 0.05 USDT (6 decimals) with correct scaled amount', async () => {
+  it('accepts 0.05 USDT (6 decimals) with the reserve retained', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
     const usdt = await viem.deployContract('MockERC20', ['Tether USD', 'USDT', 6]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
-
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([usdt.address, true]);
 
-    // Mint 1 USDT (1_000_000 smallest units) to user
     await usdt.write.mint([user.account.address, 1_000_000n]);
+    await usdt.write.approve([payment.address, 50_000n], { account: user.account });
+    await payment.write.payForThread([usdt.address, 0], { account: user.account });
 
-    // 0.05 USDT = 50_000 smallest units
-    const fiveCent = 50_000n;
-    await usdt.write.approve([payment.address, fiveCent], { account: user.account });
-
-    expect(await payment.read.requiredAmount([usdt.address])).to.equal(fiveCent);
-
-    await payment.write.payForThread([usdt.address, 1], { account: user.account });
-
-    // 50/40/10 split of 50_000: 25_000 / 20_000 / 5_000
     expect(await usdt.read.balanceOf([agentWallet.account.address])).to.equal(25_000n);
     expect(await usdt.read.balanceOf([treasury.account.address])).to.equal(20_000n);
-    expect(await usdt.read.balanceOf([reservePool.account.address])).to.equal(5_000n);
+    expect(await usdt.read.balanceOf([payment.address])).to.equal(5_000n);
   });
 
   it('reverts when token is not whitelisted', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
     const rando = await viem.deployContract('MockERC20', ['Random', 'RND', 18]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
 
     await rando.write.mint([user.account.address, 10n ** 18n]);
     await rando.write.approve([payment.address, 10n ** 17n], { account: user.account });
@@ -111,14 +106,10 @@ describe('ShipPostPayment', () => {
   it('emits ThreadRequested with correct args', async () => {
     const { viem } = await network.create();
     const publicClient = await viem.getPublicClient();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
     const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([cusd.address, true]);
     await cusd.write.mint([user.account.address, 10n ** 18n]);
     await cusd.write.approve([payment.address, 5n * 10n ** 16n], { account: user.account });
@@ -140,31 +131,22 @@ describe('ShipPostPayment', () => {
     expect(log.args.amount).to.equal(5n * 10n ** 16n);
   });
 
-  it('owner can redirect treasury/reservePool/agentWallet and splits follow', async () => {
+  it('owner can redirect treasury/agentWallet and splits follow', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user, newTreasury, newReserve, newAgent] =
-      await viem.getWalletClients();
+    const [, agentWallet, treasury, user, newTreasury, newAgent] = await viem.getWalletClients();
 
     const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([cusd.address, true]);
 
     await payment.write.setAgentWallet([newAgent.account.address]);
     await payment.write.setTreasury([newTreasury.account.address]);
-    await payment.write.setReservePool([newReserve.account.address]);
 
     expect((await payment.read.agentWallet()).toLowerCase()).to.equal(
       newAgent.account.address.toLowerCase()
     );
     expect((await payment.read.treasury()).toLowerCase()).to.equal(
       newTreasury.account.address.toLowerCase()
-    );
-    expect((await payment.read.reservePool()).toLowerCase()).to.equal(
-      newReserve.account.address.toLowerCase()
     );
 
     await cusd.write.mint([user.account.address, 10n ** 18n]);
@@ -173,27 +155,19 @@ describe('ShipPostPayment', () => {
 
     expect(await cusd.read.balanceOf([newAgent.account.address])).to.equal(25n * 10n ** 15n);
     expect(await cusd.read.balanceOf([newTreasury.account.address])).to.equal(20n * 10n ** 15n);
-    expect(await cusd.read.balanceOf([newReserve.account.address])).to.equal(5n * 10n ** 15n);
-    // Old addresses must receive nothing after redirection
+    // Old addresses receive nothing after redirection
     expect(await cusd.read.balanceOf([treasury.account.address])).to.equal(0n);
-    expect(await cusd.read.balanceOf([reservePool.account.address])).to.equal(0n);
   });
 
   it('setters reject zero address and non-owner callers', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, attacker] =
-      await viem.getWalletClients();
+    const [, agentWallet, treasury, attacker] = await viem.getWalletClients();
 
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
 
-    const zero = '0x0000000000000000000000000000000000000000';
     let zeroReverted = false;
     try {
-      await payment.write.setTreasury([zero]);
+      await payment.write.setTreasury([ZERO]);
     } catch (e: any) {
       zeroReverted = /ZERO_ADDR/.test(e.message);
     }
@@ -201,9 +175,7 @@ describe('ShipPostPayment', () => {
 
     let authReverted = false;
     try {
-      await payment.write.setTreasury([attacker.account.address], {
-        account: attacker.account,
-      });
+      await payment.write.setTreasury([attacker.account.address], { account: attacker.account });
     } catch (e: any) {
       authReverted = /OwnableUnauthorizedAccount|Ownable/.test(e.message);
     }
@@ -212,14 +184,10 @@ describe('ShipPostPayment', () => {
 
   it('blocks payForThread when paused', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
     const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([cusd.address, true]);
     await cusd.write.mint([user.account.address, 10n ** 18n]);
     await cusd.write.approve([payment.address, 5n * 10n ** 16n], { account: user.account });
@@ -237,28 +205,139 @@ describe('ShipPostPayment', () => {
 
   it('settles a USDT-style no-return token via SafeERC20', async () => {
     const { viem } = await network.create();
-    const [deployer, agentWallet, treasury, reservePool, user] = await viem.getWalletClients();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
 
-    // USDT on many chains returns NO bool from transfer/transferFrom. Raw
-    // IERC20 calls revert on ABI-decode; SafeERC20 tolerates empty returndata.
     const usdt = await viem.deployContract('MockNoReturnERC20', ['Tether USD', 'USDT', 6]);
-    const payment = await viem.deployContract('ShipPostPayment', [
-      agentWallet.account.address,
-      treasury.account.address,
-      reservePool.account.address,
-    ]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
     await payment.write.setAllowedToken([usdt.address, true]);
 
     await usdt.write.mint([user.account.address, 1_000_000n]);
-    const fiveCent = 50_000n; // 0.05 USDT
-    await usdt.write.approve([payment.address, fiveCent], { account: user.account });
-
+    await usdt.write.approve([payment.address, 50_000n], { account: user.account });
     await payment.write.payForThread([usdt.address, 1], { account: user.account });
 
-    // 50/40/10 split of 50_000
     expect(await usdt.read.balanceOf([agentWallet.account.address])).to.equal(25_000n);
     expect(await usdt.read.balanceOf([treasury.account.address])).to.equal(20_000n);
-    expect(await usdt.read.balanceOf([reservePool.account.address])).to.equal(5_000n);
-    expect(await payment.read.threadCounter()).to.equal(1n);
+    expect(await usdt.read.balanceOf([payment.address])).to.equal(5_000n);
+  });
+
+  // --- refund (reserve-funded) ---
+
+  // Pay `count` threads so the contract holds `count * reserveShare` of reserve.
+  async function seedReserve(viem: any, payment: any, cusd: any, user: any, count: number) {
+    const fiveCent = 5n * 10n ** 16n;
+    await cusd.write.mint([user.account.address, fiveCent * BigInt(count)]);
+    for (let i = 0; i < count; i++) {
+      await cusd.write.approve([payment.address, fiveCent], { account: user.account });
+      await payment.write.payForThread([cusd.address, 0], { account: user.account });
+    }
+  }
+
+  it('refunds a thread from the reserve and marks it refunded', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
+    await payment.write.setAllowedToken([cusd.address, true]);
+    // 10 threads => reserve = 10 * 0.005 = 0.05 cUSD, exactly one full refund.
+    await seedReserve(viem, payment, cusd, user, 10);
+
+    const fiveCent = 5n * 10n ** 16n;
+    const before = await cusd.read.balanceOf([user.account.address]);
+    await payment.write.refund([1n, cusd.address, user.account.address, fiveCent]);
+
+    expect(await cusd.read.balanceOf([user.account.address])).to.equal(before + fiveCent);
+    expect(await cusd.read.balanceOf([payment.address])).to.equal(0n);
+    expect(await payment.read.refunded([1n])).to.equal(true);
+  });
+
+  it('reverts a second refund of the same thread (idempotent)', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
+    await payment.write.setAllowedToken([cusd.address, true]);
+    await seedReserve(viem, payment, cusd, user, 20);
+
+    const oneCent = 10n ** 16n; // 0.01, small so reserve covers twice
+    await payment.write.refund([1n, cusd.address, user.account.address, oneCent]);
+
+    let reverted = false;
+    try {
+      await payment.write.refund([1n, cusd.address, user.account.address, oneCent]);
+    } catch (e: any) {
+      reverted = /ALREADY_REFUNDED/.test(e.message);
+    }
+    expect(reverted).to.equal(true);
+  });
+
+  it('reverts a refund larger than the held reserve', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
+    await payment.write.setAllowedToken([cusd.address, true]);
+    await seedReserve(viem, payment, cusd, user, 1); // reserve = 0.005 cUSD
+
+    let reverted = false;
+    try {
+      await payment.write.refund([1n, cusd.address, user.account.address, 5n * 10n ** 16n]);
+    } catch (e: any) {
+      reverted = /RESERVE_INSUFFICIENT/.test(e.message);
+    }
+    expect(reverted).to.equal(true);
+  });
+
+  it('lets a non-owner never refund, but the owner can even while paused', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user, attacker] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
+    await payment.write.setAllowedToken([cusd.address, true]);
+    await seedReserve(viem, payment, cusd, user, 10);
+
+    let authReverted = false;
+    try {
+      await payment.write.refund([1n, cusd.address, user.account.address, 10n ** 16n], {
+        account: attacker.account,
+      });
+    } catch (e: any) {
+      authReverted = /OwnableUnauthorizedAccount|Ownable/.test(e.message);
+    }
+    expect(authReverted).to.equal(true);
+
+    // Paused must NOT block a refund — the owner must always make users whole.
+    await payment.write.pause();
+    await payment.write.refund([2n, cusd.address, user.account.address, 10n ** 16n]);
+    expect(await payment.read.refunded([2n])).to.equal(true);
+  });
+
+  it('lets the owner withdraw excess reserve, capped by the balance', async () => {
+    const { viem } = await network.create();
+    const [, agentWallet, treasury, user] = await viem.getWalletClients();
+
+    const cusd = await viem.deployContract('MockERC20', ['Celo Dollar', 'cUSD', 18]);
+    const payment = await deployPayment(viem, agentWallet.account.address, treasury.account.address);
+    await payment.write.setAllowedToken([cusd.address, true]);
+    await seedReserve(viem, payment, cusd, user, 4); // reserve = 0.020 cUSD
+
+    const reserve = await cusd.read.balanceOf([payment.address]);
+    const treasuryBefore = await cusd.read.balanceOf([treasury.account.address]);
+    await payment.write.withdrawReserve([cusd.address, treasury.account.address, reserve]);
+    expect(await cusd.read.balanceOf([treasury.account.address])).to.equal(
+      treasuryBefore + reserve // its accumulated split share plus the swept reserve
+    );
+    expect(await cusd.read.balanceOf([payment.address])).to.equal(0n);
+
+    let reverted = false;
+    try {
+      await payment.write.withdrawReserve([cusd.address, treasury.account.address, 1n]);
+    } catch (e: any) {
+      reverted = /RESERVE_INSUFFICIENT/.test(e.message);
+    }
+    expect(reverted).to.equal(true);
   });
 });

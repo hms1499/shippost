@@ -13,16 +13,19 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
 
     address public agentWallet;
     address public treasury;
-    address public reservePool;
 
     uint256 public threadCounter;
 
     mapping(address => bool) public allowedTokens;
+    // Threads already refunded — on-chain idempotency so a double refund is
+    // impossible regardless of any off-chain bookkeeping.
+    mapping(uint256 => bool) public refunded;
 
-    // Splits in basis points (must sum to 10000)
+    // Splits in basis points (must sum to 10000). The reserve share is NOT
+    // pushed out on payment: it stays in this contract and funds refunds.
     uint256 public agentBp = 5000;    // 50%
     uint256 public treasuryBp = 4000; // 40%
-    uint256 public reserveBp = 1000;  // 10%
+    uint256 public reserveBp = 1000;  // 10% — retained in-contract
 
     event ThreadRequested(
         address indexed user,
@@ -35,17 +38,22 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
     event FeeSplitUpdated(uint256 agentBp, uint256 treasuryBp, uint256 reserveBp);
     event AgentWalletUpdated(address indexed previous, address indexed current);
     event TreasuryUpdated(address indexed previous, address indexed current);
-    event ReservePoolUpdated(address indexed previous, address indexed current);
+    event Refunded(uint256 indexed threadId, address indexed token, address indexed to, uint256 amount);
+    event ReserveWithdrawn(address indexed token, address indexed to, uint256 amount);
 
+    /// @param _startThreadId initial value for threadCounter. On a redeploy this
+    /// MUST be set above the previous contract's highest threadId — the backend
+    /// keys its replay guard on (chainId, threadId) and colliding IDs would
+    /// reject fresh payments as duplicates.
     constructor(
         address _agentWallet,
         address _treasury,
-        address _reservePool
+        uint256 _startThreadId
     ) Ownable(msg.sender) {
-        require(_agentWallet != address(0) && _treasury != address(0) && _reservePool != address(0), "ZERO_ADDR");
+        require(_agentWallet != address(0) && _treasury != address(0), "ZERO_ADDR");
         agentWallet = _agentWallet;
         treasury = _treasury;
-        reservePool = _reservePool;
+        threadCounter = _startThreadId;
     }
 
     function setAllowedToken(address token, bool allowed) external onlyOwner {
@@ -61,8 +69,7 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
         emit FeeSplitUpdated(_agentBp, _treasuryBp, _reserveBp);
     }
 
-    /// @notice Redirect the agent split. Constructor-set addresses were
-    /// previously immutable, forcing a full redeploy to change a payout target.
+    /// @notice Redirect the agent split.
     function setAgentWallet(address _agentWallet) external onlyOwner {
         require(_agentWallet != address(0), "ZERO_ADDR");
         emit AgentWalletUpdated(agentWallet, _agentWallet);
@@ -73,12 +80,6 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
         require(_treasury != address(0), "ZERO_ADDR");
         emit TreasuryUpdated(treasury, _treasury);
         treasury = _treasury;
-    }
-
-    function setReservePool(address _reservePool) external onlyOwner {
-        require(_reservePool != address(0), "ZERO_ADDR");
-        emit ReservePoolUpdated(reservePool, _reservePool);
-        reservePool = _reservePool;
     }
 
     function pause() external onlyOwner { _pause(); }
@@ -105,14 +106,41 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
 
         uint256 agentShare = (amount * agentBp) / 10000;
         uint256 treasuryShare = (amount * treasuryBp) / 10000;
-        uint256 reserveShare = amount - agentShare - treasuryShare;
-
+        // reserveShare = amount - agentShare - treasuryShare stays in this
+        // contract as the refund pool. Wei dust from the split rounds into it.
         IERC20(token).safeTransfer(agentWallet, agentShare);
         IERC20(token).safeTransfer(treasury, treasuryShare);
-        IERC20(token).safeTransfer(reservePool, reserveShare);
 
         threadCounter++;
         threadId = threadCounter;
         emit ThreadRequested(msg.sender, threadId, mode, token, amount);
+    }
+
+    /// @notice Refund a thread from the accumulated reserve. Paid from this
+    /// contract's balance and hard-capped by it, so refunds can never exceed the
+    /// reserve. Idempotent per threadId. Deliberately callable while paused — the
+    /// owner must always be able to make a user whole (mirrors the kill-switch
+    /// carve-out on AgentWallet.emergencyWithdraw).
+    function refund(uint256 threadId, address token, address to, uint256 amount)
+        external
+        onlyOwner
+        nonReentrant
+    {
+        require(!refunded[threadId], "ALREADY_REFUNDED");
+        require(to != address(0), "ZERO_ADDR");
+        require(IERC20(token).balanceOf(address(this)) >= amount, "RESERVE_INSUFFICIENT");
+
+        refunded[threadId] = true; // effects before interaction
+        IERC20(token).safeTransfer(to, amount);
+        emit Refunded(threadId, token, to, amount);
+    }
+
+    /// @notice Reclaim excess reserve (e.g. sweep to treasury). Owner-gated and
+    /// capped by the held balance.
+    function withdrawReserve(address token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "ZERO_ADDR");
+        require(IERC20(token).balanceOf(address(this)) >= amount, "RESERVE_INSUFFICIENT");
+        IERC20(token).safeTransfer(to, amount);
+        emit ReserveWithdrawn(token, to, amount);
     }
 }
