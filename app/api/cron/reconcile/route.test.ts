@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const reconcileStuckThreads = vi.fn();
+const checkAgentWalletBalance = vi.fn();
+const claimAlertOnce = vi.fn();
 const alertOps = vi.fn();
 const getSupabaseServer = vi.fn(() => ({}));
 
 vi.mock('@/lib/agent/reconcile', () => ({ reconcileStuckThreads }));
+vi.mock('@/lib/agent/walletHealth', () => ({ checkAgentWalletBalance }));
+vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));
 vi.mock('@/lib/alert', () => ({ alertOps }));
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
 
@@ -16,10 +20,15 @@ function req(headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/api/cron/reconcile', { headers });
 }
 
+const auth = { authorization: 'Bearer sekret' };
+
 beforeEach(() => {
   vi.clearAllMocks();
   process.env = { ...ORIG, CRON_SECRET: 'sekret' };
   reconcileStuckThreads.mockResolvedValue({ swept: 0, enqueued: 0, errors: [] });
+  // Healthy wallet by default so the reconcile-focused tests stay isolated.
+  checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
+  claimAlertOnce.mockResolvedValue(true);
 });
 
 describe('GET /api/cron/reconcile', () => {
@@ -70,5 +79,26 @@ describe('GET /api/cron/reconcile', () => {
     const res = await GET(req({ authorization: 'Bearer sekret' }));
     expect(res.status).toBe(500);
     expect(alertOps).toHaveBeenCalledOnce();
+  });
+
+  it('alerts when the agent wallet is low and the throttle allows it', async () => {
+    checkAgentWalletBalance.mockResolvedValue({ low: ['USDT'], balances: { cUSD: 5, USDT: 0.3, USDC: 5 } });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledOnce();
+    expect(alertOps.mock.calls[0][0]).toMatch(/balance low/i);
+  });
+
+  it('suppresses the wallet-low alert when the throttle denies it', async () => {
+    checkAgentWalletBalance.mockResolvedValue({ low: ['USDT'], balances: { cUSD: 5, USDT: 0.3, USDC: 5 } });
+    claimAlertOnce.mockResolvedValue(false);
+    await GET(req(auth));
+    expect(alertOps).not.toHaveBeenCalled();
+  });
+
+  it('still returns 200 with the reconcile summary when the health check throws', async () => {
+    checkAgentWalletBalance.mockRejectedValue(new Error('rpc down'));
+    const res = await GET(req(auth));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
   });
 });
