@@ -3,7 +3,7 @@
 // wider alerting surface) posts to when something needs a human. A missing
 // webhook degrades to a console warning; a failed POST is swallowed, because an
 // alert path must never break the caller it is trying to warn about.
-export async function alertOps(message: string, context?: Record<string, unknown>): Promise<void> {
+export async function alertOps(message: string, context?: object): Promise<void> {
   const detail =
     context && Object.keys(context).length ? `${message}\n${JSON.stringify(context)}` : message;
 
