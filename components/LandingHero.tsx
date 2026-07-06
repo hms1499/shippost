@@ -21,12 +21,17 @@ export function LandingHero() {
           One coin in. <span className="text-primary">One thread out.</span>
         </h1>
         <p className="text-sm text-muted-foreground max-w-xs font-sans">
-          Drop <span className="font-mono text-money">$0.05</span> — the agent pays AI
-          services per call (x402) and delivers a ready-to-post X thread.
+          Type a topic, get a ready-to-post X thread in ~20s. Pay{' '}
+          <span className="font-mono text-money">$0.05</span> only if you keep it.
         </p>
       </div>
 
-      <AgentTraceReplay />
+      <div className="w-full flex flex-col items-center gap-2">
+        <AgentTraceReplay />
+        <p className="text-[11px] font-mono text-muted-foreground text-center max-w-xs leading-snug">
+          A real run: the agent pays each AI service on-chain via x402 micropayments.
+        </p>
+      </div>
 
       <div className="flex flex-col gap-2.5 w-full">
         <Button
@@ -42,9 +47,6 @@ export function LandingHero() {
             aria-hidden
           />
         </Button>
-        <p className="text-xs font-sans text-muted-foreground text-center">
-          or sign in from the corner ↗
-        </p>
       </div>
     </section>
   );
