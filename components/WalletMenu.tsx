@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeftRight, Loader2, Wallet, X as XIcon } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Check,
+  History,
+  Loader2,
+  LogOut,
+  Wallet,
+  X as XIcon,
+} from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
 import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
@@ -20,10 +29,12 @@ function shorten(addr: string): string {
  *   1. Pre-connect (web)        — "Sign in" pill, opens RainbowKit modal.
  *   2. Pre-connect (MiniPay)    — "Connecting…" spinner pill (auto-connect runs in HomeClient).
  *   3. Connected                — address chip; click opens a terminal-styled
- *                                 menu with wallet management and chain switching.
+ *                                 sheet where copy / history / disconnect are
+ *                                 each one tap (no RainbowKit account modal).
  */
 export function WalletMenu() {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
 
@@ -47,8 +58,42 @@ export function WalletMenu() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // Reset the copy tick whenever the sheet closes so it never reopens stale.
+  useEffect(() => {
+    if (!open) setCopied(false);
+  }, [open]);
+
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
+
+  async function copyAddress(address: string) {
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      // Older webviews / unfocused documents: fall back to execCommand.
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = address;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {
+        return; // silently keep "copy" — better than a broken confirmation
+      }
+    }
+    setCopied(true);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1500);
+  }
+
   const isMiniPay = useIsMiniPay();
   const { connector } = useAccount();
+  const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const switchToTarget = () => switchChain({ chainId: TARGET_CHAIN_ID });
   const connectorLabel = isMiniPay ? 'MiniPay' : connector?.name ?? null;
@@ -70,7 +115,6 @@ export function WalletMenu() {
       {({
         account,
         chain,
-        openAccountModal,
         openConnectModal,
         mounted,
         authenticationStatus,
@@ -230,13 +274,16 @@ export function WalletMenu() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              setOpen(false);
-                              openAccountModal();
-                            }}
-                            className="font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors shrink-0"
+                            onClick={() => copyAddress(account.address)}
+                            className={
+                              'flex items-center gap-1 font-mono text-[11px] no-underline transition-colors shrink-0 ' +
+                              (copied
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-primary')
+                            }
                           >
-                            manage →
+                            {copied && <Check size={11} aria-hidden />}
+                            {copied ? 'copied' : 'copy'}
                           </button>
                         </div>
                         {connectorLabel && (
@@ -247,23 +294,48 @@ export function WalletMenu() {
                         )}
                       </div>
 
+                      <RuleDivider />
+
+                      <Link
+                        href="/history"
+                        onClick={() => setOpen(false)}
+                        className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors self-start"
+                      >
+                        <History size={11} aria-hidden />
+                        My History
+                      </Link>
+
                       {/* MiniPay can't switch chains from a dapp; the switch
                           action only makes sense on web wallets. */}
                       {!isOnTargetChain && !isMiniPay && (
-                        <>
-                          <RuleDivider />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpen(false);
-                              switchToTarget();
-                            }}
-                            className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
-                          >
-                            <ArrowLeftRight size={11} aria-hidden />
-                            Switch to {targetChainName()}
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false);
+                            switchToTarget();
+                          }}
+                          className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
+                        >
+                          <ArrowLeftRight size={11} aria-hidden />
+                          Switch to {targetChainName()}
+                        </button>
+                      )}
+
+                      {/* In MiniPay the wallet is the host app — nothing to
+                          sign out of, and HomeClient's one-shot auto-connect
+                          would leave the chip wedged at "Connecting…". */}
+                      {!isMiniPay && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false);
+                            disconnect();
+                          }}
+                          className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
+                        >
+                          <LogOut size={11} aria-hidden />
+                          Disconnect
+                        </button>
                       )}
                     </div>
                   </motion.div>
