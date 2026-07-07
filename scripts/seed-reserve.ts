@@ -7,6 +7,7 @@
  * Usage:
  *   SEED_TOKEN=cUSD SEED_AMOUNT=1.5 npx hardhat run scripts/seed-reserve.ts --network celo
  *   SEED_TO=agent SEED_TOKEN=cUSD SEED_AMOUNT=1 npx hardhat run scripts/seed-reserve.ts --network celo
+ *   SEED_TO=0x... SEED_AMOUNT=0.5   → arbitrary recipient (e.g. a test wallet)
  */
 
 import { network } from 'hardhat';
@@ -20,7 +21,7 @@ dotenv.config({ path: path.join(process.cwd(), '.env.local'), override: false })
 
 const TOKEN_SYM = (process.env.SEED_TOKEN ?? 'cUSD') as 'cUSD' | 'USDT' | 'USDC';
 const AMOUNT_IN = process.env.SEED_AMOUNT ?? '';
-const SEED_TO = (process.env.SEED_TO ?? 'reserve') as 'reserve' | 'agent';
+const SEED_TO = process.env.SEED_TO ?? 'reserve'; // 'reserve' | 'agent' | 0x-address
 
 const TOKENS = {
   cUSD: { address: '0x765DE816845861e75A25fCA122bb6898B8B1282a' as `0x${string}`, decimals: 18 },
@@ -37,6 +38,12 @@ const erc20Abi = [
 ] as const;
 
 function getTarget(): { label: string; address: `0x${string}` } {
+  if (/^0x[0-9a-fA-F]{40}$/.test(SEED_TO)) {
+    return { label: 'Recipient', address: SEED_TO as `0x${string}` };
+  }
+  if (SEED_TO !== 'reserve' && SEED_TO !== 'agent') {
+    throw new Error(`SEED_TO must be 'reserve', 'agent', or a 0x address — got: ${SEED_TO}`);
+  }
   const f = path.join(process.cwd(), 'deployments', 'celo.json');
   if (!fs.existsSync(f)) throw new Error('deployments/celo.json not found');
   const d = JSON.parse(fs.readFileSync(f, 'utf8'));
