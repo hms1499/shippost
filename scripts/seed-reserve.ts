@@ -1,10 +1,12 @@
 /**
- * Seed (nạp) reserve cho ShipPostPayment v2 — chuyển stablecoin từ deployer
- * vào thẳng contract. Reserve trả refund; rút lại được bằng withdrawReserve
- * (owner-only), nên đây là gửi tạm chứ không phải chi tiêu.
+ * Seed (nạp) stablecoin từ deployer vào reserve (ShipPostPayment v2) hoặc
+ * AgentWallet. Cả hai chiều đều đảo ngược được: reserve rút bằng
+ * withdrawReserve, AgentWallet rút bằng emergencyWithdraw (đều owner-only),
+ * nên đây là gửi tạm chứ không phải chi tiêu.
  *
  * Usage:
  *   SEED_TOKEN=cUSD SEED_AMOUNT=1.5 npx hardhat run scripts/seed-reserve.ts --network celo
+ *   SEED_TO=agent SEED_TOKEN=cUSD SEED_AMOUNT=1 npx hardhat run scripts/seed-reserve.ts --network celo
  */
 
 import { network } from 'hardhat';
@@ -18,6 +20,7 @@ dotenv.config({ path: path.join(process.cwd(), '.env.local'), override: false })
 
 const TOKEN_SYM = (process.env.SEED_TOKEN ?? 'cUSD') as 'cUSD' | 'USDT' | 'USDC';
 const AMOUNT_IN = process.env.SEED_AMOUNT ?? '';
+const SEED_TO = (process.env.SEED_TO ?? 'reserve') as 'reserve' | 'agent';
 
 const TOKENS = {
   cUSD: { address: '0x765DE816845861e75A25fCA122bb6898B8B1282a' as `0x${string}`, decimals: 18 },
@@ -33,13 +36,14 @@ const erc20Abi = [
     outputs: [{ name: '', type: 'bool' }] },
 ] as const;
 
-function getPaymentContract(): `0x${string}` {
+function getTarget(): { label: string; address: `0x${string}` } {
   const f = path.join(process.cwd(), 'deployments', 'celo.json');
-  if (fs.existsSync(f)) {
-    const d = JSON.parse(fs.readFileSync(f, 'utf8'));
-    if (d?.contracts?.ShipPostPayment) return d.contracts.ShipPostPayment;
-  }
-  throw new Error('deployments/celo.json missing ShipPostPayment address');
+  if (!fs.existsSync(f)) throw new Error('deployments/celo.json not found');
+  const d = JSON.parse(fs.readFileSync(f, 'utf8'));
+  const key = SEED_TO === 'agent' ? 'AgentWallet' : 'ShipPostPayment';
+  const address = d?.contracts?.[key];
+  if (!address) throw new Error(`deployments/celo.json missing ${key} address`);
+  return { label: SEED_TO === 'agent' ? 'AgentWallet' : 'Payment (v2)', address };
 }
 
 async function main() {
@@ -55,21 +59,21 @@ async function main() {
   const token = TOKENS[TOKEN_SYM];
   if (!token) throw new Error(`Unknown token: ${TOKEN_SYM}`);
 
-  const paymentAddr = getPaymentContract();
+  const target = getTarget();
   const ownerAddr = owner.account.address;
   const amount = parseUnits(AMOUNT_IN, token.decimals);
   const fmt = (n: bigint) => `${formatUnits(n, token.decimals)} ${TOKEN_SYM}`;
 
-  const [deployerBal, reserveBefore, celoBal] = await Promise.all([
+  const [deployerBal, targetBefore, celoBal] = await Promise.all([
     pub.readContract({ address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [ownerAddr] }),
-    pub.readContract({ address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [paymentAddr] }),
+    pub.readContract({ address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [target.address] }),
     pub.getBalance({ address: ownerAddr }),
   ]);
 
   console.log(`Deployer      : ${ownerAddr}`);
-  console.log(`Payment (v2)  : ${paymentAddr}`);
+  console.log(`${target.label.padEnd(14)}: ${target.address}`);
   console.log(`Deployer bal  : ${fmt(deployerBal)} | gas ${formatUnits(celoBal, 18)} CELO`);
-  console.log(`Reserve before: ${fmt(reserveBefore)}`);
+  console.log(`Target before : ${fmt(targetBefore)}`);
   console.log(`Seeding       : ${fmt(amount)}`);
 
   if (deployerBal < amount) throw new Error(`Insufficient ${TOKEN_SYM}: have ${fmt(deployerBal)}, need ${fmt(amount)}`);
@@ -81,7 +85,7 @@ async function main() {
     address: token.address,
     abi: erc20Abi,
     functionName: 'transfer',
-    args: [paymentAddr, amount],
+    args: [target.address, amount],
     gas: 200_000n,
   });
 
@@ -89,15 +93,15 @@ async function main() {
 
   // Load-balanced RPCs can serve a stale balance right after the receipt —
   // retry until the read reflects the transfer instead of reporting a false 0.
-  let reserveAfter = reserveBefore;
-  for (let i = 0; i < 5 && reserveAfter < reserveBefore + amount; i++) {
+  let targetAfter = targetBefore;
+  for (let i = 0; i < 5 && targetAfter < targetBefore + amount; i++) {
     if (i > 0) await new Promise((r) => setTimeout(r, 2000));
-    reserveAfter = await pub.readContract({
-      address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [paymentAddr],
+    targetAfter = await pub.readContract({
+      address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [target.address],
     });
   }
   console.log(`✓ Done: https://celoscan.io/tx/${hash}`);
-  console.log(`Reserve after : ${fmt(reserveAfter)}${reserveAfter < reserveBefore + amount ? ' (RPC may be lagging — verify on celoscan)' : ''}`);
+  console.log(`Target after  : ${fmt(targetAfter)}${targetAfter < targetBefore + amount ? ' (RPC may be lagging — verify on celoscan)' : ''}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
