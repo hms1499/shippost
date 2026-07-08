@@ -4,6 +4,7 @@ import { parseThread, boundThread } from '@/lib/threadParser';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
+import { alertOps } from '@/lib/alert';
 import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
 import { throwIfAborted } from './abort';
 import type { PipelineContext } from './types';
@@ -45,24 +46,38 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
   throwIfAborted(ctx.signal);
 
   if (getSettleMode() === 'x402') {
-    const { tweets, settlementTxHash } = await payGroqViaX402({
-      chainId: getSettleChainId(),
-      messages: input.messages,
-      temperature: input.temperature,
-      maxTokens: input.maxTokens,
-      // Forward the deadline so a timeout mid-proxy-call cancels before settle,
-      // mirroring the legacy path's re-check right before settleX402Call.
-      signal: ctx.signal,
-    });
-    return {
-      tweets,
-      txHash: (settlementTxHash || '0x0') as Hex,
-      costHuman: X402_PRICE_USD,
-      tokenSymbol: 'USDC',
-    };
+    try {
+      const { tweets, settlementTxHash } = await payGroqViaX402({
+        chainId: getSettleChainId(),
+        messages: input.messages,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+        // Forward the deadline so a timeout mid-proxy-call cancels before settle,
+        // mirroring the legacy path's re-check right before settleX402Call.
+        signal: ctx.signal,
+      });
+      return {
+        tweets,
+        txHash: (settlementTxHash || '0x0') as Hex,
+        costHuman: X402_PRICE_USD,
+        tokenSymbol: 'USDC',
+      };
+    } catch (e) {
+      // Deadline fired: the run is already fatal + refundable — never settle
+      // anything after that, in either mode.
+      if (ctx.signal?.aborted) throw e;
+      // Infra failure (facilitator down, cap hit, paused, empty float, proxy
+      // 5xx): degrade to the legacy settle below so a paid user still gets
+      // their thread. Alert is fire-and-forget; alertOps never throws.
+      void alertOps('x402 settle fell back to legacy', {
+        threadId: ctx.threadId.toString(),
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   // legacy: call Groq directly, validate, then push-to-sink in cUSD.
+  // Also the x402 infra-failure fallback path.
   const tweets = await generateTweets(input);
   // Re-check: the deadline may have fired while Groq was responding. Never
   // settle (spend) after the run is already considered failed.

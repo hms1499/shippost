@@ -5,10 +5,12 @@ const getSettleChainId = vi.fn();
 const payGroqViaX402 = vi.fn();
 const settleX402Call = vi.fn();
 const create = vi.fn();
+const alertOps = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@/lib/x402/config', () => ({ getSettleMode, getSettleChainId, X402_PRICE_USD: '0.001', GROQ_MODEL: 'llama-3.3-70b-versatile' }));
 vi.mock('@/lib/x402/client', () => ({ payGroqViaX402 }));
 vi.mock('@/lib/agent/orchestrator', () => ({ settleX402Call }));
+vi.mock('@/lib/alert', () => ({ alertOps }));
 vi.mock('groq-sdk', () => ({ default: class { chat = { completions: { create } }; } }));
 
 const { generateDraft } = await import('./generateDraft');
@@ -92,6 +94,31 @@ describe('generateDraft', () => {
     const ac = new AbortController();
     await generateDraft({ ...ctx, signal: ac.signal }, msgs);
     expect(payGroqViaX402).toHaveBeenCalledWith(expect.objectContaining({ signal: ac.signal }));
+  });
+
+  it('x402 infra failure falls back to the legacy settle and alerts ops', async () => {
+    getSettleMode.mockReturnValue('x402');
+    payGroqViaX402.mockRejectedValue(new Error('facilitator 503'));
+    create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
+    settleX402Call.mockResolvedValue('0xsink');
+    const out = await generateDraft(ctx, msgs);
+    expect(out.tokenSymbol).toBe('cUSD'); // legacy result, user still gets the thread
+    expect(out.txHash).toBe('0xsink');
+    expect(settleX402Call).toHaveBeenCalledOnce();
+    expect(alertOps).toHaveBeenCalledOnce();
+    expect(alertOps.mock.calls[0][0]).toMatch(/fell back/i);
+  });
+
+  it('x402 failure after the deadline fired rethrows — no legacy settle, no alert-then-spend', async () => {
+    getSettleMode.mockReturnValue('x402');
+    const ac = new AbortController();
+    payGroqViaX402.mockImplementation(async () => {
+      ac.abort(); // deadline fires mid-settle
+      throw new Error('aborted: generation deadline exceeded');
+    });
+    await expect(generateDraft({ ...ctx, signal: ac.signal }, msgs)).rejects.toThrow(/abort/i);
+    expect(create).not.toHaveBeenCalled();
+    expect(settleX402Call).not.toHaveBeenCalled();
   });
 });
 
