@@ -19,6 +19,7 @@ export interface X402Call {
   costAmount: string;
   tokenSymbol?: string;
   txHash?: string;
+  chainId?: number;
 }
 
 // Settled steps in pipeline order. A settled step without a cost is a
@@ -34,6 +35,7 @@ export function settledCalls(steps: Record<StepId, StepState>): X402Call[] {
       costAmount: s.costAmount,
       tokenSymbol: s.tokenSymbol,
       txHash: s.txHash,
+      chainId: s.chainId,
     });
   }
   return calls;

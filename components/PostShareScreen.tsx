@@ -6,6 +6,7 @@ import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { haptic } from '@/lib/haptics';
 import { buildReceiptText, settledCalls, agentProfitUsd } from '@/lib/receiptText';
+import { explorerBase as explorerBaseFor } from '@/lib/chains';
 import type { StepState } from '@/lib/threadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
@@ -126,7 +127,7 @@ export function PostShareScreen({
                   key={c.id}
                   left={c.label}
                   right={`$${c.costAmount}`}
-                  txHref={c.txHash ? `${explorerBase}/tx/${c.txHash}` : undefined}
+                  txHref={c.txHash ? `${c.chainId !== undefined ? explorerBaseFor(c.chainId) : explorerBase}/tx/${c.txHash}` : undefined}
                 />
               ))
             ) : (

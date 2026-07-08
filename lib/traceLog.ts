@@ -12,6 +12,7 @@ export type TraceLine = {
   text: string;
   amount?: string;
   txHash?: string;
+  chainId?: number;
 };
 
 const STEP_LABEL: Record<StepId, string> = {
@@ -50,6 +51,7 @@ export function appendTraceLines(
         text: `${STEP_LABEL[id]} — settled`,
         amount: n.costAmount ? `$${n.costAmount}` : undefined,
         txHash: n.txHash,
+        chainId: n.chainId,
       });
     } else if (n.status === 'failed') {
       push({

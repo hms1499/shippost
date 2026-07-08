@@ -6,7 +6,7 @@ import type { StepId } from './pipeline/types';
 const steps: Record<StepId, StepState> = {
   serper: { status: 'settled', costAmount: '0.010', tokenSymbol: 'cUSD', txHash: '0xaaa' },
   coingecko: { status: 'settled', costAmount: '0.003', tokenSymbol: 'cUSD', txHash: '0xbbb' },
-  groq: { status: 'settled', costAmount: '0.001', tokenSymbol: 'cUSD', txHash: '0xccc' },
+  groq: { status: 'settled', costAmount: '0.001', tokenSymbol: 'cUSD', txHash: '0xccc', chainId: 8453 },
   factCheck: { status: 'pending' },
 };
 
@@ -15,6 +15,7 @@ describe('settledCalls', () => {
     const calls = settledCalls(steps);
     expect(calls.map((c) => c.label)).toEqual(['serper', 'coingecko', 'groq']);
     expect(calls[0]).toMatchObject({ costAmount: '0.010', txHash: '0xaaa' });
+    expect(calls.find((c) => c.label === 'groq')).toMatchObject({ chainId: 8453 });
   });
 
   it('skips settled steps missing a cost so a malformed event never prints a blank row', () => {

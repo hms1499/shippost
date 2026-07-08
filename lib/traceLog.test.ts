@@ -15,7 +15,7 @@ describe('appendTraceLines', () => {
     const running = applyEvent(initialState, { type: 'step_started', step: 'serper' });
     const settled = applyEvent(running, {
       type: 'step_settled', step: 'serper', txHash: '0xabc' as `0x${string}`,
-      costAmount: '0.010', tokenSymbol: 'cUSD',
+      costAmount: '0.010', tokenSymbol: 'cUSD', chainId: 8453,
     });
     const lines = appendTraceLines(
       appendTraceLines([], initialState, running), running, settled,
@@ -24,6 +24,7 @@ describe('appendTraceLines', () => {
     expect(lines[1]).toMatchObject({
       glyph: 'ok', key: 'serper:settled', amount: '$0.010', txHash: '0xabc',
     });
+    expect(lines[1].chainId).toBe(8453);
   });
 
   it('is idempotent — same transition twice adds nothing', () => {

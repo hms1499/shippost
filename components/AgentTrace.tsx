@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Check, X, Loader2, Lock } from 'lucide-react';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
+import { explorerBase } from '@/lib/chains';
 import { appendTraceLines, type TraceLine } from '@/lib/traceLog';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
@@ -136,7 +137,7 @@ export function AgentTrace({
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <LogRow glyph={l.glyph} text={l.text} amount={l.amount} txHash={l.txHash} explorer={chainExplorerBase} />
+            <LogRow glyph={l.glyph} text={l.text} amount={l.amount} txHash={l.txHash} explorer={l.chainId !== undefined ? explorerBase(l.chainId) : chainExplorerBase} />
           </motion.div>
         ))}
         {!gen.isDone && !gen.fatal && <span className="cursor-block ml-0.5" aria-hidden />}

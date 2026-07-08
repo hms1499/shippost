@@ -22,6 +22,8 @@ export function getChain(chainId: number) {
 
 export function explorerBase(chainId: number | undefined): string {
   if (chainId === celo.id) return 'https://celoscan.io';
+  if (chainId === 8453) return 'https://basescan.org'; // Base — x402 settle rail
+  if (chainId === 84532) return 'https://sepolia.basescan.org';
   return 'https://celo-sepolia.blockscout.com';
 }
 
