@@ -22,6 +22,19 @@ describe('settledCalls', () => {
     const bad = { ...steps, serper: { status: 'settled' } as StepState };
     expect(settledCalls(bad).map((c) => c.label)).toEqual(['coingecko', 'groq']);
   });
+
+  it('filters 0x0 sentinel to undefined so the receipt does not link to a dead explorer URL', () => {
+    const stepsWithSentinel: Record<StepId, StepState> = {
+      serper: { status: 'settled', costAmount: '0.010', tokenSymbol: 'cUSD', txHash: '0x0' },
+      coingecko: { status: 'settled', costAmount: '0.003', tokenSymbol: 'cUSD', txHash: '0xbbb' },
+      groq: { status: 'settled', costAmount: '0.001', tokenSymbol: 'cUSD', txHash: '0xccc', chainId: 8453 },
+      factCheck: { status: 'pending' },
+    };
+    const calls = settledCalls(stepsWithSentinel);
+    expect(calls).toHaveLength(3);
+    expect(calls[0]).toMatchObject({ label: 'serper', costAmount: '0.010' });
+    expect(calls[0].txHash).toBeUndefined();
+  });
 });
 
 describe('buildReceiptText', () => {

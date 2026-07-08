@@ -41,4 +41,21 @@ describe('appendTraceLines', () => {
     expect(lines[0]).toMatchObject({ glyph: 'fail', key: 'factCheck:failed' });
     expect(lines[0].text).toContain('timeout');
   });
+
+  it('filters 0x0 sentinel to undefined so no dead explorer links render', () => {
+    const running = applyEvent(initialState, { type: 'step_started', step: 'groq' });
+    const settled = applyEvent(running, {
+      type: 'step_settled', step: 'groq', txHash: '0x0' as `0x${string}`,
+      costAmount: '0.001', tokenSymbol: 'cUSD', chainId: 8453,
+    });
+    const lines = appendTraceLines(
+      appendTraceLines([], initialState, running), running, settled,
+    );
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toMatchObject({
+      glyph: 'ok', key: 'groq:settled', amount: '$0.001',
+    });
+    expect(lines[1].txHash).toBeUndefined();
+    expect(lines[1].chainId).toBe(8453);
+  });
 });

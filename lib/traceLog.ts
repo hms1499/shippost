@@ -2,6 +2,10 @@
 // The SSE hook reduces events into state; this diffs consecutive snapshots so
 // AgentTrace can append log lines without touching the event stream. Keyed by
 // `${step}:${status}` so replays/re-renders never duplicate a line.
+//
+// Note: '0x0' is the no-hash sentinel for steps that settled without a tx hash
+// (e.g. simulated/legacy settlement). txHash is filtered to undefined so the UI
+// does not render dead explorer links.
 
 import type { StepId } from '@/lib/pipeline/types';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
@@ -50,7 +54,7 @@ export function appendTraceLines(
         glyph: 'ok',
         text: `${STEP_LABEL[id]} — settled`,
         amount: n.costAmount ? `$${n.costAmount}` : undefined,
-        txHash: n.txHash,
+        txHash: n.txHash !== '0x0' ? n.txHash : undefined,
         chainId: n.chainId,
       });
     } else if (n.status === 'failed') {

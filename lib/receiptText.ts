@@ -24,6 +24,8 @@ export interface X402Call {
 
 // Settled steps in pipeline order. A settled step without a cost is a
 // malformed event — drop it rather than printing a blank ledger row.
+// Note: '0x0' is the no-hash sentinel for simulated/legacy settlement; it is
+// filtered to undefined so the receipt does not include a dead explorer link.
 export function settledCalls(steps: Record<StepId, StepState>): X402Call[] {
   const calls: X402Call[] = [];
   for (const id of STEP_ORDER) {
@@ -34,7 +36,7 @@ export function settledCalls(steps: Record<StepId, StepState>): X402Call[] {
       label: STEP_LABEL[id],
       costAmount: s.costAmount,
       tokenSymbol: s.tokenSymbol,
-      txHash: s.txHash,
+      txHash: s.txHash !== '0x0' ? s.txHash : undefined,
       chainId: s.chainId,
     });
   }

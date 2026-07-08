@@ -4,8 +4,15 @@
 // webhook degrades to a console warning; a failed POST is swallowed, because an
 // alert path must never break the caller it is trying to warn about.
 export async function alertOps(message: string, context?: object): Promise<void> {
-  const detail =
-    context && Object.keys(context).length ? `${message}\n${JSON.stringify(context)}` : message;
+  let detail = message;
+  if (context && Object.keys(context).length) {
+    try {
+      detail = `${message}\n${JSON.stringify(context)}`;
+    } catch {
+      // Non-serializable context (e.g. a bigint) must not break the caller;
+      // deliver the message without it.
+    }
+  }
 
   const url = process.env.ALERT_WEBHOOK_URL;
   if (!url) {

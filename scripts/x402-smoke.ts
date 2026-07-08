@@ -113,7 +113,7 @@ async function main() {
   console.log(`usdc            : ${cfg.usdc}`);
   console.log(`proxy           : ${proxyBase}/api/x402/groq`);
   console.log(`payTo           : ${process.env.X402_PAY_TO || '(unset!)'}`);
-  console.log(`settle mode     : ${getSettleMode(chainId)}  (pipeline gate; driver always uses x402)`);
+  console.log(`settle mode     : ${getSettleMode()}  (pipeline gate; driver always uses x402)`);
   console.log(`daily cap (USDC): ${process.env.X402_DAILY_CAP_USDC || '5 (default)'}`);
   console.log(`paused          : ${process.env.X402_PAUSED || 'false'}`);
   console.log('─────────────────────────────────────────────────');

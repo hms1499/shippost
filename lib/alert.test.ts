@@ -49,4 +49,20 @@ describe('alertOps', () => {
 
     await expect(alertOps('boom')).resolves.toBeUndefined();
   });
+
+  it('handles non-serializable context (e.g. bigint) without throwing', async () => {
+    process.env.ALERT_WEBHOOK_URL = 'https://hooks.example/abc';
+    let sent: { url: string; body: string } | null = null;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      sent = { url, body: String(init.body) };
+      return { ok: true };
+    }));
+
+    await expect(alertOps('threadId stuck', { id: 1n })).resolves.toBeUndefined();
+
+    expect(sent!.body).toBeDefined();
+    const body = JSON.parse(sent!.body);
+    expect(body.text).toContain('threadId stuck');
+    expect(body.content).toContain('threadId stuck');
+  });
 });
