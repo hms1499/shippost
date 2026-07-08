@@ -27,13 +27,12 @@ ETH balance was unchanged across the run; only USDC moved.)
 - **Proven live on Base mainnet:** the x402 capability — agent signs `X-Payment`,
   CDP facilitator verifies + settles real USDC, the `/api/x402/groq` proxy returns
   the thread only after settlement. The tx above is irrefutable on basescan.
-- **MiniPay user payments still settle on Celo** via the audited legacy
-  push-to-sink path. ShipPost users pay 0.05 cUSD on Celo (the only payment chain
-  in `lib/wagmi.ts`), and `getSettleMode(ctx.chainId)` keeps Celo on `legacy`.
-  Routing every real (Celo-paid) thread through Base x402 is a deliberate next
-  step, not a flag flip — see [Model 2 below](#next-step--model-2).
-
-We do **not** claim every production thread is x402-settled today. It is not.
+- **Live since 2026-07 (Model 2):** every paid thread's Groq settlement routes
+  through this x402 rail regardless of where the user paid. MiniPay users still
+  pay 0.05 cUSD on Celo; `getSettleMode()` is env-global (`X402_SETTLE_MODE` +
+  `X402_CHAIN_ID`), no longer keyed on the payment chain. Infra failures degrade
+  to the audited legacy push-to-sink with a Discord alert — x402-first, never
+  thread-loss.
 
 ## How it was run
 
@@ -65,15 +64,11 @@ facilitator operation (`/verify`, `/settle`, `/supported`) via
 `@coinbase/cdp-sdk` `generateJwt`, keyed on `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET`.
 The x402 core calls this fresh on every verify/settle, so tokens never go stale.
 
-## Next step — Model 2
+## Model 2 — shipped
 
-Today the settle layer is selected by the **payment** chain
-(`getSettleMode(ctx.chainId)`): Base → x402, Celo → legacy. Because MiniPay users
-only pay on Celo, no real thread routes through x402.
-
-The agent's spend on AI services is conceptually **independent** of where the user
-paid. "Model 2" decouples the two: route the Groq settlement to x402 on Base
-**regardless** of the user's payment chain (a global flag, not keyed on
-`ctx.chainId`), with a small hot float in the agent EOA topped up out of band.
-This is the design-faithful way to make every thread a real x402 payment, and is
-tracked as a separate spec.
+Implemented 2026-07-08 (spec:
+`docs/superpowers/specs/2026-07-08-model2-x402-all-threads-design.md`). The
+settle layer is selected by env (`X402_SETTLE_MODE=x402` + `X402_CHAIN_ID=8453`),
+decoupled from the payment chain. The agent EOA keeps a small manual USDC float
+on Base; the Redis `x402:paused` switch now means "fall back to legacy", making
+it a no-deploy rollback lever.

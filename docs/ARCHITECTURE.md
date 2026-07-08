@@ -214,11 +214,14 @@ flowchart LR
 | Rủi ro nếu hở | Drain AgentWallet | Không — không trả thì không có content |
 | Mạng | Celo (42220 / 11142220) | Base (84532 / mainnet) |
 
-**Model 1** là luồng generate per-thread (mục 2.2): mỗi step gọi `settleX402Call` → `executeX402Call`
-cap-enforced. Groq/Serper/CoinGecko không hỗ trợ x402 thật nên đây là mô phỏng in-process; **không
-có HTTP proxy route**. **Model 2** (`app/api/x402/groq/route.ts`): `withX402` verify `X-Payment`
-*trước* khi handler chạy, settle chỉ sau khi trả 200, **không chạm AgentWallet** → không drain risk.
-Đã proof Base mainnet 2026-06-03 (CDP cần JWT request-scoped, fix ở commit `4c48a08`).
+**Model 1** giờ là đường settle của Serper/CoinGecko/FactCheck — và là **fallback** cho Groq khi
+đường x402 gặp sự cố hạ tầng (CDP down, đụng cap, hết float): `generateDraft` bắn Discord alert rồi
+rơi êm về push-to-sink, user vẫn nhận thread. **Model 2** từ 2026-07 là đường chính của Groq cho
+**mọi** thread trả phí: `getSettleMode()` đọc `X402_SETTLE_MODE` + `X402_CHAIN_ID` từ env (tách
+khỏi chain thanh toán — user vẫn trả cUSD trên Celo), agent EOA ký `X-Payment`, CDP facilitator
+settle USDC trên Base về `X402_PAY_TO`, **không chạm AgentWallet**. `step_settled` mang `chainId`
+để UI link đúng Basescan cho tx groq. Rollback: đổi env, hoặc tức thời `redis set x402:paused 1`
+(= fallback về Model 1, không phải outage).
 
 Lịch sử: route `/api/x402/*` *đời đầu* là proxy không xác thực gọi thẳng `settleX402Call` (drain
 free) — xóa ở `8f4c222`; Model 2 hiện tại (`c8a796b`) là bản dựng lại an toàn. **Rule:** mọi x402
