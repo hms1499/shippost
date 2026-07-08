@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildShareText } from './shareText';
+import { buildShareText, tweetIntentUrl } from './shareText';
 
 const URL = 'https://shippost.app';
 
@@ -27,5 +27,20 @@ describe('buildShareText', () => {
     const tweet = 'a'.repeat(280);
     const out = buildShareText(tweet, { attribution: true, appUrl: URL });
     expect(out).toBe(tweet);
+  });
+});
+
+describe('tweetIntentUrl', () => {
+  it('builds an https web-intent URL, never a custom app scheme', () => {
+    const out = tweetIntentUrl('gm');
+    // twitter:// errors with ERR_UNKNOWN_URL_SCHEME in the MiniPay webview.
+    expect(out.startsWith('https://x.com/intent/post?text=')).toBe(true);
+  });
+
+  it('percent-encodes newlines, emoji and URLs in the text', () => {
+    const out = tweetIntentUrl(`1/ gm\n\n✍️ made with CoinOp — ${URL}`);
+    expect(out).toBe(
+      'https://x.com/intent/post?text=1%2F%20gm%0A%0A%E2%9C%8D%EF%B8%8F%20made%20with%20CoinOp%20%E2%80%94%20https%3A%2F%2Fshippost.app',
+    );
   });
 });

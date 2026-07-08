@@ -5,36 +5,19 @@ import { Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { haptic } from '@/lib/haptics';
-import { buildShareText } from '@/lib/shareText';
+import { buildShareText, tweetIntentUrl } from '@/lib/shareText';
 
 interface Props {
   tweets: string[];
 }
 
-// Open the native X composer when the app is installed (the common case in
-// the MiniPay Android webview); fall back to the web intent if nothing
-// handles the twitter:// scheme. When the app takes the foreground the page
-// goes hidden — that's our signal to cancel the web fallback.
+// Open the X composer via the https web intent, synchronously inside the tap
+// (popup blockers require the user gesture). With the X app installed,
+// Android App Links route it into the native composer; otherwise the web
+// composer opens. Never use the twitter:// scheme here — the MiniPay webview
+// can't hand it off and shows ERR_UNKNOWN_URL_SCHEME.
 function postFirstTweet(text: string): void {
-  const encoded = encodeURIComponent(text);
-  const webUrl = `https://twitter.com/intent/tweet?text=${encoded}`;
-  const appUrl = `twitter://post?message=${encoded}`;
-
-  let settled = false;
-  const fallback = window.setTimeout(() => {
-    if (!settled) window.open(webUrl, '_blank', 'noopener,noreferrer');
-  }, 1500);
-
-  const onVis = () => {
-    if (document.hidden) {
-      settled = true;
-      window.clearTimeout(fallback);
-      document.removeEventListener('visibilitychange', onVis);
-    }
-  };
-  document.addEventListener('visibilitychange', onVis);
-
-  window.location.href = appUrl;
+  window.open(tweetIntentUrl(text), '_blank', 'noopener,noreferrer');
 }
 
 export function ShareToX({ tweets }: Props) {

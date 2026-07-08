@@ -11,6 +11,15 @@ export function shareAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? DEFAULT_APP_URL;
 }
 
+// Web intent only — the twitter:// app scheme is NOT handled by the MiniPay
+// Android webview (it tries to load it itself and dies with
+// ERR_UNKNOWN_URL_SCHEME). On Android with the X app installed, verified App
+// Links route this https URL into the app anyway; otherwise the web composer
+// opens. Never navigate to a custom scheme from inside the webview.
+export function tweetIntentUrl(text: string): string {
+  return `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
+}
+
 export function buildShareText(
   firstTweet: string,
   opts: { attribution: boolean; appUrl?: string },
