@@ -43,12 +43,22 @@ export function isX402Chain(chainId: number): boolean {
   return chainId in CONFIG;
 }
 
-// x402 only when explicitly enabled AND on a supported (Base) chain; everything
-// else stays on legacy push-to-sink (Celo/MiniPay untouched).
-export function getSettleMode(chainId: number): SettleMode {
-  return process.env.X402_SETTLE_MODE === 'x402' && isX402Chain(chainId)
+// x402 only when explicitly enabled AND the settlement chain (X402_CHAIN_ID)
+// is a supported Base chain; everything else stays legacy. Deliberately NOT
+// keyed on the user's payment chain: MiniPay users pay on Celo while the
+// agent's own Groq spend settles on Base (Model 2, spec
+// docs/superpowers/specs/2026-07-08-model2-x402-all-threads-design.md).
+export function getSettleMode(): SettleMode {
+  return process.env.X402_SETTLE_MODE === 'x402' && isX402Chain(getSettleChainId())
     ? 'x402'
     : 'legacy';
+}
+
+// The chain the agent's x402 spend settles on — NOT the payment chain. NaN
+// when X402_CHAIN_ID is unset/garbage; isX402Chain(NaN) is false, so the mode
+// degrades to legacy instead of throwing.
+export function getSettleChainId(): number {
+  return Number(process.env.X402_CHAIN_ID);
 }
 
 export function priceRawUSDC(): bigint {

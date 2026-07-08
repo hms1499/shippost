@@ -2,7 +2,7 @@ import Groq from 'groq-sdk';
 import type { Hex } from 'viem';
 import { parseThread, boundThread } from '@/lib/threadParser';
 import { settleX402Call } from '@/lib/agent/orchestrator';
-import { getSettleMode, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
+import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
 import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
 import { throwIfAborted } from './abort';
@@ -44,9 +44,9 @@ export async function generateTweets(input: DraftInput): Promise<string[]> {
 export async function generateDraft(ctx: PipelineContext, input: DraftInput): Promise<DraftResult> {
   throwIfAborted(ctx.signal);
 
-  if (getSettleMode(ctx.chainId) === 'x402') {
+  if (getSettleMode() === 'x402') {
     const { tweets, settlementTxHash } = await payGroqViaX402({
-      chainId: ctx.chainId,
+      chainId: getSettleChainId(),
       messages: input.messages,
       temperature: input.temperature,
       maxTokens: input.maxTokens,

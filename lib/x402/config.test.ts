@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
-  getX402ChainConfig, isX402Chain, getSettleMode, priceRawUSDC, dailyCapRawUSDC,
+  getX402ChainConfig, isX402Chain, getSettleMode, getSettleChainId, priceRawUSDC, dailyCapRawUSDC,
 } from './config';
 
 const BASE = 8453;
@@ -23,12 +23,23 @@ describe('x402 config', () => {
     expect(isX402Chain(CELO)).toBe(false);
   });
 
-  it('uses x402 only when flag=x402 AND chain is Base', () => {
+  it('x402 only when flag=x402 AND X402_CHAIN_ID is a supported Base chain', () => {
     vi.stubEnv('X402_SETTLE_MODE', 'x402');
-    expect(getSettleMode(BASE)).toBe('x402');
-    expect(getSettleMode(CELO)).toBe('legacy'); // flag on, wrong chain
+    vi.stubEnv('X402_CHAIN_ID', '8453');
+    expect(getSettleMode()).toBe('x402');
+    expect(getSettleChainId()).toBe(BASE);
+
+    vi.stubEnv('X402_CHAIN_ID', String(CELO)); // flag on, non-Base settle chain
+    expect(getSettleMode()).toBe('legacy');
+
+    vi.stubEnv('X402_CHAIN_ID', 'garbage'); // flag on, unparseable
+    expect(getSettleMode()).toBe('legacy');
+  });
+
+  it('legacy when the flag is off, whatever the settle chain', () => {
     vi.stubEnv('X402_SETTLE_MODE', 'legacy');
-    expect(getSettleMode(BASE)).toBe('legacy');  // right chain, flag off
+    vi.stubEnv('X402_CHAIN_ID', '8453');
+    expect(getSettleMode()).toBe('legacy');
   });
 
   it('computes raw USDC amounts (6 decimals)', () => {

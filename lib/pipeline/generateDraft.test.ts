@@ -1,21 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const getSettleMode = vi.fn();
+const getSettleChainId = vi.fn();
 const payGroqViaX402 = vi.fn();
 const settleX402Call = vi.fn();
 const create = vi.fn();
 
-vi.mock('@/lib/x402/config', () => ({ getSettleMode, X402_PRICE_USD: '0.001', GROQ_MODEL: 'llama-3.3-70b-versatile' }));
+vi.mock('@/lib/x402/config', () => ({ getSettleMode, getSettleChainId, X402_PRICE_USD: '0.001', GROQ_MODEL: 'llama-3.3-70b-versatile' }));
 vi.mock('@/lib/x402/client', () => ({ payGroqViaX402 }));
 vi.mock('@/lib/agent/orchestrator', () => ({ settleX402Call }));
 vi.mock('groq-sdk', () => ({ default: class { chat = { completions: { create } }; } }));
 
 const { generateDraft } = await import('./generateDraft');
 
-const ctx = { chainId: 84532, threadId: 1n, topic: 't', audience: 'beginner' as const, agentWallet: '0xw' as const };
+const ctx = { chainId: 42220, threadId: 1n, topic: 't', audience: 'beginner' as const, agentWallet: '0xw' as const };
 const msgs = { messages: [{ role: 'user' as const, content: 'x' }], temperature: 0.7, maxTokens: 1200 };
 
-beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('GROQ_API_KEY', 'k'); });
+beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('GROQ_API_KEY', 'k'); getSettleChainId.mockReturnValue(8453); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 describe('generateDraft', () => {
@@ -26,6 +27,8 @@ describe('generateDraft', () => {
     expect(out).toEqual({ tweets: ['a', 'b'], txHash: '0xtx', costHuman: '0.001', tokenSymbol: 'USDC' });
     expect(create).not.toHaveBeenCalled();
     expect(settleX402Call).not.toHaveBeenCalled();
+    // Decoupling: payment chain is Celo, settle chain comes from env config.
+    expect(payGroqViaX402).toHaveBeenCalledWith(expect.objectContaining({ chainId: 8453 }));
   });
 
   it('x402 mode: empty settlementTxHash falls back to 0x0', async () => {
