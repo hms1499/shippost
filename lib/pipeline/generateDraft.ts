@@ -20,6 +20,8 @@ export interface DraftResult {
   txHash: Hex;
   costHuman: string;
   tokenSymbol: 'cUSD' | 'USDC';
+  // Settle chain when it differs from the payment chain — x402 path only.
+  chainId?: number;
 }
 
 // Direct Groq generation: call, validate, parse — NO settle, NO abort plumbing.
@@ -46,9 +48,10 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
   throwIfAborted(ctx.signal);
 
   if (getSettleMode() === 'x402') {
+    const settleChainId = getSettleChainId();
     try {
       const { tweets, settlementTxHash } = await payGroqViaX402({
-        chainId: getSettleChainId(),
+        chainId: settleChainId,
         messages: input.messages,
         temperature: input.temperature,
         maxTokens: input.maxTokens,
@@ -61,6 +64,7 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
         txHash: (settlementTxHash || '0x0') as Hex,
         costHuman: X402_PRICE_USD,
         tokenSymbol: 'USDC',
+        chainId: settleChainId,
       };
     } catch (e) {
       // Deadline fired: the run is already fatal + refundable — never settle

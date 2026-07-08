@@ -16,6 +16,7 @@ export interface StepState {
   txHash?: string;
   costAmount?: string;
   tokenSymbol?: string;
+  chainId?: number;
   error?: string;
 }
 
@@ -61,6 +62,7 @@ export function applyEvent(prev: ThreadGenerationState, e: PipelineEvent): Threa
         txHash: e.txHash,
         costAmount: e.costAmount,
         tokenSymbol: e.tokenSymbol,
+        chainId: e.chainId,
       };
       return { ...prev, steps, isSlow: false };
     }

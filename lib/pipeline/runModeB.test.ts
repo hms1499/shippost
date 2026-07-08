@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Address } from 'viem';
+import type { PipelineEvent } from './types';
 
 // runModeB orchestrates the grounded pipeline (serper → coingecko → groq →
 // factCheck) and is the shared engine behind both the Hot Take and Token
@@ -47,7 +48,7 @@ beforeEach(() => {
     maxSupply: null,
     athChangePct: null,
   });
-  generateDraft.mockResolvedValue({ tweets: ['1', '2'], txHash: '0xabc', costHuman: '0.010', tokenSymbol: 'cUSD' });
+  generateDraft.mockResolvedValue({ tweets: ['1', '2'], txHash: '0xabc', costHuman: '0.010', tokenSymbol: 'cUSD', chainId: 8453 });
   runFactCheckStep.mockResolvedValue({ tweets: ['1', '2'] });
 });
 
@@ -64,6 +65,16 @@ describe('runModeB default (Hot Take) behaviour', () => {
     await runModeB({ ...baseCtx, angle: 'bullish', eventDescription: 'unique-event-marker' }, () => {});
     expect(generateDraft).toHaveBeenCalledOnce();
     expect(userMessageOf(generateDraft.mock.calls[0])).toContain('unique-event-marker');
+  });
+
+  it('forwards the settle chainId on the groq step_settled event', async () => {
+    const events: PipelineEvent[] = [];
+    await runModeB(
+      { ...baseCtx, angle: 'skeptical', eventDescription: 'evt' },
+      (e) => events.push(e),
+    );
+    const settled = events.find((e) => e.type === 'step_settled' && e.step === 'groq');
+    expect(settled).toMatchObject({ chainId: 8453 });
   });
 });
 

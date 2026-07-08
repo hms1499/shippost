@@ -26,7 +26,7 @@ describe('generateDraft', () => {
     getSettleMode.mockReturnValue('x402');
     payGroqViaX402.mockResolvedValue({ tweets: ['a', 'b'], settlementTxHash: '0xtx' });
     const out = await generateDraft(ctx, msgs);
-    expect(out).toEqual({ tweets: ['a', 'b'], txHash: '0xtx', costHuman: '0.001', tokenSymbol: 'USDC' });
+    expect(out).toEqual({ tweets: ['a', 'b'], txHash: '0xtx', costHuman: '0.001', tokenSymbol: 'USDC', chainId: 8453 });
     expect(create).not.toHaveBeenCalled();
     expect(settleX402Call).not.toHaveBeenCalled();
     // Decoupling: payment chain is Celo, settle chain comes from env config.
@@ -50,6 +50,7 @@ describe('generateDraft', () => {
     expect(out.tokenSymbol).toBe('cUSD');
     expect(out.txHash).toBe('0xsink');
     expect(out.tweets.length).toBeGreaterThan(0);
+    expect(out.chainId).toBeUndefined();
   });
 
   it('legacy mode: throws (no settle) on empty Groq output', async () => {

@@ -110,6 +110,7 @@ export async function runModeB(
     txHash: draft.txHash,
     costAmount: draft.costHuman,
     tokenSymbol: draft.tokenSymbol,
+    chainId: draft.chainId,
   });
   emit({ type: 'step_output', step: 'groq', output: draft.tweets });
 

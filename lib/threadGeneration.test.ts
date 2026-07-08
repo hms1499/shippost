@@ -66,6 +66,7 @@ describe('applyEvent — existing transitions still hold', () => {
       txHash: '0xdead',
       costAmount: '1000',
       tokenSymbol: 'USDC',
+      chainId: 8453,
     });
     expect(s.steps.serper).toMatchObject({
       status: 'settled',
@@ -73,6 +74,7 @@ describe('applyEvent — existing transitions still hold', () => {
       costAmount: '1000',
       tokenSymbol: 'USDC',
     });
+    expect(s.steps.serper.chainId).toBe(8453);
   });
 
   it('step_output as array sets tweets', () => {
