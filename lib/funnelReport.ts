@@ -31,8 +31,8 @@ export interface FunnelReport {
   // conversion[stage] = perStage[stage] / perStage[previous stage]; first
   // stage and any zero-upstream → 0 (never NaN).
   conversion: StageCounts;
-  // byMode[0|1|2|3] = per-stage distinct sessions for rows with that mode.
-  byMode: Record<0 | 1 | 2 | 3, StageCounts>;
+  // byMode[0|1|2|3|4] = per-stage distinct sessions for rows with that mode.
+  byMode: Record<0 | 1 | 2 | 3 | 4, StageCounts>;
 }
 
 export function computeFunnel(rows: FunnelRow[]): FunnelReport {
@@ -53,7 +53,8 @@ export function computeFunnel(rows: FunnelRow[]): FunnelReport {
     1: distinctPerStage(rows.filter((r) => r.mode === 1)),
     2: distinctPerStage(rows.filter((r) => r.mode === 2)),
     3: distinctPerStage(rows.filter((r) => r.mode === 3)),
-  } as Record<0 | 1 | 2 | 3, StageCounts>;
+    4: distinctPerStage(rows.filter((r) => r.mode === 4)),
+  } as Record<0 | 1 | 2 | 3 | 4, StageCounts>;
 
   return { perStage, conversion, byMode };
 }
