@@ -152,3 +152,69 @@ export async function fetchDefiOverview(): Promise<string | null> {
 
   return lines.length ? lines.join('\n') : null;
 }
+
+export interface ChainTvl {
+  tvlUsd: number;
+  change7dPct: number | null;
+}
+
+// 7d TVL momentum for a chain from the historical series. Soft: null on any
+// failure — momentum is additive color, absolute TVL is the anchor.
+async function fetchChain7dPct(chain: string, currentTvl: number): Promise<number | null> {
+  try {
+    const series = await retryOnce(async () => {
+      const res = await fetch(`${LLAMA_BASE}/v2/historicalChainTvl/${encodeURIComponent(chain)}`);
+      if (!res.ok) throw new Error(`DefiLlama ${res.status}`);
+      const j = (await res.json()) as Array<{ date?: number; tvl?: number }>;
+      if (!Array.isArray(j)) throw new Error('DefiLlama historicalChainTvl shape');
+      return j;
+    });
+    // Points are daily; index from the end for ~7 days ago.
+    const past = series[series.length - 8];
+    const pastTvl = past?.tvl;
+    if (typeof pastTvl !== 'number' || pastTvl <= 0) return null;
+    return ((currentTvl - pastTvl) / pastTvl) * 100;
+  } catch {
+    return null;
+  }
+}
+
+// Resolve a chain's current TVL (by exact DefiLlama name) + 7d momentum. Soft:
+// null when the chain isn't found or the API fails, so a comparison still ships
+// on the other chain + Serper narrative.
+export async function fetchChainTvl(chainName: string): Promise<ChainTvl | null> {
+  let rows: ChainRow[];
+  try {
+    rows = await retryOnce(async () => {
+      const res = await fetch(`${LLAMA_BASE}/v2/chains`);
+      if (!res.ok) throw new Error(`DefiLlama ${res.status}`);
+      const j = (await res.json()) as ChainRow[];
+      if (!Array.isArray(j)) throw new Error('DefiLlama /v2/chains shape');
+      return j;
+    });
+  } catch {
+    return null;
+  }
+  const hit = rows.find((c) => c.name === chainName && typeof c.tvl === 'number' && c.tvl! > 0);
+  if (!hit) return null;
+  const tvlUsd = hit.tvl!;
+  const change7dPct = await fetchChain7dPct(chainName, tvlUsd);
+  return { tvlUsd, change7dPct };
+}
+
+// One line per chain: "Solana: TVL $9.10B (+4.2% 7d)". Drops a null chain and
+// returns null only when neither chain resolved (both-null → no hard data).
+export function summarizeChainTvl(
+  aLabel: string,
+  a: ChainTvl | null,
+  bLabel: string,
+  b: ChainTvl | null,
+): string | null {
+  const line = (label: string, c: ChainTvl | null): string | null => {
+    if (!c) return null;
+    const mom = c.change7dPct !== null ? ` (${signedPct(c.change7dPct)} 7d)` : '';
+    return `${label}: TVL ${usdCompact(c.tvlUsd)}${mom}`;
+  };
+  const parts = [line(aLabel, a), line(bLabel, b)].filter((s): s is string => Boolean(s));
+  return parts.length ? parts.join('\n') : null;
+}

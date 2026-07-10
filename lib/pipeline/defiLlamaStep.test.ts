@@ -113,3 +113,28 @@ describe('fetchDefiOverview', () => {
     expect(await fetchDefiOverview()).toBeNull();
   });
 });
+
+describe('summarizeChainTvl', () => {
+  it('returns null when both chains have no TVL', async () => {
+    const { summarizeChainTvl } = await import('./defiLlamaStep');
+    expect(summarizeChainTvl('Solana', null, 'Base', null)).toBeNull();
+  });
+
+  it('emits one line per chain with signed 7d momentum', async () => {
+    const { summarizeChainTvl } = await import('./defiLlamaStep');
+    const out = summarizeChainTvl(
+      'Solana',
+      { tvlUsd: 9_100_000_000, change7dPct: 4.2 },
+      'Base',
+      { tvlUsd: 3_400_000_000, change7dPct: -1.5 },
+    );
+    expect(out).toContain('Solana: TVL $9.10B (+4.2% 7d)');
+    expect(out).toContain('Base: TVL $3.40B (-1.5% 7d)');
+  });
+
+  it('omits the 7d clause when momentum is null and keeps the present chain when the other is null', async () => {
+    const { summarizeChainTvl } = await import('./defiLlamaStep');
+    const out = summarizeChainTvl('Celo', { tvlUsd: 120_000_000, change7dPct: null }, 'Base', null);
+    expect(out).toBe('Celo: TVL $120.0M');
+  });
+});
