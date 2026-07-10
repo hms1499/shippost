@@ -10,6 +10,18 @@ beforeEach(() => {
   vi.resetModules();
 });
 
+const chains = [
+  { name: 'Ethereum', tvl: 58_000_000_000 },
+  { name: 'Solana', tvl: 12_000_000_000 },
+  { name: 'Base', tvl: 3_400_000_000 },
+];
+
+const historicalData = [
+  { date: 1609459200, tvl: 11_800_000_000 },
+  { date: 1609545600, tvl: 11_900_000_000 },
+  { date: 1609632000, tvl: 12_000_000_000 },
+];
+
 const protocols = [
   { name: 'Aave V2', symbol: 'AAVE', tvl: 5_000_000_000, change_7d: 1.2, category: 'Lending' },
   { name: 'Aave V3', symbol: 'AAVE', tvl: 9_000_000_000, change_7d: 3.4, category: 'Lending' },
@@ -111,6 +123,57 @@ describe('fetchDefiOverview', () => {
     const { fetchDefiOverview } = await import('./defiLlamaStep');
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
     expect(await fetchDefiOverview()).toBeNull();
+  });
+});
+
+describe('fetchChainTvl', () => {
+  it('returns tvlUsd and change7dPct when chain matches by name', async () => {
+    const { fetchChainTvl } = await import('./defiLlamaStep');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/v2/chains')) {
+          return {
+            ok: true,
+            json: async () => chains,
+          };
+        }
+        if (url.includes('/v2/historicalChainTvl/Solana')) {
+          return {
+            ok: true,
+            json: async () => historicalData,
+          };
+        }
+        return { ok: false, status: 404 };
+      }),
+    );
+    const out = await fetchChainTvl('Solana');
+    expect(out).not.toBeNull();
+    expect(out!.tvlUsd).toBe(12_000_000_000);
+    expect(typeof out!.change7dPct === 'number' || out!.change7dPct === null).toBe(true);
+  });
+
+  it('returns null when /v2/chains endpoint fails', async () => {
+    const { fetchChainTvl } = await import('./defiLlamaStep');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 })));
+    expect(await fetchChainTvl('Ethereum')).toBeNull();
+  });
+
+  it('returns null when chain name does not match any in /v2/chains', async () => {
+    const { fetchChainTvl } = await import('./defiLlamaStep');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/v2/chains')) {
+          return {
+            ok: true,
+            json: async () => chains,
+          };
+        }
+        return { ok: false, status: 404 };
+      }),
+    );
+    expect(await fetchChainTvl('Bitcoin')).toBeNull();
   });
 });
 
