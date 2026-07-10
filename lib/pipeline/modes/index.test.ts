@@ -12,6 +12,11 @@ vi.mock('@/lib/pipeline/coingeckoStep', () => ({
   fetchMarketOverview: vi.fn(),
   runMarketOverviewStep: vi.fn(),
 }));
+vi.mock('@/lib/pipeline/defiLlamaStep', () => ({
+  fetchChainTvl: vi.fn(),
+  summarizeChainTvl: vi.fn(),
+  fetchDefiOverview: vi.fn(),
+}));
 
 const { getMode, MODES } = await import('./index');
 
@@ -37,6 +42,11 @@ describe('mode registry', () => {
 
   it('daily-recap requires no input', () => {
     expect(getMode(3)?.validateInput({})).toBeNull();
+  });
+
+  it('maps id 4 to the comparison mode', () => {
+    expect(getMode(4)?.id).toBe(4);
+    expect(getMode(4)?.key).toBe('comparison');
   });
 
   it('returns null for an unknown mode id', () => {
