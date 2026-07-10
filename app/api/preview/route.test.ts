@@ -106,8 +106,29 @@ describe('POST /api/preview', () => {
   });
 
   it('rejects an out-of-range mode', async () => {
+    const res = await POST(req({ mode: 5, walletAddress: '0xabc' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts mode 4 (Chain Comparison) with a connected wallet and topic pair', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook', '2/ body'] });
+    const res = await POST(req({ mode: 4, walletAddress: '0xabc', topic: 'solana|base' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ firstTweet: '1/ hook', totalTweets: 2 });
+    expect(runPreview).toHaveBeenCalledWith({ mode: 4, topic: 'solana|base' });
+  });
+
+  it('rejects mode 4 without a topic', async () => {
     const res = await POST(req({ mode: 4, walletAddress: '0xabc' }));
     expect(res.status).toBe(400);
+    expect(runPreview).not.toHaveBeenCalled();
+  });
+
+  it('rejects a guest (no wallet) for mode 4', async () => {
+    const res = await POST(req({ mode: 4, topic: 'solana|base' }));
+    expect(res.status).toBe(400);
+    expect(runPreview).not.toHaveBeenCalled();
+    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
   });
 
   it('forwards eventContext into the mode-1 preview input', async () => {

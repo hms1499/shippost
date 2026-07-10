@@ -28,8 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
   }
 
-  if (body.mode !== 0 && body.mode !== 1 && body.mode !== 2 && body.mode !== 3) {
-    return NextResponse.json({ error: 'mode must be 0, 1, 2, or 3' }, { status: 400 });
+  if (
+    body.mode !== 0 &&
+    body.mode !== 1 &&
+    body.mode !== 2 &&
+    body.mode !== 3 &&
+    body.mode !== 4
+  ) {
+    return NextResponse.json({ error: 'mode must be 0, 1, 2, 3, or 4' }, { status: 400 });
   }
 
   // walletAddress is optional: absent means a pre-connect guest tasting from the
@@ -63,6 +69,12 @@ export async function POST(request: Request) {
       ? (body.angle as PreviewInput['angle'])
       : 'skeptical';
     input = { mode: 2, topic: body.topic, angle };
+  } else if (body.mode === 4) {
+    // Chain Comparison — the two chain keys ride in on `topic` as "a|b".
+    if (typeof body.topic !== 'string' || !body.topic.trim()) {
+      return NextResponse.json({ error: 'topic required' }, { status: 400 });
+    }
+    input = { mode: 4, topic: body.topic };
   } else {
     if (typeof body.eventDescription !== 'string' || !body.eventDescription.trim()) {
       return NextResponse.json({ error: 'eventDescription required' }, { status: 400 });
