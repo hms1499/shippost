@@ -4,13 +4,15 @@ import { Card } from '@/components/ui/card';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 interface ComposeSummaryProps {
-  mode: 0 | 1 | 2 | 3;
+  mode: 0 | 1 | 2 | 3 | 4;
   tokenSymbol: string;
   topic?: string;
   audience?: string;
   eventDescription?: string;
   angle?: string;
   ticker?: string;
+  chainA?: string;
+  chainB?: string;
 }
 
 function cap(s: string): string {
@@ -30,10 +32,20 @@ export function ComposeSummary({
   eventDescription,
   angle,
   ticker,
+  chainA,
+  chainB,
 }: ComposeSummaryProps) {
-  const order = mode === 1 ? 1 : mode === 0 ? 2 : mode === 2 ? 3 : 4;
+  const order = mode === 1 ? 1 : mode === 0 ? 2 : mode === 2 ? 3 : mode === 3 ? 4 : 5;
   const label =
-    mode === 0 ? 'Educational' : mode === 1 ? 'Hot Take' : mode === 2 ? 'Token Analysis' : 'Daily Recap';
+    mode === 0
+      ? 'Educational'
+      : mode === 1
+        ? 'Hot Take'
+        : mode === 2
+          ? 'Token Analysis'
+          : mode === 3
+            ? 'Daily Recap'
+            : 'Chain Comparison';
 
   return (
     <Card className="w-full max-w-md p-5 flex flex-col gap-3">
@@ -61,6 +73,8 @@ export function ComposeSummary({
           </>
         ) : mode === 3 ? (
           <Field label="Brief" value="Today's market, recapped" />
+        ) : mode === 4 ? (
+          <Field label="Matchup" value={`${chainA ?? ''} vs ${chainB ?? ''}`} />
         ) : (
           <>
             <Field label="Event" value={eventDescription ?? ''} />

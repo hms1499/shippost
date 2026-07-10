@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import useSWR from 'swr';
 import { useChainId } from 'wagmi';
-import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, GitCompare, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
@@ -217,7 +217,14 @@ function Metric({
 }
 
 function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string }) {
-  const ModeIcon = thread.mode === 0 ? GraduationCap : thread.mode === 3 ? Newspaper : Flame;
+  const ModeIcon =
+    thread.mode === 0
+      ? GraduationCap
+      : thread.mode === 3
+        ? Newspaper
+        : thread.mode === 4
+          ? GitCompare
+          : Flame;
   return (
     <li>
       <Card className="p-3 flex items-start gap-3">

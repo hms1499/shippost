@@ -22,4 +22,17 @@ describe('threadLabel', () => {
   it('falls back to "Untitled thread" for an unknown mode with no topic', () => {
     expect(threadLabel({ mode: 9, topic: null })).toBe('Untitled thread');
   });
+
+  it('decodes mode-4 comparison topics to "<LabelA> vs <LabelB>"', () => {
+    expect(threadLabel({ mode: 4, topic: 'solana|base' })).toBe('Solana vs Base');
+    expect(threadLabel({ mode: 4, topic: 'ethereum|bsc' })).toBe('Ethereum vs BNB Chain');
+  });
+
+  it('falls back to the raw key for an unrecognized mode-4 chain key', () => {
+    expect(threadLabel({ mode: 4, topic: 'solana|madeupchain' })).toBe('Solana vs madeupchain');
+  });
+
+  it('falls back to "Chain Comparison" for mode 4 with no topic', () => {
+    expect(threadLabel({ mode: 4, topic: null })).toBe('Chain Comparison');
+  });
 });

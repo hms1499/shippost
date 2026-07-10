@@ -43,6 +43,7 @@ import { computeTokenAmount } from '@/lib/tokens';
 import { TARGET_CHAIN_ID, targetChainName, IS_TESTNET_TARGET } from '@/lib/targetChain';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
+import { CHAINS } from '@/lib/prompts/comparison';
 import { useIsDesktop } from '@/lib/useIsDesktop';
 import { useKeyboardInset } from '@/lib/useKeyboardInset';
 import { ComposeSummary } from '@/components/ComposeSummary';
@@ -719,6 +720,13 @@ export default function HomeClient() {
     />
   ) : dailyRecap ? (
     <ComposeSummary mode={3} tokenSymbol={dailyRecap.token.symbol} />
+  ) : comparison ? (
+    <ComposeSummary
+      mode={4}
+      chainA={CHAINS.find((c) => c.key === comparison.aKey)?.label ?? comparison.aKey}
+      chainB={CHAINS.find((c) => c.key === comparison.bKey)?.label ?? comparison.bKey}
+      tokenSymbol={comparison.token.symbol}
+    />
   ) : null;
 
   return (
