@@ -1,0 +1,153 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TerminalPanel } from '@/components/terminal/TerminalPanel';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
+import { TokenSelector } from './TokenSelector';
+import { useBalances } from '@/lib/useBalances';
+import type { TokenBalance } from '@/lib/useBalances';
+import { computeTokenAmount } from '@/lib/tokens';
+import { CHAINS } from '@/lib/prompts/comparison';
+import { formatUnits } from 'viem';
+
+export interface ChainComparisonSubmitPayload {
+  aKey: string;
+  bKey: string;
+  token: TokenBalance;
+}
+
+interface Props {
+  onSubmit: (p: ChainComparisonSubmitPayload) => void;
+  onBack?: () => void;
+  disabled?: boolean;
+  submitting?: boolean;
+}
+
+export function ChainComparisonInput({ onSubmit, onBack, disabled, submitting }: Props) {
+  const { balances, isLoading } = useBalances();
+  const [aKey, setAKey] = useState('solana');
+  const [bKey, setBKey] = useState('base');
+
+  const distinct = aKey !== bKey;
+
+  const defaultToken = useMemo(() => {
+    if (!balances.length) return null;
+    return [...balances].sort((a, b) => (a.balance > b.balance ? -1 : 1))[0];
+  }, [balances]);
+  const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
+  const effectiveToken = selectedToken ?? defaultToken;
+  const insufficient =
+    effectiveToken !== null && effectiveToken.balance < computeTokenAmount(effectiveToken);
+
+  const canSubmit =
+    distinct && effectiveToken !== null && !insufficient && !disabled && !submitting;
+
+  const amountStr = effectiveToken
+    ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
+    : '';
+
+  const selectClass =
+    'flex-1 rounded-md border border-input bg-card px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
+
+  return (
+    <section className="w-full max-w-md flex flex-col gap-4">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={disabled || submitting}
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ArrowLeft size={12} aria-hidden />
+          Modes
+        </button>
+      )}
+
+      <TerminalPanel variant="plain" className="w-full">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2.5">
+            <GitCompare size={18} className="text-primary shrink-0" aria-hidden />
+            <div className="flex flex-col gap-0.5">
+              <p className="heading-sub text-[10px]">Chain comparison</p>
+              <h2 className="font-mono font-bold text-xl leading-tight tracking-tight">
+                Pick two chains
+              </h2>
+            </div>
+          </div>
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
+            The agent reads each chain&apos;s TVL &amp; momentum, then calls a winner.
+          </p>
+
+          <RuleDivider />
+
+          <div className="flex flex-col gap-2">
+            <label htmlFor="chain-a" className="heading-sub text-[10px]">Chain A</label>
+            <select id="chain-a" value={aKey} disabled={disabled} onChange={(e) => setAKey(e.target.value)} className={selectClass}>
+              {CHAINS.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label htmlFor="chain-b" className="heading-sub text-[10px]">Chain B</label>
+            <select id="chain-b" value={bKey} disabled={disabled} onChange={(e) => setBKey(e.target.value)} className={selectClass}>
+              {CHAINS.map((c) => (
+                <option key={c.key} value={c.key}>{c.label}</option>
+              ))}
+            </select>
+            {!distinct && (
+              <p className="text-xs font-sans text-destructive leading-snug">Pick two different chains.</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="heading-sub text-[10px]">Token</p>
+            {isLoading ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
+                Loading balances…
+              </p>
+            ) : (
+              <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {effectiveToken && (
+              <div className="flex items-baseline gap-2 text-[11px]">
+                <span className="text-muted-foreground">You pay</span>
+                <span aria-hidden className="flex-1 border-b border-dotted border-border mb-1 opacity-50" />
+                <span className="font-mono text-money">{amountStr} {effectiveToken.symbol}</span>
+              </div>
+            )}
+            {insufficient && effectiveToken && (
+              <p className="text-xs font-sans text-destructive leading-snug">
+                You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or pick another token above.
+              </p>
+            )}
+            <Button
+              disabled={!canSubmit}
+              onClick={() => {
+                if (canSubmit && effectiveToken) onSubmit({ aKey, bKey, token: effectiveToken });
+              }}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden />
+                  Drafting sample…
+                </>
+              ) : !effectiveToken
+                ? 'Select token'
+                : insufficient
+                  ? `Not enough ${effectiveToken.symbol}`
+                  : `Compare for ${amountStr} ${effectiveToken.symbol} →`}
+            </Button>
+          </div>
+        </div>
+      </TerminalPanel>
+    </section>
+  );
+}

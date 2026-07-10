@@ -6,12 +6,13 @@ export type Screen =
   | 'hot-take'
   | 'token-analysis'
   | 'daily-recap'
+  | 'comparison'
   | 'preview-locked'
   | 'generating'
   | 'preview'
   | 'post-share';
 
-const INPUT_SCREENS: readonly Screen[] = ['mode', 'educational', 'hot-take', 'token-analysis', 'daily-recap'];
+const INPUT_SCREENS: readonly Screen[] = ['mode', 'educational', 'hot-take', 'token-analysis', 'daily-recap', 'comparison'];
 
 export function isInputScreen(screen: Screen): boolean {
   return INPUT_SCREENS.includes(screen);

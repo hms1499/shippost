@@ -1,14 +1,14 @@
 'use client';
 
-import { ArrowRight, Flame, GraduationCap, Coins, PenLine } from 'lucide-react';
+import { ArrowRight, Flame, GraduationCap, Coins, PenLine, GitCompare } from 'lucide-react';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 
 interface Props {
-  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap') => void;
+  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap' | 'comparison') => void;
 }
 
 interface Mode {
-  id: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap';
+  id: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap' | 'comparison';
   numeral: string;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -59,6 +59,15 @@ const MODES: Mode[] = [
     blurb: "Today's market in one thread — nothing to type. Top movers, headlines, one thing to watch.",
     cost: '$0.003',
     badge: 'one tap · live market · fact-checked',
+  },
+  {
+    id: 'comparison',
+    numeral: 'V',
+    label: 'Chain Comparison',
+    Icon: GitCompare,
+    blurb: 'Two chains enter, one wins. TVL, momentum & ecosystem activity — the agent calls it.',
+    cost: '$0.003',
+    badge: 'grounded · TVL · fact-checked',
   },
 ];
 
