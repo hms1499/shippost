@@ -21,7 +21,7 @@ export const CHAINS: ChainEntry[] = [
   { key: 'tron', label: 'Tron', defiLlamaName: 'Tron' },
   { key: 'celo', label: 'Celo', defiLlamaName: 'Celo' },
   { key: 'blast', label: 'Blast', defiLlamaName: 'Blast' },
-  { key: 'zksync', label: 'zkSync Era', defiLlamaName: 'zkSync Era' },
+  { key: 'zksync', label: 'zkSync Era', defiLlamaName: 'ZKsync Era' },
 ];
 
 export const CHAIN_BY_KEY: Record<string, ChainEntry> = Object.fromEntries(
