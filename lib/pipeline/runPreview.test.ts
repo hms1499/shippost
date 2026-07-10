@@ -107,6 +107,7 @@ describe('preview drain-safety invariant', () => {
       './modes/hotTake.ts',
       './modes/tokenAnalysis.ts',
       './modes/dailyRecap.ts',
+      './modes/comparison.ts',
     ];
     for (const f of files) {
       const src = readFileSync(new URL(f, import.meta.url), 'utf8');

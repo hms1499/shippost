@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const runModeB = vi.fn(async () => ({
+const runModeB = vi.fn(async (_ctx: unknown, _emit: unknown) => ({
   tweets: ['1/ x'],
   totalCostUsd: '0.003',
   searchSummary: null,
@@ -46,7 +46,7 @@ describe('comparisonMode.run', () => {
   it('passes a serperQuery naming both chains and a comparison buildPrompt', async () => {
     await comparisonMode.run({ ...baseCtx }, { topic: 'solana|base' }, () => {});
     expect(runModeB).toHaveBeenCalledTimes(1);
-    const overrides = runModeB.mock.calls[0][0];
+    const overrides = runModeB.mock.calls[0][0] as any;
     expect(overrides.serperQuery).toContain('Solana');
     expect(overrides.serperQuery).toContain('Base');
     const prompt = overrides.buildPrompt({ searchSummary: null, marketSnippet: 'A: TVL $1.00B (+1.0% 7d)' });
