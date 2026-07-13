@@ -4,11 +4,17 @@
 // length: X actually weighs any URL as 23 chars (t.co) and the ✍️ emoji as 2,
 // so `.length` over-counts the URL — that is safe, because the only effect of
 // over-counting is dropping the attribution, never truncating the user's text.
-const DEFAULT_APP_URL = 'https://shippost.app';
+// The live app. NOT shippost.app — that domain is parked DNS and does not
+// resolve, so a share link pointing at it is a dead link in someone else's feed.
+const DEFAULT_APP_URL = 'https://shippost-kappa.vercel.app';
 const TWEET_MAX = 280;
 
 export function shareAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? DEFAULT_APP_URL;
+  // `??` would only catch undefined. A Vercel env var stored as "" (the CLI
+  // stdin bug, hit twice on this project) is present-but-empty and would slip
+  // through, putting an empty URL in every share. Treat blank as absent.
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  return fromEnv || DEFAULT_APP_URL;
 }
 
 // Web intent only — the twitter:// app scheme is NOT handled by the MiniPay

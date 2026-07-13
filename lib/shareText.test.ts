@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { buildShareText, tweetIntentUrl } from './shareText';
 
 const URL = 'https://shippost.app';
@@ -42,5 +42,38 @@ describe('tweetIntentUrl', () => {
     expect(out).toBe(
       'https://x.com/intent/post?text=1%2F%20gm%0A%0A%E2%9C%8D%EF%B8%8F%20made%20with%20CoinOp%20%E2%80%94%20https%3A%2F%2Fshippost.app',
     );
+  });
+});
+
+// This project has twice had a Vercel env var silently stored as "" (the CLI
+// stdin bug). `??` does not catch that — only `undefined` — so an empty env
+// would have made every share link empty. And the fallback must never point at
+// a host that does not resolve: shippost.app is parked DNS, not the app.
+describe('shareAppUrl', () => {
+  const ORIG = process.env.NEXT_PUBLIC_APP_URL;
+  afterEach(() => {
+    if (ORIG === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = ORIG;
+  });
+
+  it('uses NEXT_PUBLIC_APP_URL when it is set', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.test';
+    const { shareAppUrl } = await import('./shareText');
+    expect(shareAppUrl()).toBe('https://example.test');
+  });
+
+  it('falls back to a LIVE url when the env var is absent — never the dead domain', async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const { shareAppUrl } = await import('./shareText');
+    expect(shareAppUrl()).not.toBe('https://shippost.app');
+    expect(shareAppUrl()).toBe('https://shippost-kappa.vercel.app');
+  });
+
+  it('treats an empty / whitespace env var as absent, never returning ""', async () => {
+    const { shareAppUrl } = await import('./shareText');
+    for (const empty of ['', '   ']) {
+      process.env.NEXT_PUBLIC_APP_URL = empty;
+      expect(shareAppUrl()).toBe('https://shippost-kappa.vercel.app');
+    }
   });
 });
