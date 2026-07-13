@@ -2,13 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Hoisted mock fns so the vi.mock factories (hoisted above imports) can close
 // over them.
-const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor, setMock } = vi.hoisted(() => ({
-  limitMock: vi.fn(),
-  redisCtor: vi.fn(),
-  slidingWindowMock: vi.fn((tokens: number, window: string) => ({ tokens, window })),
-  ratelimitCtor: vi.fn(),
-  setMock: vi.fn(),
-}));
+const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor, setMock, alertOpsMock } =
+  vi.hoisted(() => ({
+    limitMock: vi.fn(),
+    redisCtor: vi.fn(),
+    slidingWindowMock: vi.fn((tokens: number, window: string) => ({ tokens, window })),
+    ratelimitCtor: vi.fn(),
+    setMock: vi.fn(),
+    alertOpsMock: vi.fn(async () => {}),
+  }));
+
+vi.mock('@/lib/alert', () => ({ alertOps: alertOpsMock }));
 
 vi.mock('@upstash/redis', () => ({
   Redis: class {
@@ -304,5 +308,61 @@ describe('getClientIp', () => {
     const { getClientIp } = await load();
     const req = new Request('https://x');
     expect(getClientIp(req)).toBe('unknown');
+  });
+});
+
+// A fail-CLOSED preview gate returns {available:false} + HTTP 200 — a
+// valid-looking response, not an error — so nothing downstream pages a human.
+// It happened for real: Upstash env was never set on prod and the free preview
+// was dead for days in silence. These lock in that the outage now alerts.
+describe('preview-gate outage alerting', () => {
+  it('alerts when checkPreviewAllowed fails closed on missing env', async () => {
+    clearUpstashEnv();
+    const { checkPreviewAllowed } = await load();
+    await checkPreviewAllowed('0xabc', '1.2.3.4');
+    expect(alertOpsMock).toHaveBeenCalledTimes(1);
+    expect(String(alertOpsMock.mock.calls[0][0])).toMatch(/preview/i);
+  });
+
+  it('alerts when the guest gate fails closed on missing env', async () => {
+    clearUpstashEnv();
+    const { checkPreviewGuestAllowed } = await load();
+    await checkPreviewGuestAllowed('1.2.3.4');
+    expect(alertOpsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('alerts when the limiter throws (fails closed)', async () => {
+    setUpstashEnv();
+    limitMock.mockRejectedValue(new Error('redis exploded'));
+    const { checkPreviewAllowed } = await load();
+    await checkPreviewAllowed('0xabc', '1.2.3.4');
+    expect(alertOpsMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Redis is the thing that is down, so claimAlertOnce (Redis-backed, fails
+  // open) cannot throttle this — it would alert on EVERY request. Throttling is
+  // in-process instead.
+  it('throttles: a broken gate hit many times alerts only once', async () => {
+    clearUpstashEnv();
+    const { checkPreviewAllowed, checkPreviewGuestAllowed } = await load();
+    for (let i = 0; i < 5; i++) {
+      await checkPreviewAllowed('0xabc', '1.2.3.4');
+      await checkPreviewGuestAllowed('1.2.3.4');
+    }
+    expect(alertOpsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent on a healthy gate, and on ordinary rate-limit denials', async () => {
+    setUpstashEnv();
+    limitMock.mockResolvedValue({ success: true, limit: 3, remaining: 2, reset: 0 });
+    const { checkPreviewAllowed } = await load();
+    await checkPreviewAllowed('0xabc', '1.2.3.4');
+
+    limitMock.mockResolvedValue({ success: false, limit: 3, remaining: 0, reset: 0 });
+    expect(await checkPreviewAllowed('0xabc', '1.2.3.4')).toEqual({
+      allowed: false,
+      reason: 'rate',
+    });
+    expect(alertOpsMock).not.toHaveBeenCalled();
   });
 });

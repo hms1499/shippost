@@ -1,5 +1,6 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { alertOps } from '@/lib/alert';
 
 export type LimiterName =
   | 'url-preview'
@@ -156,6 +157,26 @@ export interface PreviewGate {
   reason?: 'rate' | 'ip' | 'global' | 'unavailable';
 }
 
+// A fail-CLOSED preview gate hands the caller {available:false} + HTTP 200 — a
+// valid-looking answer, not an error — so nothing else pages a human. Upstash
+// env was missing on prod for days and the free preview was dead the whole time
+// in silence. Alert on the outage, but NOT via claimAlertOnce: that throttle is
+// Redis-backed and fails open, and Redis is exactly what is down here, so it
+// would alert on every request. Throttle in-process instead — one page per
+// window per lambda instance is noisy enough to notice, quiet enough to ignore.
+const OUTAGE_ALERT_INTERVAL_MS = 15 * 60 * 1000;
+let lastOutageAlertMs = 0;
+
+function alertPreviewOutage(cause: string, e?: unknown): void {
+  const now = Date.now();
+  if (now - lastOutageAlertMs < OUTAGE_ALERT_INTERVAL_MS) return;
+  lastOutageAlertMs = now;
+  void alertOps('free preview is DOWN — gate failing closed, every caller denied', {
+    cause,
+    error: e instanceof Error ? e.message : e ? String(e) : undefined,
+  });
+}
+
 // Preview consumes shared third-party quota, so unlike checkRateLimit this
 // fails CLOSED: if the limiter can't be reached we deny rather than allow.
 // Order matters: per-wallet then per-IP, and the global daily budget LAST — so
@@ -166,7 +187,10 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
   const perWallet = getLimiter('free-preview');
   const perIp = getLimiter('free-preview-ip');
   const global = getLimiter('free-preview-global');
-  if (!perWallet || !perIp || !global) return { allowed: false, reason: 'unavailable' };
+  if (!perWallet || !perIp || !global) {
+    alertPreviewOutage('upstash-env-missing');
+    return { allowed: false, reason: 'unavailable' };
+  }
   try {
     const w = await perWallet.limit(`wallet:${walletAddress.toLowerCase()}`);
     if (!w.success) return { allowed: false, reason: 'rate' };
@@ -180,6 +204,7 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
       '[rateLimit] preview gate error — failing closed:',
       e instanceof Error ? e.message : e,
     );
+    alertPreviewOutage('limiter-error', e);
     return { allowed: false, reason: 'unavailable' };
   }
 }
@@ -193,7 +218,10 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
 export async function checkPreviewGuestAllowed(ip: string): Promise<PreviewGate> {
   const perIp = getLimiter('free-preview-ip');
   const global = getLimiter('free-preview-global');
-  if (!perIp || !global) return { allowed: false, reason: 'unavailable' };
+  if (!perIp || !global) {
+    alertPreviewOutage('upstash-env-missing');
+    return { allowed: false, reason: 'unavailable' };
+  }
   try {
     const i = await perIp.limit(`ip:${ip}`);
     if (!i.success) return { allowed: false, reason: 'ip' };
@@ -205,6 +233,7 @@ export async function checkPreviewGuestAllowed(ip: string): Promise<PreviewGate>
       '[rateLimit] guest preview gate error — failing closed:',
       e instanceof Error ? e.message : e,
     );
+    alertPreviewOutage('limiter-error', e);
     return { allowed: false, reason: 'unavailable' };
   }
 }
