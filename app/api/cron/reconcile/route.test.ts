@@ -3,14 +3,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const reconcileStuckThreads = vi.fn();
 const checkAgentWalletBalance = vi.fn();
 const checkReserveBalance = vi.fn();
+const checkPreviewAlive = vi.fn();
 const claimAlertOnce = vi.fn();
 const alertOps = vi.fn();
 const getSupabaseServer = vi.fn(() => ({}));
+const shareAppUrl = vi.fn(() => 'https://app.test');
 
 vi.mock('@/lib/agent/reconcile', () => ({ reconcileStuckThreads }));
 vi.mock('@/lib/agent/walletHealth', () => ({ checkAgentWalletBalance, checkReserveBalance }));
+vi.mock('@/lib/agent/previewHealth', () => ({ checkPreviewAlive }));
 vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));
 vi.mock('@/lib/alert', () => ({ alertOps }));
+vi.mock('@/lib/shareText', () => ({ shareAppUrl }));
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
 
 const { GET } = await import('./route');
@@ -30,6 +34,7 @@ beforeEach(() => {
   // Healthy balances by default so the reconcile-focused tests stay isolated.
   checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
   checkReserveBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
+  checkPreviewAlive.mockResolvedValue({ ok: true });
   claimAlertOnce.mockResolvedValue(true);
 });
 
@@ -113,6 +118,46 @@ describe('GET /api/cron/reconcile', () => {
 
   it('still returns 200 when the reserve check throws', async () => {
     checkReserveBalance.mockRejectedValue(new Error('rpc down'));
+    const res = await GET(req(auth));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
+  });
+});
+
+// The preview fails CLOSED and answers {available:false} with HTTP 200, so a
+// dead landing looks like a healthy one. This heartbeat is the only thing that
+// notices.
+describe('preview heartbeat', () => {
+  it('probes the public app URL a real visitor would hit', async () => {
+    await GET(req(auth));
+    expect(checkPreviewAlive).toHaveBeenCalledWith('https://app.test');
+  });
+
+  it('alerts when the preview is down', async () => {
+    checkPreviewAlive.mockResolvedValue({ ok: false, reason: 'gate denied (available:false)' });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledWith(
+      expect.stringMatching(/preview is DOWN/i),
+      expect.objectContaining({ reason: expect.stringMatching(/gate denied/) }),
+    );
+  });
+
+  it('stays silent when the preview is healthy', async () => {
+    await GET(req(auth));
+    expect(alertOps).not.toHaveBeenCalled();
+  });
+
+  it('respects the throttle', async () => {
+    checkPreviewAlive.mockResolvedValue({ ok: false, reason: 'HTTP 502' });
+    claimAlertOnce.mockResolvedValue(false);
+    await GET(req(auth));
+    expect(alertOps).not.toHaveBeenCalled();
+  });
+
+  // The primary job is sweeping stuck (paid, undelivered) threads. A flaky
+  // probe must never take that down.
+  it('never fails the reconcile job when the probe throws', async () => {
+    checkPreviewAlive.mockRejectedValue(new Error('network blew up'));
     const res = await GET(req(auth));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });

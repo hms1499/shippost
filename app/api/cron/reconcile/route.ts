@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { reconcileStuckThreads } from '@/lib/agent/reconcile';
 import { checkAgentWalletBalance, checkReserveBalance } from '@/lib/agent/walletHealth';
+import { checkPreviewAlive } from '@/lib/agent/previewHealth';
 import { claimAlertOnce } from '@/lib/rateLimit';
 import { alertOps } from '@/lib/alert';
+import { shareAppUrl } from '@/lib/shareText';
 import { TARGET_CHAIN_ID } from '@/lib/targetChain';
 
 export const runtime = 'nodejs';
@@ -13,6 +15,9 @@ export const dynamic = 'force-dynamic';
 const LOW_BALANCE_TTL_SEC = 6 * 60 * 60;
 const DEFAULT_AGENT_MIN_USD = 2;
 const DEFAULT_RESERVE_MIN_USD = 0.5;
+// Preview being down is a revenue-path outage, not a balance warning — page on
+// every cron run it stays broken, so it cannot be slept through.
+const PREVIEW_DOWN_TTL_SEC = 60;
 
 // Scheduled sweeper (see vercel.json crons). Recovers threads stuck in
 // status='pending' — paid, never delivered, never refunded — by queuing a
@@ -81,6 +86,27 @@ export async function GET(req: Request) {
     } catch (e) {
       console.error(
         '[cron/reconcile] reserve health check failed:',
+        e instanceof Error ? e.message : e,
+      );
+    }
+
+    // Heartbeat: the free preview, probed over HTTP like a real visitor. It
+    // fails CLOSED, and a fail-closed gate answers {available:false} with HTTP
+    // 200 — so when it broke in prod it broke silently and stayed broken. This
+    // is the check that would have caught it.
+    try {
+      const health = await checkPreviewAlive(shareAppUrl());
+      if (
+        !health.ok &&
+        (await claimAlertOnce('preview-down', PREVIEW_DOWN_TTL_SEC))
+      ) {
+        await alertOps('free preview is DOWN — landing conversion path is dead', {
+          reason: health.reason,
+        });
+      }
+    } catch (e) {
+      console.error(
+        '[cron/reconcile] preview health check failed:',
         e instanceof Error ? e.message : e,
       );
     }
