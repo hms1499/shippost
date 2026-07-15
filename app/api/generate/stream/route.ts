@@ -164,12 +164,16 @@ export async function POST(req: Request) {
 
       const txByStep: Partial<Record<'groq' | 'serper' | 'factCheck', string>> = {};
       let capturedTweets: string[] | null = null;
+      let groqSettleChainId: number | null = null;
 
       const emit = (e: PipelineEvent) => {
         if (e.type === 'step_settled' && e.step !== 'coingecko' && e.txHash !== '0x0') {
           if (e.step === 'groq' || e.step === 'serper' || e.step === 'factCheck') {
             txByStep[e.step] = e.txHash;
           }
+        }
+        if (e.type === 'step_settled' && e.step === 'groq') {
+          groqSettleChainId = e.chainId ?? body.chainId;
         }
         if (
           e.type === 'step_output' &&
@@ -227,6 +231,7 @@ export async function POST(req: Request) {
               search_summary: searchSummary,
               market_snippet: marketSnippet,
               status: 'completed',
+              groq_settle_chain_id: groqSettleChainId,
             })
             .eq('chain_id', body.chainId)
             .eq('onchain_thread_id', body.threadId);
@@ -251,6 +256,7 @@ export async function POST(req: Request) {
               status: 'failed',
               error_message: msg,
               groq_tx_hash: txByStep.groq ?? null,
+              groq_settle_chain_id: groqSettleChainId,
               serper_tx_hash: txByStep.serper ?? null,
               fact_check_tx_hash: txByStep.factCheck ?? null,
             })

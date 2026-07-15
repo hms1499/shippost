@@ -231,6 +231,40 @@ describe('POST /api/generate/stream', () => {
     });
   });
 
+  describe('groq settle chain persistence', () => {
+    it('persists the x402 settle chain (Base 8453) from the groq step_settled event', async () => {
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      runModeA.mockImplementation(
+        (_ctx: unknown, emit: (e: Record<string, unknown>) => void) => {
+          emit({ type: 'step_settled', step: 'groq', txHash: '0xbase', costAmount: '0.001', tokenSymbol: 'USDC', chainId: 8453 });
+          return Promise.resolve({ tweets: ['t1', 't2'], searchSummary: null, totalCostUsd: MODE_A_TOTAL_COST_USD });
+        },
+      );
+
+      await readSSE(await POST(postReq(bodyA)));
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0].status).toBe('completed');
+      expect(updates[0].groq_settle_chain_id).toBe(8453);
+    });
+
+    it('falls back to the payment chain (legacy) when the groq event carries no chainId', async () => {
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      runModeA.mockImplementation(
+        (_ctx: unknown, emit: (e: Record<string, unknown>) => void) => {
+          emit({ type: 'step_settled', step: 'groq', txHash: '0xcelo', costAmount: '0.010', tokenSymbol: 'cUSD' });
+          return Promise.resolve({ tweets: ['t1', 't2'], searchSummary: null, totalCostUsd: MODE_A_TOTAL_COST_USD });
+        },
+      );
+
+      await readSSE(await POST(postReq(bodyA)));
+
+      expect(updates[0].groq_settle_chain_id).toBe(CHAIN_ID); // celoSepolia.id = 11142220
+    });
+  });
+
   describe('failure path (clean, refundable state)', () => {
     it('emits fatal and marks the row failed when the pipeline throws', async () => {
       runModeA.mockRejectedValue(new Error('groq exploded'));
