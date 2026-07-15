@@ -9,7 +9,7 @@ const { limitMock, redisCtor, slidingWindowMock, ratelimitCtor, setMock, alertOp
     slidingWindowMock: vi.fn((tokens: number, window: string) => ({ tokens, window })),
     ratelimitCtor: vi.fn(),
     setMock: vi.fn(),
-    alertOpsMock: vi.fn(async () => {}),
+    alertOpsMock: vi.fn(async (..._args: unknown[]) => {}),
   }));
 
 vi.mock('@/lib/alert', () => ({ alertOps: alertOpsMock }));
