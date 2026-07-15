@@ -6,7 +6,7 @@
  * real x402 rail on Base — the endpoint smoke test cannot show this because it
  * bypasses the pipeline's getSettleMode() decision.
  *
- * Prereqs: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in env (point at prod to
+ * Prereqs: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE in env (point at prod to
  * audit prod). Migration 0008 must be applied first.
  *
  * Run:
