@@ -3,8 +3,13 @@
  * funnel_events. Answers "does each mode (esp. Comparison, mode 4) get used,
  * and where do users drop off?"
  *
- * Prereqs: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in env (point at prod to
- * report prod). Mode-4 rows only exist after migration 0009 is applied.
+ * Metric is DISTINCT SESSIONS per stage (deduped by session_id) — the same
+ * definition the app's /api/admin/funnel uses (lib/funnelReport.computeFunnel),
+ * so this script and that endpoint never disagree. Raw event counts would
+ * inflate stages a session can re-emit (e.g. reopening the mode picker).
+ *
+ * Prereqs: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE in env (point at
+ * prod to report prod). Mode-4 rows only exist after migration 0009 is applied.
  *
  * Run:
  *   pnpm funnel:report              # last 30 days
@@ -12,6 +17,8 @@
  */
 import 'dotenv/config';
 import { getSupabaseServer } from '../lib/supabase';
+import { computeFunnel, type FunnelRow } from '../lib/funnelReport';
+import { FUNNEL_STAGES } from '../lib/funnelTypes';
 
 const MODE_LABEL: Record<number, string> = {
   0: 'Educational',
@@ -21,8 +28,9 @@ const MODE_LABEL: Record<number, string> = {
   4: 'Comparison',
 };
 
-// Ordered funnel stages that carry a mode (connect is mode-less, counted apart).
-const STAGES = ['mode_select', 'submit', 'preview', 'pay', 'share'] as const;
+// The stages that carry a mode (connect + receipt_copied are mode-less and only
+// appear in the overall breakdown, never in a per-mode row).
+const MODE_STAGES = ['mode_select', 'submit', 'preview', 'pay', 'share'] as const;
 
 function parseDays(argv: string[]): number {
   for (const a of argv) {
@@ -41,7 +49,7 @@ async function main() {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('funnel_events')
-    .select('mode, stage, created_at')
+    .select('session_id, stage, mode')
     .gte('created_at', cutoff)
     .order('created_at', { ascending: false });
 
@@ -49,36 +57,27 @@ async function main() {
     console.error(error.message);
     process.exit(2);
   }
-  const rows = data ?? [];
+  const rows = (data ?? []) as FunnelRow[];
+  const report = computeFunnel(rows);
 
-  // counts[mode][stage] — mode -1 holds the mode-less `connect` stage.
-  const counts = new Map<number, Map<string, number>>();
-  const bump = (mode: number, stage: string) => {
-    if (!counts.has(mode)) counts.set(mode, new Map());
-    const m = counts.get(mode)!;
-    m.set(stage, (m.get(stage) ?? 0) + 1);
-  };
-  for (const r of rows) {
-    const mode = r.mode === null || r.mode === undefined ? -1 : Number(r.mode);
-    bump(mode, String(r.stage));
+  console.log(`Funnel over last ${days} day(s) — ${rows.length} events, distinct sessions per stage (since ${cutoff.slice(0, 10)}):\n`);
+
+  console.log('overall:');
+  for (const s of FUNNEL_STAGES) {
+    console.log(`  ${s.padEnd(13)} ${report.perStage[s]}`);
   }
-
-  console.log(`Funnel over last ${days} day(s) — ${rows.length} events (since ${cutoff.slice(0, 10)}):\n`);
-
-  const connect = counts.get(-1)?.get('connect') ?? 0;
-  console.log(`connect (wallet, mode-less): ${connect}\n`);
+  console.log('');
 
   for (let mode = 0; mode <= 4; mode++) {
-    const m = counts.get(mode);
-    const cells = STAGES.map((s) => `${s} ${m?.get(s) ?? 0}`);
-    const label = MODE_LABEL[mode];
+    const counts = report.byMode[mode as 0 | 1 | 2 | 3 | 4];
+    const cells = MODE_STAGES.map((s) => `${s} ${counts[s]}`);
     const flag = mode === 4 ? '  ← Comparison' : '';
-    console.log(`mode ${mode} ${label.padEnd(15)} | ${cells.join('  ')}${flag}`);
+    console.log(`mode ${mode} ${MODE_LABEL[mode].padEnd(15)} | ${cells.join('  ')}${flag}`);
   }
 
-  const mode4Total = [...(counts.get(4)?.values() ?? [])].reduce((a, b) => a + b, 0);
-  console.log(`\nComparison (mode 4) total events: ${mode4Total}` +
-    (mode4Total === 0 ? '  — none yet (is migration 0009 applied on this DB?)' : ''));
+  const mode4 = report.byMode[4];
+  const mode4Reached = MODE_STAGES.some((s) => mode4[s] > 0);
+  console.log(`\nComparison (mode 4): ${mode4Reached ? 'in use' : 'no sessions yet in this window'}.`);
 }
 
 main().catch((e) => {
