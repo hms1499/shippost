@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import useSWR from 'swr';
 import { useChainId } from 'wagmi';
-import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, GitCompare, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GraduationCap, Flame, Newspaper, PenLine, GitCompare, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
@@ -221,7 +221,7 @@ function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string })
     thread.mode === 0
       ? GraduationCap
       : thread.mode === 3
-        ? Newspaper
+        ? PenLine
         : thread.mode === 4
           ? GitCompare
           : thread.mode === 5

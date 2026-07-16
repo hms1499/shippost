@@ -5,6 +5,10 @@ const ALL = [
   'mode',
   'educational',
   'hot-take',
+  'news-breakdown',
+  'token-analysis',
+  'daily-recap',
+  'comparison',
   'preview-locked',
   'generating',
   'preview',
@@ -12,8 +16,16 @@ const ALL = [
 ] satisfies Screen[];
 
 describe('isInputScreen', () => {
-  it('is true only for the three input screens', () => {
-    expect(ALL.filter(isInputScreen)).toEqual(['mode', 'educational', 'hot-take']);
+  it('is true only for the input screens', () => {
+    expect(ALL.filter(isInputScreen)).toEqual([
+      'mode',
+      'educational',
+      'hot-take',
+      'news-breakdown',
+      'token-analysis',
+      'daily-recap',
+      'comparison',
+    ]);
   });
 });
 
