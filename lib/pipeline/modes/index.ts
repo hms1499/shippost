@@ -5,6 +5,7 @@ import { hotTakeMode } from './hotTake';
 import { tokenAnalysisMode } from './tokenAnalysis';
 import { dailyRecapMode } from './dailyRecap';
 import { comparisonMode } from './comparison';
+import { newsReactionMode } from './newsReaction';
 
 export type { ModeDef, ModeInputBody, UnifiedModeOutput, PreviewInput, Emit } from './types';
 
@@ -14,6 +15,7 @@ export const MODES: Record<number, ModeDef> = {
   [tokenAnalysisMode.id]: tokenAnalysisMode,
   [dailyRecapMode.id]: dailyRecapMode,
   [comparisonMode.id]: comparisonMode,
+  [newsReactionMode.id]: newsReactionMode,
 };
 
 export function getMode(id: number | undefined | null): ModeDef | null {

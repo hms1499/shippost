@@ -49,6 +49,11 @@ describe('mode registry', () => {
     expect(getMode(4)?.key).toBe('comparison');
   });
 
+  it('maps id 5 to the news-breakdown mode', () => {
+    expect(getMode(5)?.id).toBe(5);
+    expect(getMode(5)?.key).toBe('newsReaction');
+  });
+
   it('returns null for an unknown mode id', () => {
     expect(getMode(7)).toBeNull();
   });
