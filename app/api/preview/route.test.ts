@@ -106,7 +106,7 @@ describe('POST /api/preview', () => {
   });
 
   it('rejects an out-of-range mode', async () => {
-    const res = await POST(req({ mode: 5, walletAddress: '0xabc' }));
+    const res = await POST(req({ mode: 6, walletAddress: '0xabc' }));
     expect(res.status).toBe(400);
   });
 
@@ -140,5 +140,33 @@ describe('POST /api/preview', () => {
     expect(runPreview).toHaveBeenCalledWith(
       expect.objectContaining({ mode: 1, eventContext }),
     );
+  });
+
+  it('accepts mode 5 (News Breakdown) and forwards eventContext', async () => {
+    runPreview.mockResolvedValue({ tweets: ['1/ hook', '2/ body'] });
+    const eventContext = { title: 'BTC ETF record', description: 'inflows', host: 'x.co', kind: 'news' };
+    const res = await POST(
+      req({ mode: 5, walletAddress: '0xabc', eventDescription: 'https://x.co/a', eventContext }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ firstTweet: '1/ hook', totalTweets: 2 });
+    expect(runPreview).toHaveBeenCalledWith({
+      mode: 5,
+      eventDescription: 'https://x.co/a',
+      eventContext,
+    });
+  });
+
+  it('rejects mode 5 without an eventDescription', async () => {
+    const res = await POST(req({ mode: 5, walletAddress: '0xabc' }));
+    expect(res.status).toBe(400);
+    expect(runPreview).not.toHaveBeenCalled();
+  });
+
+  it('rejects a guest (no wallet) for mode 5', async () => {
+    const res = await POST(req({ mode: 5, eventDescription: 'Celo upgrades to L2' }));
+    expect(res.status).toBe(400);
+    expect(runPreview).not.toHaveBeenCalled();
+    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
   });
 });
