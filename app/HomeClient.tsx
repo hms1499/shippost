@@ -31,6 +31,7 @@ import { ModePicker } from '@/components/ModePicker';
 import { ErrorSurface } from '@/components/ErrorSurface';
 import type { EducationalSubmitPayload } from '@/components/EducationalInput';
 import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
+import type { NewsBreakdownSubmitPayload } from '@/components/NewsBreakdownInput';
 import type { TokenAnalysisSubmitPayload } from '@/components/TokenAnalysisInput';
 import type { DailyRecapSubmitPayload } from '@/components/DailyRecapInput';
 import type { ChainComparisonSubmitPayload } from '@/components/ChainComparisonInput';
@@ -54,6 +55,10 @@ const EducationalInput = dynamic(
 );
 const HotTakeInput = dynamic(
   () => import('@/components/HotTakeInput').then((m) => m.HotTakeInput),
+  { ssr: false },
+);
+const NewsBreakdownInput = dynamic(
+  () => import('@/components/NewsBreakdownInput').then((m) => m.NewsBreakdownInput),
   { ssr: false },
 );
 const TokenAnalysisInput = dynamic(
@@ -114,6 +119,7 @@ export default function HomeClient() {
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
   const [hotTake, setHotTake] = useState<HotTakeSubmitPayload | null>(null);
+  const [newsBreakdown, setNewsBreakdown] = useState<NewsBreakdownSubmitPayload | null>(null);
   const [tokenAnalysis, setTokenAnalysis] = useState<TokenAnalysisSubmitPayload | null>(null);
   const [dailyRecap, setDailyRecap] = useState<DailyRecapSubmitPayload | null>(null);
   const [comparison, setComparison] = useState<ChainComparisonSubmitPayload | null>(null);
@@ -124,7 +130,7 @@ export default function HomeClient() {
   const [refundError, setRefundError] = useState<string | null>(null);
 
   const activeToken =
-    submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
+    submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
@@ -138,6 +144,7 @@ export default function HomeClient() {
       setScreen('mode');
       setSubmitted(null);
       setHotTake(null);
+      setNewsBreakdown(null);
       setTokenAnalysis(null);
       setDailyRecap(null);
       setComparison(null);
@@ -245,6 +252,19 @@ export default function HomeClient() {
         // Daily Recap is input-free — no content fields ride along.
         mode: 3,
       });
+    } else if (newsBreakdown) {
+      void startGen({
+        threadId,
+        chainId,
+        walletAddress: address,
+        tokenSymbol: newsBreakdown.token.symbol,
+        tokenAddress: newsBreakdown.token.address,
+        amountPaidRaw: computeTokenAmount(newsBreakdown.token).toString(),
+        payTxHash: txHash,
+        mode: 5,
+        eventDescription: newsBreakdown.eventDescription,
+        eventContext: newsBreakdown.eventContext,
+      });
     } else if (comparison) {
       void startGen({
         threadId,
@@ -269,6 +289,7 @@ export default function HomeClient() {
     tokenAnalysis,
     dailyRecap,
     comparison,
+    newsBreakdown,
     gen.hasStarted,
     gen.isDone,
     gen.fatal,
@@ -279,24 +300,26 @@ export default function HomeClient() {
   useEffect(() => {
     if (gen.isDone && gen.tweets && !gen.fatal) {
       if (draftTweets === null) {
-        const mode: 0 | 1 | 2 | 3 | 4 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : 4;
+        const mode: 0 | 1 | 2 | 3 | 4 | 5 =
+          submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
         track('share', { mode, chainId, wallet: address ?? undefined });
         setDraftTweets(gen.tweets);
       }
       setScreen('preview');
     }
-  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, chainId, address]);
+  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
 
   useEffect(() => {
     if (status === 'success' && threadId != null) {
       const key = threadId.toString();
       if (paidTracked.current !== key) {
         paidTracked.current = key;
-        const mode: 0 | 1 | 2 | 3 | 4 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : 4;
+        const mode: 0 | 1 | 2 | 3 | 4 | 5 =
+          submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
         track('pay', { mode, chainId, wallet: address ?? undefined });
       }
     }
-  }, [status, threadId, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, chainId, address]);
+  }, [status, threadId, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
@@ -354,10 +377,11 @@ export default function HomeClient() {
       payload:
         | EducationalSubmitPayload
         | HotTakeSubmitPayload
+        | NewsBreakdownSubmitPayload
         | TokenAnalysisSubmitPayload
         | DailyRecapSubmitPayload
         | ChainComparisonSubmitPayload,
-      mode: 0 | 1 | 2 | 3 | 4,
+      mode: 0 | 1 | 2 | 3 | 4 | 5,
     ) => {
       if (!address) return;
       if (previewInFlight.current) return;
@@ -387,7 +411,14 @@ export default function HomeClient() {
                     walletAddress: address,
                     topic: `${(payload as ChainComparisonSubmitPayload).aKey}|${(payload as ChainComparisonSubmitPayload).bKey}`,
                   }
-                : {
+                : mode === 5
+                  ? {
+                      mode: 5,
+                      walletAddress: address,
+                      eventDescription: (payload as NewsBreakdownSubmitPayload).eventDescription,
+                      eventContext: (payload as NewsBreakdownSubmitPayload).eventContext,
+                    }
+                  : {
                     mode: 1,
                     walletAddress: address,
                     eventDescription: (payload as HotTakeSubmitPayload).eventDescription,
@@ -414,22 +445,30 @@ export default function HomeClient() {
   );
 
   const unlock = useCallback(async () => {
-    const token = submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token;
+    const token =
+      submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token;
     if (!token) return;
-    const mode: 0 | 1 | 2 | 3 | 4 = submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : 4;
+    const mode: 0 | 1 | 2 | 3 | 4 | 5 =
+      submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
     setScreen('generating');
     await pay(token, mode);
-  }, [submitted, hotTake, tokenAnalysis, dailyRecap, comparison, pay]);
+  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay]);
 
   const formNode =
     screen === 'mode' ? (
       <ModePicker
         onSelect={(m) => {
           const mode =
-            m === 'educational' ? 0 : m === 'hot-take' ? 1 : m === 'token-analysis' ? 2 : m === 'daily-recap' ? 3 : 4;
+            m === 'educational' ? 0
+            : m === 'hot-take' ? 1
+            : m === 'token-analysis' ? 2
+            : m === 'daily-recap' ? 3
+            : m === 'comparison' ? 4
+            : 5;
           track('mode_select', { mode, chainId, wallet: address ?? undefined });
           if (m === 'educational') setScreen('educational');
           if (m === 'hot-take') setScreen('hot-take');
+          if (m === 'news-breakdown') setScreen('news-breakdown');
           if (m === 'token-analysis') setScreen('token-analysis');
           if (m === 'daily-recap') setScreen('daily-recap');
           if (m === 'comparison') setScreen('comparison');
@@ -440,6 +479,7 @@ export default function HomeClient() {
         onSubmit={async (p) => {
           setSubmitted(p);
           setHotTake(null);
+          setNewsBreakdown(null);
           setTokenAnalysis(null);
           setDailyRecap(null);
           setComparison(null);
@@ -454,10 +494,26 @@ export default function HomeClient() {
         onSubmit={async (p) => {
           setHotTake(p);
           setSubmitted(null);
+          setNewsBreakdown(null);
           setTokenAnalysis(null);
           setDailyRecap(null);
           setComparison(null);
           await beginFlow(p, 1);
+        }}
+        onBack={() => setScreen('mode')}
+        disabled={status === 'approving' || status === 'paying'}
+        submitting={previewLoading}
+      />
+    ) : screen === 'news-breakdown' ? (
+      <NewsBreakdownInput
+        onSubmit={async (p) => {
+          setNewsBreakdown(p);
+          setSubmitted(null);
+          setHotTake(null);
+          setTokenAnalysis(null);
+          setDailyRecap(null);
+          setComparison(null);
+          await beginFlow(p, 5);
         }}
         onBack={() => setScreen('mode')}
         disabled={status === 'approving' || status === 'paying'}
@@ -469,6 +525,7 @@ export default function HomeClient() {
           setTokenAnalysis(p);
           setSubmitted(null);
           setHotTake(null);
+          setNewsBreakdown(null);
           setDailyRecap(null);
           setComparison(null);
           await beginFlow(p, 2);
@@ -483,6 +540,7 @@ export default function HomeClient() {
           setDailyRecap(p);
           setSubmitted(null);
           setHotTake(null);
+          setNewsBreakdown(null);
           setTokenAnalysis(null);
           setComparison(null);
           await beginFlow(p, 3);
@@ -497,6 +555,7 @@ export default function HomeClient() {
           setComparison(p);
           setSubmitted(null);
           setHotTake(null);
+          setNewsBreakdown(null);
           setTokenAnalysis(null);
           setDailyRecap(null);
           await beginFlow(p, 4);
@@ -514,11 +573,11 @@ export default function HomeClient() {
         lockedCount={Math.max(previewData.totalTweets - 1, 0)}
         onUnlock={unlock}
         onRegenerate={() => {
-          const payload = submitted ?? hotTake ?? tokenAnalysis ?? dailyRecap ?? comparison;
+          const payload = submitted ?? hotTake ?? tokenAnalysis ?? dailyRecap ?? comparison ?? newsBreakdown;
           if (payload) {
             void beginFlow(
               payload,
-              submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : 4,
+              submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5,
             );
           }
         }}
@@ -596,6 +655,7 @@ export default function HomeClient() {
           setDraftTweets(null);
           setSubmitted(null);
           setHotTake(null);
+          setNewsBreakdown(null);
           setTokenAnalysis(null);
           setDailyRecap(null);
           setComparison(null);
@@ -622,12 +682,13 @@ export default function HomeClient() {
         <ErrorSurface
           kind="approve-rejected"
           onRetry={() => {
-            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
             reset();
             resetGen();
             setDraftTweets(null);
             setSubmitted(null);
             setHotTake(null);
+            setNewsBreakdown(null);
             setTokenAnalysis(null);
             setDailyRecap(null);
             setComparison(null);
@@ -639,12 +700,13 @@ export default function HomeClient() {
         <ErrorSurface
           kind="pay-failed"
           onRetry={() => {
-            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
+            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
             reset();
             resetGen();
             setDraftTweets(null);
             setSubmitted(null);
             setHotTake(null);
+            setNewsBreakdown(null);
             setTokenAnalysis(null);
             setDailyRecap(null);
             setComparison(null);
@@ -685,6 +747,7 @@ export default function HomeClient() {
             setDraftTweets(null);
             setSubmitted(null);
             setHotTake(null);
+            setNewsBreakdown(null);
             setTokenAnalysis(null);
             setDailyRecap(null);
             setComparison(null);
@@ -726,6 +789,12 @@ export default function HomeClient() {
       chainA={CHAINS.find((c) => c.key === comparison.aKey)?.label ?? comparison.aKey}
       chainB={CHAINS.find((c) => c.key === comparison.bKey)?.label ?? comparison.bKey}
       tokenSymbol={comparison.token.symbol}
+    />
+  ) : newsBreakdown ? (
+    <ComposeSummary
+      mode={5}
+      eventDescription={newsBreakdown.eventDescription}
+      tokenSymbol={newsBreakdown.token.symbol}
     />
   ) : null;
 

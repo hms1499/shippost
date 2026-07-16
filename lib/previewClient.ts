@@ -4,11 +4,11 @@
 import type { EventContext } from '@/lib/eventContext';
 
 export interface PreviewArgs {
-  mode: 0 | 1 | 2 | 3 | 4;
+  mode: 0 | 1 | 2 | 3 | 4 | 5;
   walletAddress: string;
   topic?: string; // Mode 0 = topic; Mode 2 = token ticker
   audience?: 'beginner' | 'intermediate' | 'advanced';
-  eventDescription?: string;
+  eventDescription?: string; // Modes 1 and 5
   angle?: 'bullish' | 'bearish' | 'skeptical';
   eventContext?: EventContext | null;
 }

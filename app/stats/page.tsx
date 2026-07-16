@@ -224,7 +224,9 @@ function ThreadEntry({ thread, explorer }: { thread: Thread; explorer: string })
         ? Newspaper
         : thread.mode === 4
           ? GitCompare
-          : Flame;
+          : thread.mode === 5
+            ? Newspaper
+            : Flame;
   return (
     <li>
       <Card className="p-3 flex items-start gap-3">

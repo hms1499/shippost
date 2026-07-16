@@ -1,14 +1,14 @@
 'use client';
 
-import { ArrowRight, Flame, GraduationCap, Coins, PenLine, GitCompare } from 'lucide-react';
+import { ArrowRight, Flame, GraduationCap, Coins, PenLine, GitCompare, Newspaper } from 'lucide-react';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 
 interface Props {
-  onSelect: (mode: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap' | 'comparison') => void;
+  onSelect: (mode: 'educational' | 'hot-take' | 'news-breakdown' | 'token-analysis' | 'daily-recap' | 'comparison') => void;
 }
 
 interface Mode {
-  id: 'educational' | 'hot-take' | 'token-analysis' | 'daily-recap' | 'comparison';
+  id: 'educational' | 'hot-take' | 'news-breakdown' | 'token-analysis' | 'daily-recap' | 'comparison';
   numeral: string;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -21,9 +21,9 @@ interface Mode {
 // order on this screen — Hot Take leads as the flagship — and is DELIBERATELY
 // NOT the on-chain mode id. Those ids are append-only and emitted in the
 // `ThreadRequested` event: educational=0, hot-take=1, token-analysis=2,
-// daily-recap=3 (see lib/pipeline/modes/*). Renumbering for cosmetic alignment
-// would break the contract event mapping — change the display numeral here,
-// never the id.
+// daily-recap=3, comparison=4, news-breakdown=5 (see lib/pipeline/modes/*).
+// Renumbering for cosmetic alignment would break the contract event mapping —
+// change the display numeral here, never the id.
 const MODES: Mode[] = [
   {
     id: 'hot-take',
@@ -31,6 +31,15 @@ const MODES: Mode[] = [
     label: 'Hot Take',
     Icon: Flame,
     blurb: 'React to news or a tweet with data. Search + market + fact-check inline.',
+    cost: '$0.003',
+    badge: 'grounded · fact-checked · live data',
+  },
+  {
+    id: 'news-breakdown',
+    numeral: 'VI',
+    label: 'News Breakdown',
+    Icon: Newspaper,
+    blurb: 'A news just dropped — what happened, why it matters, what to watch. No take, just clarity.',
     cost: '$0.003',
     badge: 'grounded · fact-checked · live data',
   },
