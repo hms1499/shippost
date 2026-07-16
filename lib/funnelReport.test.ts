@@ -55,3 +55,15 @@ describe('computeFunnel', () => {
     expect(r.byMode[2].pay).toBe(0);
   });
 });
+
+describe('byMode mode 5 (News Breakdown)', () => {
+  it('buckets mode-5 rows into byMode[5]', () => {
+    const rows = [
+      { session_id: 'a', stage: 'mode_select', mode: 5 },
+      { session_id: 'b', stage: 'mode_select', mode: 1 },
+    ];
+    const r = computeFunnel(rows);
+    expect(r.byMode[5].mode_select).toBe(1);
+    expect(r.byMode[1].mode_select).toBe(1);
+  });
+});

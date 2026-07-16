@@ -26,14 +26,15 @@ describe('funnelTypes', () => {
     expect(isFunnelStage(42)).toBe(false);
   });
 
-  it('isValidMode accepts 0–4 and null/undefined, rejects the rest', () => {
+  it('isValidMode accepts 0–5 and null/undefined, rejects the rest', () => {
     expect(isValidMode(0)).toBe(true);
     expect(isValidMode(2)).toBe(true);
     expect(isValidMode(3)).toBe(true);
     expect(isValidMode(4)).toBe(true);
+    expect(isValidMode(5)).toBe(true);
     expect(isValidMode(null)).toBe(true);
     expect(isValidMode(undefined)).toBe(true);
-    expect(isValidMode(5)).toBe(false);
+    expect(isValidMode(6)).toBe(false);
     expect(isValidMode('1')).toBe(false);
   });
 
