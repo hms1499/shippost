@@ -35,4 +35,14 @@ describe('threadLabel', () => {
   it('falls back to "Chain Comparison" for mode 4 with no topic', () => {
     expect(threadLabel({ mode: 4, topic: null })).toBe('Chain Comparison');
   });
+
+  it('falls back to "News Breakdown" for a topicless mode-5 row', () => {
+    expect(threadLabel({ mode: 5, topic: null })).toBe('News Breakdown');
+  });
+
+  it('prefers the headline topic for a mode-5 row', () => {
+    expect(threadLabel({ mode: 5, topic: 'SEC approves spot ETH ETFs' })).toBe(
+      'SEC approves spot ETH ETFs',
+    );
+  });
 });

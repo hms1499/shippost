@@ -33,3 +33,10 @@ describe('isOutputScreen', () => {
     }
   });
 });
+
+describe('news-breakdown screen', () => {
+  it('news-breakdown is an input screen', () => {
+    expect(isInputScreen('news-breakdown')).toBe(true);
+    expect(isOutputScreen('news-breakdown')).toBe(false);
+  });
+});

@@ -10,6 +10,7 @@ const MODE_FALLBACK: Record<number, string> = {
   2: 'Token Analysis',
   3: 'Daily Recap',
   4: 'Chain Comparison',
+  5: 'News Breakdown',
 };
 
 const CHAIN_LABEL: Record<string, string> = Object.fromEntries(
