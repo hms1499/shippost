@@ -70,11 +70,14 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
   const trimmedLen = input.trim().length;
   // Only nag once they've started typing — an empty box explains itself.
   const tooShort = trimmedLen > 0 && trimmedLen < MIN_LEN;
+  // Deliberately NOT gated on `insufficient`: this button buys the free
+  // preview, so requiring a fundable balance locked empty wallets — new MiniPay
+  // users, i.e. exactly the organic ones — out of trying the product at all.
+  // Balance is checked where it matters, at unlock.
   const canSubmit =
     trimmedLen >= MIN_LEN &&
     trimmedLen <= MAX_LEN &&
     effectiveToken !== null &&
-    !insufficient &&
     !disabled &&
     !submitting;
 
@@ -173,39 +176,22 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
             </div>
           </div>
 
-          {/* Token */}
-          <div className="flex flex-col gap-2">
-            <p className="heading-sub text-[10px]">Token</p>
-            {isLoading ? (
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
-                Loading balances…
-              </p>
-            ) : (
-              <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
-            )}
-          </div>
+          {/* Token — TokenSelector already labels itself "Pay with", so the
+              extra "TOKEN" heading that used to sit here was a duplicate. */}
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />
+              Loading balances…
+            </p>
+          ) : (
+            <TokenSelector balances={balances} selected={effectiveToken} onSelect={setSelectedToken} />
+          )}
 
-          {/* Cost row + Submit */}
+          {/* Submit, then the cost as fine print. Pressing this spends nothing:
+              it fetches the free preview, and paying is a separate decision on
+              the next screen. The old "You pay / 0.05 cUSD" ledger row above the
+              button announced a charge that does not happen here. */}
           <div className="flex flex-col gap-3">
-            {effectiveToken && (
-              <div className="flex items-baseline gap-2 text-[11px]">
-                <span className="text-muted-foreground">You pay</span>
-                <span
-                  aria-hidden
-                  className="flex-1 border-b border-dotted border-border mb-1 opacity-50"
-                />
-                <span className="font-mono text-money">
-                  {amountStr} {effectiveToken.symbol}
-                </span>
-              </div>
-            )}
-            {insufficient && effectiveToken && (
-              <p className="text-xs font-sans text-destructive leading-snug">
-                You need {amountStr} {effectiveToken.symbol}. Top up in MiniPay or
-                pick another token above.
-              </p>
-            )}
             <Button
               disabled={!canSubmit}
               onClick={() => {
@@ -238,10 +224,24 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
                 </>
               ) : !effectiveToken
                 ? 'Select token'
-                : insufficient
-                  ? `Not enough ${effectiveToken.symbol}`
-                  : `Generate for ${amountStr} ${effectiveToken.symbol} →`}
+                : 'Generate preview — free →'}
             </Button>
+            {effectiveToken && (
+              <p className="text-xs font-sans text-muted-foreground leading-snug">
+                The first tweet is free. You pay{' '}
+                <span className="font-mono text-money">
+                  {amountStr} {effectiveToken.symbol}
+                </span>{' '}
+                only if you unlock the full thread.
+              </p>
+            )}
+            {insufficient && effectiveToken && (
+              <p className="text-xs font-sans text-muted-foreground leading-snug">
+                Your {effectiveToken.symbol} balance won&apos;t cover the unlock yet
+                — top up in MiniPay or switch token before that step. The preview
+                still works.
+              </p>
+            )}
           </div>
         </div>
       </TerminalPanel>
