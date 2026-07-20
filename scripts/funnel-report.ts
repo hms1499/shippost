@@ -26,7 +26,12 @@ const MODE_LABEL: Record<number, string> = {
   2: 'Token Analysis',
   3: 'Daily Recap',
   4: 'Comparison',
+  5: 'News Breakdown',
 };
+
+// Derived from MODE_LABEL so a new mode only has to be added in one place here;
+// the previous hardcoded `mode <= 4` silently hid News Breakdown (mode 5).
+const MODES = Object.keys(MODE_LABEL).map(Number).sort((a, b) => a - b);
 
 // The stages that carry a mode (connect + receipt_copied are mode-less and only
 // appear in the overall breakdown, never in a per-mode row).
@@ -68,16 +73,21 @@ async function main() {
   }
   console.log('');
 
-  for (let mode = 0; mode <= 4; mode++) {
-    const counts = report.byMode[mode as 0 | 1 | 2 | 3 | 4];
+  const unused: number[] = [];
+  for (const mode of MODES) {
+    const counts = report.byMode[mode as keyof typeof report.byMode];
     const cells = MODE_STAGES.map((s) => `${s} ${counts[s]}`);
-    const flag = mode === 4 ? '  ← Comparison' : '';
-    console.log(`mode ${mode} ${MODE_LABEL[mode].padEnd(15)} | ${cells.join('  ')}${flag}`);
+    const reached = MODE_STAGES.some((s) => counts[s] > 0);
+    if (!reached) unused.push(mode);
+    console.log(
+      `mode ${mode} ${MODE_LABEL[mode].padEnd(15)} | ${cells.join('  ')}${reached ? '' : '  ← unused'}`,
+    );
   }
 
-  const mode4 = report.byMode[4];
-  const mode4Reached = MODE_STAGES.some((s) => mode4[s] > 0);
-  console.log(`\nComparison (mode 4): ${mode4Reached ? 'in use' : 'no sessions yet in this window'}.`);
+  if (unused.length > 0) {
+    const names = unused.map((m) => `${MODE_LABEL[m]} (mode ${m})`).join(', ');
+    console.log(`\nNo sessions in this window: ${names}.`);
+  }
 }
 
 main().catch((e) => {
