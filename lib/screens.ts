@@ -9,6 +9,10 @@ export type Screen =
   | 'daily-recap'
   | 'comparison'
   | 'preview-locked'
+  // Preview came back empty (rate limit, outage, budget). We stop here and ask
+  // rather than charging: the input screen promises the preview is free, and a
+  // silent fall-through to pay would break that promise. See HomeClient.beginFlow.
+  | 'preview-unavailable'
   | 'generating'
   | 'preview'
   | 'post-share';

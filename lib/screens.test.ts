@@ -10,6 +10,7 @@ const ALL = [
   'daily-recap',
   'comparison',
   'preview-locked',
+  'preview-unavailable',
   'generating',
   'preview',
   'post-share',
@@ -33,6 +34,7 @@ describe('isOutputScreen', () => {
   it('is the exact complement of isInputScreen', () => {
     expect(ALL.filter(isOutputScreen)).toEqual([
       'preview-locked',
+      'preview-unavailable',
       'generating',
       'preview',
       'post-share',

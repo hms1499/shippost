@@ -131,6 +131,19 @@ export default function HomeClient() {
 
   const activeToken =
     submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
+  // Which form to return to when a run is handed back to the user (currently
+  // only 'preview-unavailable'). Same precedence as `unlock()`'s mode pick.
+  const inputScreenForActiveMode: Screen = submitted
+    ? 'educational'
+    : hotTake
+      ? 'hot-take'
+      : tokenAnalysis
+        ? 'token-analysis'
+        : dailyRecap
+          ? 'daily-recap'
+          : comparison
+            ? 'comparison'
+            : 'news-breakdown';
   const { pay, status, threadId, txHash, error, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
@@ -433,15 +446,20 @@ export default function HomeClient() {
           track('preview', { mode, chainId, wallet: address });
           setScreen('preview-locked');
         } else {
-          setScreen('generating');
-          await pay(payload.token, mode);
+          // The input screen states the preview is free, so a failed preview
+          // must not silently become a 0.05 charge. Hand the decision back
+          // instead — `unlock()` still runs the exact same pay() path once the
+          // user chooses it.
+          setScreen('preview-unavailable');
         }
       } finally {
         previewInFlight.current = false;
         setPreviewLoading(false);
       }
     },
-    [address, chainId, pay],
+    // `pay` is no longer called here — a failed preview hands control back to
+    // the user instead of charging, so paying only happens via `unlock`.
+    [address, chainId],
   );
 
   const unlock = useCallback(async () => {
@@ -583,6 +601,30 @@ export default function HomeClient() {
         }}
         regenerating={previewLoading}
       />
+    ) : screen === 'preview-unavailable' && activeToken ? (
+      <section className="w-full max-w-md flex flex-col gap-4">
+        <div className="rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3 flex flex-col gap-2">
+          <p className="heading-sub text-[10px]">Preview unavailable</p>
+          <p className="text-sm font-sans text-muted-foreground leading-snug">
+            The free preview didn&apos;t come back this time. You can generate the
+            full thread now, or go back and try the preview again.
+          </p>
+        </div>
+        <Button onClick={unlock}>
+          Generate for{' '}
+          {Number(
+            formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
+          ).toFixed(2)}{' '}
+          {activeToken.symbol} →
+        </Button>
+        <button
+          type="button"
+          onClick={() => setScreen(inputScreenForActiveMode)}
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+        >
+          ← Back, try the preview again
+        </button>
+      </section>
     ) : screen === 'generating' ? (
       <AgentTrace
         gen={gen}
