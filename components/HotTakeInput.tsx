@@ -68,6 +68,8 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
     effectiveToken.balance < computeTokenAmount(effectiveToken);
 
   const trimmedLen = input.trim().length;
+  // Only nag once they've started typing — an empty box explains itself.
+  const tooShort = trimmedLen > 0 && trimmedLen < MIN_LEN;
   const canSubmit =
     trimmedLen >= MIN_LEN &&
     trimmedLen <= MAX_LEN &&
@@ -123,16 +125,26 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={disabled}
+                aria-describedby={tooShort ? 'event-min-hint' : undefined}
                 className="flex-1 h-auto min-h-0 border-0 bg-transparent px-0 py-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
-            <p
-              className={`text-xs font-mono ${
-                trimmedLen > MAX_LEN ? 'text-destructive' : 'text-muted-foreground'
-              }`}
-            >
-              {trimmedLen}/{MAX_LEN}
-            </p>
+            <div className="flex items-baseline justify-between gap-3">
+              <p
+                className={`text-xs font-mono ${
+                  trimmedLen > MAX_LEN ? 'text-destructive' : 'text-muted-foreground'
+                }`}
+              >
+                {trimmedLen}/{MAX_LEN}
+              </p>
+              {/* The counter only ever showed the ceiling, so a short entry left
+                  Submit disabled with nothing on screen explaining why. */}
+              {tooShort && (
+                <p id="event-min-hint" className="text-xs font-sans text-muted-foreground leading-snug">
+                  At least {MIN_LEN} characters.
+                </p>
+              )}
+            </div>
             {isUrl && parsed && (
               <UrlPreviewCard url={parsed.url} onResolved={onPreviewResolved} />
             )}
