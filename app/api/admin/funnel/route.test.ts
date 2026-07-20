@@ -64,4 +64,36 @@ describe('GET /api/admin/funnel', () => {
     expect(json.perStage.connect).toBe(1);
     expect(json.perStage.mode_select).toBe(1);
   });
+
+  it('splits organic from internal using FUNNEL_INTERNAL_WALLETS', async () => {
+    const dev = '0xabc0000000000000000000000000000000000001';
+    const { client } = makeSupabase([
+      { session_id: 'dev', stage: 'connect', mode: null, wallet_address: dev },
+      { session_id: 'dev', stage: 'pay', mode: 2, wallet_address: dev },
+      { session_id: 'u1', stage: 'connect', mode: null, wallet_address: '0x1230000000000000000000000000000000000009' },
+    ]);
+    getSupabaseServer.mockReturnValue(client);
+    vi.stubEnv('FUNNEL_INTERNAL_WALLETS', dev.toUpperCase());
+
+    const json = await (await GET(getReq('secret'))).json();
+    expect(json.internalWallets).toBe(1);
+    expect(json.audience.organic.perStage.connect).toBe(1);
+    expect(json.audience.organic.perStage.pay).toBe(0);
+    expect(json.audience.internal.perStage.pay).toBe(1);
+    // Top-level stays "all sessions" so the existing shape is unchanged.
+    expect(json.perStage.connect).toBe(2);
+  });
+
+  it('reports every session as organic when no allowlist is configured', async () => {
+    const { client } = makeSupabase([
+      { session_id: 'a', stage: 'connect', mode: null, wallet_address: '0x1230000000000000000000000000000000000009' },
+    ]);
+    getSupabaseServer.mockReturnValue(client);
+    vi.stubEnv('FUNNEL_INTERNAL_WALLETS', '');
+
+    const json = await (await GET(getReq('secret'))).json();
+    expect(json.internalWallets).toBe(0);
+    expect(json.audience.organic.perStage.connect).toBe(1);
+    expect(json.audience.internal.perStage.connect).toBe(0);
+  });
 });

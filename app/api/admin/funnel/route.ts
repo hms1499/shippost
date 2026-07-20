@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { computeFunnel, type FunnelRow } from '@/lib/funnelReport';
+import {
+  computeFunnel,
+  parseInternalWallets,
+  partitionByAudience,
+  type FunnelRow,
+} from '@/lib/funnelReport';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,12 +33,27 @@ export async function GET(req: Request) {
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from('funnel_events')
-      .select('session_id,stage,mode')
+      .select('session_id,stage,mode,wallet_address')
       .gte('created_at', since);
     if (error) throw new Error(error.message);
 
-    const report = computeFunnel((data ?? []) as FunnelRow[]);
-    return NextResponse.json({ days, ...report });
+    const rows = (data ?? []) as FunnelRow[];
+    const internalWallets = parseInternalWallets(process.env.FUNNEL_INTERNAL_WALLETS);
+    const { organic, internal } = partitionByAudience(rows, internalWallets);
+
+    // Top level stays "all sessions" (unchanged shape); `audience` carries the
+    // organic/internal split. internalWallets === 0 means nothing was excluded,
+    // so `audience.organic` is not yet a verified-organic number.
+    const report = computeFunnel(rows);
+    return NextResponse.json({
+      days,
+      ...report,
+      internalWallets: internalWallets.size,
+      audience: {
+        organic: computeFunnel(organic),
+        internal: computeFunnel(internal),
+      },
+    });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'unknown' },
