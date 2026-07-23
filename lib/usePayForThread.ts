@@ -34,6 +34,12 @@ export interface PayResult {
   reset: () => void;
 }
 
+// Approve a bounded batch instead of the exact $0.05 per thread, so a repeat
+// user only signs the approve once every APPROVE_BATCH threads — every pay in
+// between is a single tx. Bounded (not maxUint256) so the standing allowance
+// the payment contract holds on the user's token stays capped at ~$2.
+const APPROVE_BATCH = 40n;
+
 function extractThreadId(logs: readonly { data: Hex; topics: readonly Hex[] }[]): bigint | null {
   for (const log of logs) {
     try {
@@ -161,7 +167,7 @@ export function usePayForThread(): PayResult {
             address: token.address,
             abi: erc20Abi,
             functionName: 'approve',
-            args: [paymentAddr, amount],
+            args: [paymentAddr, amount * APPROVE_BATCH],
             account: address,
             chain,
           });
