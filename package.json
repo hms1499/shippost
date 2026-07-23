@@ -26,7 +26,7 @@
     "tools:collect": "tsx tools/collect-celo.ts --",
     "tools:collect-token": "tsx tools/collect-token.ts --",
     "tools:collect-eth": "tsx tools/collect-eth-base.ts --",
-    "tools:volume": "tsx tools/generate-volume.ts",
+    "tools:volume": "tsx tools/interaction-contracts.ts",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
