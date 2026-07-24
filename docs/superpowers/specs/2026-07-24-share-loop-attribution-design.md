@@ -120,10 +120,16 @@ No RLS change — service-role only, consistent with the table's existing policy
 
 ### 7. Reporting — out of scope (phase 2 / approach C)
 
-The admin report (`app/api/admin/funnel`) selects only
-`session_id,stage,mode,wallet_address` and `computeFunnel` counts only the
-stages it knows, so a new `visit` row and `source` column are inert to it. No
-change required for this spec; phase 2 adds the per-source breakdown to `/stats`.
+The admin report (`app/api/admin/funnel`) does not select or group by `source`,
+so the `source` column is inert to it and no code change is required here. The
+`visit` stage, however, is NOT fully inert: `computeFunnel` iterates
+`FUNNEL_STAGES`, so once real `visit` data flows the report gains a `visit` row
+and `conversion.connect` changes meaning — from a hard `0` (connect was the
+first stage) to the visit→connect ratio. This is an intended improvement (a real
+top-of-funnel), not a regression; existing report tests stay green because their
+fixtures have no `visit` rows. **Ops note:** whoever reads `/api/admin/funnel`
+should expect `connect`'s conversion figure to become visit-relative once shares
+land. Phase 2 (approach C) formalizes the per-source breakdown on `/stats`.
 
 ## What this measures
 
