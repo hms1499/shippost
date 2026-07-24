@@ -36,7 +36,7 @@ import type { TokenAnalysisSubmitPayload } from '@/components/TokenAnalysisInput
 import type { DailyRecapSubmitPayload } from '@/components/DailyRecapInput';
 import type { ChainComparisonSubmitPayload } from '@/components/ChainComparisonInput';
 import { usePayForThread } from '@/lib/usePayForThread';
-import { track } from '@/lib/funnel';
+import { track, captureSource } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
@@ -98,6 +98,22 @@ export default function HomeClient() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Record the top of the funnel once per session, tagging the acquisition
+  // source (?ref=x from a share link). captureSource runs every mount (it is
+  // first-touch internally); the visit event fires at most once per session so
+  // client navigations don't double-count. Fires even for browser-only
+  // visitors who never connect MiniPay — the true top of the funnel.
+  useEffect(() => {
+    captureSource();
+    try {
+      if (sessionStorage.getItem('coinop.funnel.visited')) return;
+      sessionStorage.setItem('coinop.funnel.visited', '1');
+    } catch {
+      // storage blocked → fall through and fire once for this load
+    }
+    track('visit');
   }, []);
 
   // If MiniPay auto-connect hasn't resolved after 5s, surface an error instead
