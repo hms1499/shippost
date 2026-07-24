@@ -76,4 +76,25 @@ describe('shareAppUrl', () => {
       expect(shareAppUrl()).toBe('https://shippost-kappa.vercel.app');
     }
   });
+
+  it('appends ?ref=<source> when a source is given', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.test';
+    const { shareAppUrl } = await import('./shareText');
+    expect(shareAppUrl('x')).toBe('https://example.test?ref=x');
+  });
+});
+
+describe('buildShareText source tagging', () => {
+  const ORIG = process.env.NEXT_PUBLIC_APP_URL;
+  afterEach(() => {
+    if (ORIG === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = ORIG;
+  });
+
+  it('tags the default app URL with ?ref=x when no appUrl override is given', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://example.test';
+    const { buildShareText } = await import('./shareText');
+    const out = buildShareText('gm', { attribution: true });
+    expect(out).toBe('gm\n\n✍️ made with CoinOp — https://example.test?ref=x');
+  });
 });

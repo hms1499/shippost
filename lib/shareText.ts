@@ -1,3 +1,5 @@
+import { type FunnelSource } from './funnelTypes';
+
 // Builds the text posted to X for the FIRST tweet, optionally appending a
 // CoinOp attribution. Attribution is added ONLY here (at share time), never
 // to the user's editable tweets. The 280-char cap is approximated with string
@@ -9,12 +11,19 @@
 const DEFAULT_APP_URL = 'https://shippost-kappa.vercel.app';
 const TWEET_MAX = 280;
 
-export function shareAppUrl(): string {
+// The source tag we attach to share links so the funnel can attribute the
+// resulting visits/payments. 'x' = the X share button.
+const X_SHARE_REF: FunnelSource = 'x';
+
+export function shareAppUrl(source?: FunnelSource): string {
   // `??` would only catch undefined. A Vercel env var stored as "" (the CLI
   // stdin bug, hit twice on this project) is present-but-empty and would slip
   // through, putting an empty URL in every share. Treat blank as absent.
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  return fromEnv || DEFAULT_APP_URL;
+  const base = fromEnv || DEFAULT_APP_URL;
+  // base never carries a query string, so a plain ?ref= is safe. X wraps any
+  // URL to a fixed 23-char t.co link, so the extra chars are free in the tweet.
+  return source ? `${base}?ref=${source}` : base;
 }
 
 // Web intent only — the twitter:// app scheme is NOT handled by the MiniPay
@@ -31,7 +40,7 @@ export function buildShareText(
   opts: { attribution: boolean; appUrl?: string },
 ): string {
   if (!opts.attribution) return firstTweet;
-  const url = opts.appUrl ?? shareAppUrl();
+  const url = opts.appUrl ?? shareAppUrl(X_SHARE_REF);
   const full = `${firstTweet}\n\n✍️ made with CoinOp — ${url}`;
   if (full.length <= TWEET_MAX) return full;
   const short = `${firstTweet}\n\nvia CoinOp ${url}`;
