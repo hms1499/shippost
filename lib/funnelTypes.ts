@@ -3,6 +3,7 @@
 // is safe on both sides.
 
 export const FUNNEL_STAGES = [
+  'visit',
   'connect',
   'mode_select',
   'submit',
@@ -13,6 +14,15 @@ export const FUNNEL_STAGES = [
 ] as const;
 
 export type FunnelStage = (typeof FUNNEL_STAGES)[number];
+
+// Acquisition source, append-only whitelist. 'x' = arrived via an X share link
+// (?ref=x). Adding a source here needs no DB migration (the column is free text).
+export const FUNNEL_SOURCES = ['x'] as const;
+export type FunnelSource = (typeof FUNNEL_SOURCES)[number];
+
+export function isFunnelSource(v: unknown): v is FunnelSource {
+  return typeof v === 'string' && (FUNNEL_SOURCES as readonly string[]).includes(v);
+}
 
 export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,4 +45,5 @@ export interface FunnelEventInput {
   mode?: 0 | 1 | 2 | 3 | 4 | 5 | null;
   chain_id?: number | null;
   wallet_address?: string | null;
+  source?: FunnelSource | null;
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   FUNNEL_STAGES,
   isFunnelStage,
+  isFunnelSource,
   isValidMode,
   UUID_RE,
   WALLET_RE,
@@ -10,6 +11,7 @@ import {
 describe('funnelTypes', () => {
   it('lists the stages in funnel order', () => {
     expect(FUNNEL_STAGES).toEqual([
+      'visit',
       'connect',
       'mode_select',
       'submit',
@@ -18,6 +20,18 @@ describe('funnelTypes', () => {
       'share',
       'receipt_copied',
     ]);
+  });
+
+  it('isFunnelStage accepts the new visit stage', () => {
+    expect(isFunnelStage('visit')).toBe(true);
+  });
+
+  it('isFunnelSource accepts the whitelist and rejects everything else', () => {
+    expect(isFunnelSource('x')).toBe(true);
+    expect(isFunnelSource('y')).toBe(false);
+    expect(isFunnelSource('')).toBe(false);
+    expect(isFunnelSource(1)).toBe(false);
+    expect(isFunnelSource(null)).toBe(false);
   });
 
   it('isFunnelStage accepts known stages and rejects others', () => {
