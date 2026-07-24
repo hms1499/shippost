@@ -171,7 +171,31 @@ export function usePayForThread(): PayResult {
             account: address,
             chain,
           });
-          await publicClient.waitForTransactionReceipt({ hash: approveHash });
+          const approveReceipt = await publicClient.waitForTransactionReceipt({
+            hash: approveHash,
+          });
+          // A reverted approve must NOT fall through to payForThread — that
+          // pay would revert with "transfer amount exceeds allowance", charging
+          // the user a second gas fee for a doomed tx. USDT approves are the
+          // usual culprit: MiniPay pays gas in the token and can under-provision
+          // the limit, so the approve runs out of gas. Retrying re-estimates and
+          // typically succeeds.
+          if (approveReceipt.status !== 'success') {
+            throw new Error(
+              'Token approval failed (the approve transaction reverted, usually the wallet under-funding gas). Please try again.',
+            );
+          }
+          // MiniPay rewrites the approved amount, so trust the on-chain
+          // allowance — not the receipt alone — before spending.
+          const confirmedAllowance = await publicClient.readContract({
+            address: token.address,
+            abi: erc20Abi,
+            functionName: 'allowance',
+            args: [address, paymentAddr],
+          });
+          if (confirmedAllowance < amount) {
+            throw new Error('Token approval did not take effect. Please try again.');
+          }
         }
 
         setStatus('paying');
