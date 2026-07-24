@@ -15,7 +15,7 @@ vi.mock('groq-sdk', () => ({ default: class { chat = { completions: { create } }
 
 const { generateDraft } = await import('./generateDraft');
 
-const ctx = { chainId: 42220, threadId: 1n, topic: 't', audience: 'beginner' as const, agentWallet: '0xw' as const };
+const ctx = { chainId: 42220, threadId: 1n, topic: 't', audience: 'beginner' as const, agentWallet: '0xw' as const, tokenSymbol: 'cUSD' as const };
 const msgs = { messages: [{ role: 'user' as const, content: 'x' }], temperature: 0.7, maxTokens: 1200 };
 
 beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('GROQ_API_KEY', 'k'); getSettleChainId.mockReturnValue(8453); });
@@ -51,6 +51,18 @@ describe('generateDraft', () => {
     expect(out.txHash).toBe('0xsink');
     expect(out.tweets.length).toBeGreaterThan(0);
     expect(out.chainId).toBeUndefined();
+  });
+
+  it('legacy mode: settles in the token the user paid (USDT), not hardcoded cUSD', async () => {
+    getSettleMode.mockReturnValue('legacy');
+    create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
+    settleX402Call.mockResolvedValue('0xsink');
+    const out = await generateDraft({ ...ctx, tokenSymbol: 'USDT' }, msgs);
+    expect(out.tokenSymbol).toBe('USDT');
+    // The AgentWallet spends the paid token — the whole point of the fix.
+    expect(settleX402Call).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenSymbol: 'USDT' }),
+    );
   });
 
   it('legacy mode: throws (no settle) on empty Groq output', async () => {

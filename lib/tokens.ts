@@ -1,5 +1,5 @@
 import { celo } from 'wagmi/chains';
-import type { Address } from 'viem';
+import { parseUnits, type Address } from 'viem';
 import { celoSepolia } from './chains';
 
 export type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
@@ -67,4 +67,18 @@ export function computeTokenAmount(token: TokenConfig): bigint {
   // cUSD (18 dec): 5 * 10^16 = 50_000_000_000_000_000
   // USDT/USDC (6 dec): 5 * 10^4 = 50_000
   return BigInt(5) * BigInt(10) ** BigInt(token.decimals - 2);
+}
+
+// Every simulated x402 micro-charge (Serper grounding, FactCheck, the Groq
+// legacy settle) costs this much, in USD. Single source so the on-chain amount
+// that settles and the cost shown to the user can never drift apart.
+export const X402_UNIT_COST_USD = '0.001';
+
+// The x402 micro-charge in a token's own base units. The AgentWallet spends the
+// SAME token the user paid with (each thread self-funds from the 50% split), so
+// the amount must scale to that token's decimals — parseUnits keeps 6-decimal
+// USDT/USDC and 18-decimal cUSD correct. Never hardcode 1e15: for USDT that
+// would be 1e9 tokens, blowing the balance and the daily cap.
+export function computeX402CostAmount(token: TokenConfig): bigint {
+  return parseUnits(X402_UNIT_COST_USD, token.decimals);
 }

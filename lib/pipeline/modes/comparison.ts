@@ -17,6 +17,7 @@ async function chainMarketStep(
   a: ChainEntry,
   b: ChainEntry,
   emit: (e: PipelineEvent) => void,
+  tokenSymbol: PipelineContext['tokenSymbol'],
 ): Promise<string | null> {
   emit({ type: 'step_started', step: 'coingecko' });
   let snippet: string | null = null;
@@ -35,7 +36,7 @@ async function chainMarketStep(
     step: 'coingecko',
     txHash: '0x0',
     costAmount: '0.000',
-    tokenSymbol: 'cUSD',
+    tokenSymbol,
   });
   return snippet;
 }
@@ -57,7 +58,7 @@ export const comparisonMode: ModeDef = {
         eventDescription: `${a.label} vs ${b.label}`, // fallback only
         serperQuery: serperQueryFor(a.label, b.label),
         serperOpts: { recency: 'qdr:m' },
-        marketStep: (c: PipelineContext, e) => chainMarketStep(a, b, e),
+        marketStep: (c: PipelineContext, e) => chainMarketStep(a, b, e, c.tokenSymbol),
         buildPrompt: ({ searchSummary, marketSnippet }) =>
           buildComparisonPrompt({ aLabel: a.label, bLabel: b.label, chainData: marketSnippet, searchSummary }),
       },

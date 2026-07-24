@@ -23,6 +23,7 @@ const baseCtx = {
   topic: 'solana|base',
   audience: 'beginner' as const,
   agentWallet: '0x0000000000000000000000000000000000000000' as const,
+  tokenSymbol: 'cUSD' as const,
 };
 
 describe('comparisonMode.validateInput', () => {

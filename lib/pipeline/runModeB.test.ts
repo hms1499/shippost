@@ -25,6 +25,7 @@ const baseCtx = {
   topic: '$DOGE',
   audience: 'beginner' as const,
   agentWallet: '0x0000000000000000000000000000000000000001' as Address,
+  tokenSymbol: 'cUSD' as const,
 };
 
 function userMessageOf(call: unknown): string {

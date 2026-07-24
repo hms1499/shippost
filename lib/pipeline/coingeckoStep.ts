@@ -155,7 +155,7 @@ export async function fetchMarketOverview(): Promise<string | null> {
 // Same emit lifecycle as runCoinGeckoStep (step name 'coingecko', free, no
 // settle) so the UI and cost accounting treat it identically.
 export async function runMarketOverviewStep(
-  _ctx: PipelineContext,
+  ctx: PipelineContext,
   emit: (e: PipelineEvent) => void,
 ): Promise<string | null> {
   emit({ type: 'step_started', step: 'coingecko' });
@@ -175,7 +175,7 @@ export async function runMarketOverviewStep(
     step: 'coingecko',
     txHash: NULL_TX,
     costAmount: '0.000',
-    tokenSymbol: 'cUSD',
+    tokenSymbol: ctx.tokenSymbol,
   });
   return snippet;
 }
@@ -201,7 +201,7 @@ export async function runCoinGeckoStep(
     step: 'coingecko',
     txHash: NULL_TX,
     costAmount: '0.000',
-    tokenSymbol: 'cUSD',
+    tokenSymbol: ctx.tokenSymbol,
   });
   return result;
 }

@@ -13,6 +13,7 @@ const ctx = {
   topic: 't',
   audience: 'beginner' as const,
   agentWallet: '0xw' as const,
+  tokenSymbol: 'cUSD' as const,
 };
 const input = { tweets: ['1/ a', '2/ b'], searchSummary: null, marketData: null };
 

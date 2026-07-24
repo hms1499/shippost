@@ -1,5 +1,6 @@
-import { getAddress, parseEther } from 'viem';
+import { getAddress } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
+import { X402_UNIT_COST_USD } from '@/lib/tokens';
 import { retryOnce } from './retry';
 import { throwIfAborted } from './abort';
 import type { PipelineContext, PipelineEvent } from './types';
@@ -8,7 +9,6 @@ import type { PipelineContext, PipelineEvent } from './types';
 // literal fails loudly at module load instead of silently throwing inside the
 // x402 settle (viem rejects a non-checksummed mixed-case address).
 const SERPER_SINK = getAddress('0x00000000000000000000000000000000000053e2');
-const SERPER_COST_CUSD = parseEther('0.001');
 const SERPER_SEARCH_ENDPOINT = 'https://google.serper.dev/search';
 const SERPER_NEWS_ENDPOINT = 'https://google.serper.dev/news';
 
@@ -116,16 +116,15 @@ export async function runSerperStep(
     const txHash = await settleX402Call({
       chainId: ctx.chainId,
       serviceAddress: SERPER_SINK,
-      tokenSymbol: 'cUSD',
-      amount: SERPER_COST_CUSD,
+      tokenSymbol: ctx.tokenSymbol,
       threadId: ctx.threadId,
     });
     emit({
       type: 'step_settled',
       step: 'serper',
       txHash,
-      costAmount: '0.001',
-      tokenSymbol: 'cUSD',
+      costAmount: X402_UNIT_COST_USD,
+      tokenSymbol: ctx.tokenSymbol,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'x402 settle failed';

@@ -1,4 +1,5 @@
 import type { Address, Hex } from 'viem';
+import type { TokenSymbol } from '@/lib/tokens';
 
 export type StepId = 'groq' | 'serper' | 'coingecko' | 'factCheck';
 
@@ -23,6 +24,12 @@ export interface PipelineContext {
   topic: string;
   audience: 'beginner' | 'intermediate' | 'advanced';
   agentWallet: Address;
+  // The token the user paid in (verified on-chain in the route). The AgentWallet
+  // spends its x402 micro-payments in this SAME token — the 50% split from
+  // payForThread just credited it, so every thread self-funds. Hardcoding cUSD
+  // here is what broke USDT/USDC-paid threads (wallet held USDT, pipeline spent
+  // cUSD → "transfer amount exceeds balance").
+  tokenSymbol: TokenSymbol;
   // Aborts when the route's internal deadline fires. Steps MUST check this
   // before any x402 settle so a timed-out (already-`fatal`, refundable) run
   // never spends from AgentWallet.

@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk';
-import { getAddress, parseEther } from 'viem';
+import { getAddress } from 'viem';
 import { settleX402Call } from '@/lib/agent/orchestrator';
+import { X402_UNIT_COST_USD } from '@/lib/tokens';
 import { parseThread } from '@/lib/threadParser';
 import { retryOnce } from './retry';
 import { throwIfAborted } from './abort';
@@ -11,7 +12,6 @@ import type { PipelineContext, PipelineEvent } from './types';
 // literal fails loudly at module load instead of silently throwing inside the
 // x402 settle (viem rejects a non-checksummed mixed-case address).
 const FC_SINK = getAddress('0x00000000000000000000000000000000000fac7c');
-const FC_COST_CUSD = parseEther('0.001');
 
 interface FactCheckInput {
   tweets: string[];
@@ -63,16 +63,15 @@ export async function runFactCheckStep(
     const txHash = await settleX402Call({
       chainId: ctx.chainId,
       serviceAddress: FC_SINK,
-      tokenSymbol: 'cUSD',
-      amount: FC_COST_CUSD,
+      tokenSymbol: ctx.tokenSymbol,
       threadId: ctx.threadId,
     });
     emit({
       type: 'step_settled',
       step: 'factCheck',
       txHash,
-      costAmount: '0.001',
-      tokenSymbol: 'cUSD',
+      costAmount: X402_UNIT_COST_USD,
+      tokenSymbol: ctx.tokenSymbol,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'x402 settle failed';

@@ -19,6 +19,7 @@ const baseCtx = {
   topic: 'EIP-712',
   audience: 'beginner' as const,
   agentWallet: '0x0000000000000000000000000000000000000001' as Address,
+  tokenSymbol: 'cUSD' as const,
 };
 
 beforeEach(() => {

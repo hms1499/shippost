@@ -2,13 +2,12 @@ import { createWalletClient, createPublicClient, http, parseUnits, formatUnits, 
 import { privateKeyToAccount } from 'viem/accounts';
 import { getChain } from '../chains';
 import { agentWalletAbi, shipPostPaymentAbi, getContracts } from '../contracts';
-import { getTokens, type TokenSymbol } from '../tokens';
+import { getTokens, computeX402CostAmount, type TokenSymbol } from '../tokens';
 
 export async function settleX402Call(params: {
   chainId: number;
   serviceAddress: Address;
   tokenSymbol: TokenSymbol;
-  amount: bigint;
   threadId: bigint;
 }) {
   const pk = process.env.AGENT_WALLET_PRIVATE_KEY as `0x${string}` | undefined;
@@ -22,12 +21,16 @@ export async function settleX402Call(params: {
 
   const contracts = getContracts(params.chainId);
   const token = getTokens(params.chainId)[params.tokenSymbol];
+  // Amount is derived from the token's own decimals here — callers pass only the
+  // token symbol, so a step can never hand us a wrong-scaled bigint (e.g. an
+  // 18-decimal amount for 6-decimal USDT).
+  const amount = computeX402CostAmount(token);
 
   const hash = await wallet.writeContract({
     address: contracts.AgentWallet,
     abi: agentWalletAbi,
     functionName: 'executeX402Call',
-    args: [params.serviceAddress, token.address, params.amount, params.threadId],
+    args: [params.serviceAddress, token.address, amount, params.threadId],
   });
   // Bound the wait: a stuck tx or dead RPC must not hang the whole generation
   // until maxDuration (user paid, no content). A timeout throws cleanly ->

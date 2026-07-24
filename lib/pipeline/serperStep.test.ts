@@ -11,6 +11,7 @@ const ctx = {
   topic: 't',
   audience: 'beginner' as const,
   agentWallet: '0xw' as const,
+  tokenSymbol: 'cUSD' as const,
   query: 'q',
 };
 

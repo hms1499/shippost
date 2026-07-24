@@ -1,4 +1,4 @@
-import { parseEther, formatEther } from 'viem';
+import { X402_UNIT_COST_USD } from '@/lib/tokens';
 
 // x402 settlement sink. We run a custom proxy (no Coinbase facilitator), so
 // by default settlement BURNS the spend to the dead address to demonstrate
@@ -10,8 +10,7 @@ export const GROQ_SINK = (RAW_SINK && /^0x[a-fA-F0-9]{40}$/.test(RAW_SINK)
   ? RAW_SINK
   : '0x000000000000000000000000000000000000dead') as `0x${string}`;
 
-// Single source of truth for the Groq x402 charge. The displayed cost is
-// derived from the same bigint that's actually settled on-chain, so the
-// number shown to the user can't drift from what moved.
-export const GROQ_COST_CUSD = parseEther('0.001');
-export const GROQ_COST_HUMAN = formatEther(GROQ_COST_CUSD);
+// Human-readable Groq charge, re-exported from the single cost source in
+// lib/tokens. settleX402Call converts this USD figure to the paid token's
+// decimals, so the displayed number can't drift from what settles on-chain.
+export const GROQ_COST_HUMAN = X402_UNIT_COST_USD;

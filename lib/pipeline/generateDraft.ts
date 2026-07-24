@@ -5,8 +5,9 @@ import { settleX402Call } from '@/lib/agent/orchestrator';
 import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
 import { alertOps } from '@/lib/alert';
-import { GROQ_COST_CUSD, GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
+import { GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
 import { throwIfAborted } from './abort';
+import type { TokenSymbol } from '@/lib/tokens';
 import type { PipelineContext } from './types';
 
 export interface DraftInput {
@@ -19,7 +20,9 @@ export interface DraftResult {
   tweets: string[];
   txHash: Hex;
   costHuman: string;
-  tokenSymbol: 'cUSD' | 'USDC';
+  // Model 1 (legacy) settles in the user's payment token; Model 2 (x402) always
+  // settles USDC on Base. TokenSymbol already covers cUSD | USDT | USDC.
+  tokenSymbol: TokenSymbol;
   // Settle chain when it differs from the payment chain — x402 path only.
   chainId?: number;
 }
@@ -89,9 +92,8 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
   const txHash = await settleX402Call({
     chainId: ctx.chainId,
     serviceAddress: GROQ_SINK,
-    tokenSymbol: 'cUSD',
-    amount: GROQ_COST_CUSD,
+    tokenSymbol: ctx.tokenSymbol,
     threadId: ctx.threadId,
   });
-  return { tweets, txHash, costHuman: GROQ_COST_HUMAN, tokenSymbol: 'cUSD' };
+  return { tweets, txHash, costHuman: GROQ_COST_HUMAN, tokenSymbol: ctx.tokenSymbol };
 }

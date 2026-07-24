@@ -199,6 +199,10 @@ export async function POST(req: Request) {
           topic: body.topic ?? body.eventDescription ?? '',
           audience: body.audience ?? 'beginner',
           agentWallet: contracts.AgentWallet,
+          // Verified payment token (verifyPayment asserted it matches the
+          // ThreadRequested event). x402 settles spend this token — see
+          // PipelineContext.tokenSymbol.
+          tokenSymbol: body.tokenSymbol,
           signal: ac.signal,
         } as const;
 

@@ -31,6 +31,7 @@ const baseCtx = {
   topic: 'x',
   audience: 'beginner' as const,
   agentWallet: '0x0000000000000000000000000000000000000000' as const,
+  tokenSymbol: 'cUSD' as const,
 };
 
 describe('newsReactionMode.validateInput', () => {
