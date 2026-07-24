@@ -60,6 +60,7 @@ describe('POST /api/public/funnel', () => {
       mode: 1,
       chain_id: 42220,
       wallet_address: VALID.wallet_address,
+      source: null,
     });
   });
 
@@ -107,7 +108,34 @@ describe('POST /api/public/funnel', () => {
       mode: null,
       chain_id: null,
       wallet_address: null,
+      source: null,
     });
+  });
+
+  it('accepts a visit event with a valid source', async () => {
+    const { client, inserts } = makeSupabase();
+    getSupabaseServer.mockReturnValue(client);
+
+    await POST(postReq({ session_id: VALID.session_id, stage: 'visit', source: 'x' }));
+
+    expect(inserts[0]).toEqual({
+      session_id: VALID.session_id,
+      stage: 'visit',
+      mode: null,
+      chain_id: null,
+      wallet_address: null,
+      source: 'x',
+    });
+  });
+
+  it('nulls an invalid source instead of dropping the event', async () => {
+    const { client, inserts } = makeSupabase();
+    getSupabaseServer.mockReturnValue(client);
+
+    await POST(postReq({ ...VALID, source: 'evil' }));
+
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].source).toBeNull();
   });
 
   it('returns 202 (never throws) on malformed JSON', async () => {

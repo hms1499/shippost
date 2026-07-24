@@ -2,6 +2,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import {
   isFunnelStage,
+  isFunnelSource,
   isValidMode,
   UUID_RE,
   WALLET_RE,
@@ -38,6 +39,7 @@ function parse(body: unknown): Record<string, unknown> | null {
     mode: b.mode ?? null,
     chain_id: typeof b.chain_id === 'number' ? b.chain_id : null,
     wallet_address: b.wallet_address ? b.wallet_address.toLowerCase() : null,
+    source: isFunnelSource(b.source) ? b.source : null,
   };
 }
 
