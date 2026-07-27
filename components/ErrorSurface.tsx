@@ -8,6 +8,13 @@ export type ErrorKind =
   | 'pay-failed'
   | 'partial'
   | 'full-fail'
+  // Preflight said the agent cannot settle, so we stopped before the wallet
+  // sheet opened. These three are the only kinds where nothing was charged and
+  // nothing was attempted — the copy has to say so, because the user tapped a
+  // button that normally costs money.
+  | 'spend-paused'
+  | 'spend-gas'
+  | 'spend-cap'
   | 'cap-hit';
 
 export type RefundRequestStatus = 'idle' | 'sending' | 'sent' | 'error';
@@ -48,6 +55,21 @@ const COPY: Record<
     title: 'Agent paused — back tomorrow',
     body: "Today's agent budget is spent, so this thread couldn't be generated. New generations resume at midnight UTC — and since you paid for nothing, a full refund will be sent within 24h.",
     primary: 'Request refund now',
+  },
+  'spend-paused': {
+    title: 'Agent paused for maintenance',
+    body: 'The agent is paused right now, so it cannot generate this thread. You have not been charged — nothing left your wallet.',
+    primary: 'Try again',
+  },
+  'spend-gas': {
+    title: 'Agent temporarily offline',
+    body: "The agent can't post transactions right now. We stopped before charging you — nothing left your wallet.",
+    primary: 'Try again',
+  },
+  'spend-cap': {
+    title: 'Daily limit reached — back tomorrow',
+    body: "Today's agent budget is spent, so it cannot generate this thread. New generations resume at midnight UTC. You have not been charged.",
+    primary: 'Try again',
   },
 };
 

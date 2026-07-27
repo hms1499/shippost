@@ -11,10 +11,19 @@ const ALL = [
   'comparison',
   'preview-locked',
   'preview-unavailable',
+  'spend-unavailable',
   'generating',
   'preview',
   'post-share',
 ] satisfies Screen[];
+
+// `satisfies Screen[]` only proves every entry IS a Screen — it does not prove
+// every Screen is listed, so a new screen used to slip past these tests
+// silently. This fails to compile (never is not assignable from true) the
+// moment a Screen is missing from ALL.
+type Uncovered = Exclude<Screen, (typeof ALL)[number]>;
+const _allScreensCovered: [Uncovered] extends [never] ? true : never = true;
+void _allScreensCovered;
 
 describe('isInputScreen', () => {
   it('is true only for the input screens', () => {
@@ -35,6 +44,7 @@ describe('isOutputScreen', () => {
     expect(ALL.filter(isOutputScreen)).toEqual([
       'preview-locked',
       'preview-unavailable',
+      'spend-unavailable',
       'generating',
       'preview',
       'post-share',

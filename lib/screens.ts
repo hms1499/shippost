@@ -13,6 +13,10 @@ export type Screen =
   // rather than charging: the input screen promises the preview is free, and a
   // silent fall-through to pay would break that promise. See HomeClient.beginFlow.
   | 'preview-unavailable'
+  // Preflight says the agent cannot settle an x402 call right now (paused, out
+  // of gas, or out of daily cap). We stop before payForThread is signed, so no
+  // money moves and no thread row exists. See HomeClient.unlock.
+  | 'spend-unavailable'
   | 'generating'
   | 'preview'
   | 'post-share';

@@ -43,6 +43,7 @@ import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
 import { TARGET_CHAIN_ID, targetChainName, IS_TESTNET_TARGET } from '@/lib/targetChain';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
+import { fetchSpendReadiness, type SpendBlockReason } from '@/lib/preflight';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { CHAINS } from '@/lib/prompts/comparison';
 import { useIsDesktop } from '@/lib/useIsDesktop';
@@ -144,6 +145,9 @@ export default function HomeClient() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [refundStatus, setRefundStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [refundError, setRefundError] = useState<string | null>(null);
+  // Why the preflight stopped this run before charging. Only set alongside the
+  // 'spend-unavailable' screen.
+  const [spendBlockReason, setSpendBlockReason] = useState<SpendBlockReason | null>(null);
 
   const activeToken =
     submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
@@ -484,6 +488,18 @@ export default function HomeClient() {
     if (!token) return;
     const mode: 0 | 1 | 2 | 3 | 4 | 5 =
       submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
+
+    // This is the only path to pay(), including from 'preview-unavailable'. Ask
+    // whether the agent can settle at all BEFORE the wallet sheet opens — a run
+    // that provably cannot finish must never take the user's $0.05. Fails open,
+    // so an unreachable preflight leaves the existing flow untouched.
+    const readiness = await fetchSpendReadiness(token.symbol);
+    if (!readiness.ok) {
+      setSpendBlockReason(readiness.reason);
+      setScreen('spend-unavailable');
+      return;
+    }
+
     setScreen('generating');
     await pay(token, mode);
   }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay]);
@@ -639,6 +655,35 @@ export default function HomeClient() {
           className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
         >
           ← Back, try the preview again
+        </button>
+      </section>
+    ) : screen === 'spend-unavailable' && spendBlockReason ? (
+      <section className="w-full max-w-md flex flex-col gap-4">
+        <ErrorSurface
+          kind={
+            spendBlockReason === 'paused'
+              ? 'spend-paused'
+              : spendBlockReason === 'gas'
+                ? 'spend-gas'
+                : 'spend-cap'
+          }
+          onRetry={() => {
+            // The blocking condition may have cleared (unpaused, topped up, or
+            // a new UTC day). Re-run the same guarded path rather than dropping
+            // straight into pay().
+            setSpendBlockReason(null);
+            void unlock();
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setSpendBlockReason(null);
+            setScreen(inputScreenForActiveMode);
+          }}
+          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+        >
+          ← Back
         </button>
       </section>
     ) : screen === 'generating' ? (
