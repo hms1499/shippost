@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const reconcileStuckThreads = vi.fn();
 const checkAgentWalletBalance = vi.fn();
+const checkOrchestratorGas = vi.fn();
 const checkReserveBalance = vi.fn();
 const checkPreviewAlive = vi.fn();
 const claimAlertOnce = vi.fn();
@@ -10,7 +11,11 @@ const getSupabaseServer = vi.fn(() => ({}));
 const shareAppUrl = vi.fn(() => 'https://app.test');
 
 vi.mock('@/lib/agent/reconcile', () => ({ reconcileStuckThreads }));
-vi.mock('@/lib/agent/walletHealth', () => ({ checkAgentWalletBalance, checkReserveBalance }));
+vi.mock('@/lib/agent/walletHealth', () => ({
+  checkAgentWalletBalance,
+  checkOrchestratorGas,
+  checkReserveBalance,
+}));
 vi.mock('@/lib/agent/previewHealth', () => ({ checkPreviewAlive }));
 vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));
 vi.mock('@/lib/alert', () => ({ alertOps }));
@@ -34,6 +39,7 @@ beforeEach(() => {
   // Healthy balances by default so the reconcile-focused tests stay isolated.
   checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
   checkReserveBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
+  checkOrchestratorGas.mockResolvedValue({ low: false, celo: 1, address: '0xEOA' });
   checkPreviewAlive.mockResolvedValue({ ok: true });
   claimAlertOnce.mockResolvedValue(true);
 });
@@ -118,6 +124,38 @@ describe('GET /api/cron/reconcile', () => {
 
   it('still returns 200 when the reserve check throws', async () => {
     checkReserveBalance.mockRejectedValue(new Error('rpc down'));
+    const res = await GET(req(auth));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
+  });
+});
+
+// A wallet full of stablecoins still settles nothing once the EOA that signs
+// executeX402Call is out of CELO — and the ERC-20 heartbeat cannot see that.
+describe('orchestrator gas heartbeat', () => {
+  it('alerts when the signer is low on gas', async () => {
+    checkOrchestratorGas.mockResolvedValue({ low: true, celo: 0.004, address: '0xEOA' });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledWith(
+      expect.stringMatching(/low on gas/i),
+      expect.objectContaining({ address: '0xEOA', celo: 0.004 }),
+    );
+  });
+
+  it('stays silent when the signer is funded', async () => {
+    await GET(req(auth));
+    expect(alertOps).not.toHaveBeenCalled();
+  });
+
+  it('respects the throttle', async () => {
+    checkOrchestratorGas.mockResolvedValue({ low: true, celo: 0, address: '0xEOA' });
+    claimAlertOnce.mockResolvedValue(false);
+    await GET(req(auth));
+    expect(alertOps).not.toHaveBeenCalled();
+  });
+
+  it('never fails the reconcile job when the gas check throws', async () => {
+    checkOrchestratorGas.mockRejectedValue(new Error('rpc down'));
     const res = await GET(req(auth));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });

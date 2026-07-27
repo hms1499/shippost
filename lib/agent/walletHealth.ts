@@ -94,6 +94,29 @@ const MAX_X402_CALLS_PER_THREAD = 4n;
 // ever blocked.
 const DEFAULT_MIN_GAS_CELO = 0.05;
 
+export interface GasHealth {
+  low: boolean;
+  celo: number; // human CELO held by the orchestrator EOA
+  address: Address;
+}
+
+// Native-gas heartbeat for the EOA that signs executeX402Call. The ERC-20
+// checks above cannot see this: a wallet full of stablecoins still cannot
+// settle anything once its signer is out of CELO.
+export async function checkOrchestratorGas(params: {
+  chainId: number;
+  minCelo?: number;
+  readers?: Pick<ReadinessReaders, 'readOwner' | 'readNativeBalance'>;
+}): Promise<GasHealth> {
+  const readers = params.readers ?? defaultReadinessReaders(params.chainId);
+  // Read from the chain rather than deriving it from AGENT_WALLET_PRIVATE_KEY —
+  // nothing here touches a private key.
+  const address = await readers.readOwner();
+  const raw = await readers.readNativeBalance(address);
+  const min = parseEther(String(params.minCelo ?? DEFAULT_MIN_GAS_CELO));
+  return { low: raw < min, celo: Number(formatUnits(raw, 18)), address };
+}
+
 export async function checkSpendReadiness(params: {
   chainId: number;
   tokenSymbol: TokenSymbol;
@@ -106,13 +129,12 @@ export async function checkSpendReadiness(params: {
   // everything else, so it must win over the symptoms it causes.
   if (await readers.readPaused()) return { ok: false, reason: 'paused' };
 
-  // The signer is read from the chain rather than derived from
-  // AGENT_WALLET_PRIVATE_KEY — the preflight never touches a private key.
-  const owner = await readers.readOwner();
-  const gas = await readers.readNativeBalance(owner);
-  if (gas < parseEther(String(params.minGasCelo ?? DEFAULT_MIN_GAS_CELO))) {
-    return { ok: false, reason: 'gas' };
-  }
+  const gas = await checkOrchestratorGas({
+    chainId: params.chainId,
+    minCelo: params.minGasCelo,
+    readers,
+  });
+  if (gas.low) return { ok: false, reason: 'gas' };
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
   const [cap, spent] = await Promise.all([

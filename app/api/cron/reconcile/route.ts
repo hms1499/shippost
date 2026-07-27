@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { reconcileStuckThreads } from '@/lib/agent/reconcile';
-import { checkAgentWalletBalance, checkReserveBalance } from '@/lib/agent/walletHealth';
+import {
+  checkAgentWalletBalance,
+  checkOrchestratorGas,
+  checkReserveBalance,
+} from '@/lib/agent/walletHealth';
 import { checkPreviewAlive } from '@/lib/agent/previewHealth';
 import { claimAlertOnce } from '@/lib/rateLimit';
 import { alertOps } from '@/lib/alert';
@@ -15,6 +19,8 @@ export const dynamic = 'force-dynamic';
 const LOW_BALANCE_TTL_SEC = 6 * 60 * 60;
 const DEFAULT_AGENT_MIN_USD = 2;
 const DEFAULT_RESERVE_MIN_USD = 0.5;
+// ~0.002 CELO per executeX402Call, so this is roughly 25 threads of runway.
+const DEFAULT_MIN_GAS_CELO = 0.05;
 // Preview being down is a revenue-path outage, not a balance warning — page on
 // every cron run it stays broken, so it cannot be slept through.
 const PREVIEW_DOWN_TTL_SEC = 60;
@@ -63,6 +69,28 @@ export async function GET(req: Request) {
     } catch (e) {
       console.error(
         '[cron/reconcile] wallet health check failed:',
+        e instanceof Error ? e.message : e,
+      );
+    }
+
+    // Heartbeat: native gas on the EOA that signs executeX402Call. The ERC-20
+    // check above is blind to it — a wallet full of stablecoins still settles
+    // nothing once its signer is out of CELO. Users now hit the preflight and
+    // are blocked before paying, so page while there is still time to top up.
+    try {
+      const minCelo = Number(process.env.ORCHESTRATOR_MIN_GAS_CELO) || DEFAULT_MIN_GAS_CELO;
+      const gas = await checkOrchestratorGas({ chainId: TARGET_CHAIN_ID, minCelo });
+      if (gas.low && (await claimAlertOnce(`orchestrator-gas-low:${TARGET_CHAIN_ID}`, LOW_BALANCE_TTL_SEC))) {
+        await alertOps('Orchestrator EOA low on gas — x402 settles will fail', {
+          chainId: TARGET_CHAIN_ID,
+          minCelo,
+          address: gas.address,
+          celo: gas.celo,
+        });
+      }
+    } catch (e) {
+      console.error(
+        '[cron/reconcile] orchestrator gas check failed:',
         e instanceof Error ? e.message : e,
       );
     }

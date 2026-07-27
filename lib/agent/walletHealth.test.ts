@@ -4,6 +4,7 @@ import { getTokens } from '../tokens';
 import {
   checkAgentWalletBalance,
   checkReserveBalance,
+  checkOrchestratorGas,
   checkSpendReadiness,
   type ReadinessReaders,
 } from './walletHealth';
@@ -85,6 +86,27 @@ function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders 
     ...overrides,
   };
 }
+
+describe('checkOrchestratorGas', () => {
+  it('reports the on-chain owner and its balance in human CELO', async () => {
+    const health = await checkOrchestratorGas({
+      chainId: CHAIN,
+      minCelo: 0.05,
+      readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.25')) }),
+    });
+    expect(health).toEqual({ low: false, celo: 0.25, address: OWNER });
+  });
+
+  it('flags a signer below the floor', async () => {
+    const health = await checkOrchestratorGas({
+      chainId: CHAIN,
+      minCelo: 0.05,
+      readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.004')) }),
+    });
+    expect(health.low).toBe(true);
+    expect(health.celo).toBe(0.004);
+  });
+});
 
 describe('checkSpendReadiness', () => {
   it('is ready when the wallet is unpaused, funded, and under cap', async () => {
