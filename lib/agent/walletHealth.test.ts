@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseUnits, type Address } from 'viem';
+import { parseEther, parseUnits, type Address } from 'viem';
 import { getTokens } from '../tokens';
-import { checkAgentWalletBalance, checkReserveBalance } from './walletHealth';
+import {
+  checkAgentWalletBalance,
+  checkReserveBalance,
+  checkSpendReadiness,
+  type ReadinessReaders,
+} from './walletHealth';
 
 const CHAIN = 42220; // Celo mainnet
 const T = getTokens(CHAIN);
@@ -63,5 +68,126 @@ describe('checkAgentWalletBalance', () => {
     });
     expect(health.low).toEqual(['USDT']);
     expect(health.balances).toEqual({ cUSD: 1, USDT: 0.1, USDC: 2 });
+  });
+});
+
+const OWNER = '0x64Ad61211C1b0B7f20B3e04B49661f30f152ae78' as Address;
+
+// A healthy wallet: unpaused, funded orchestrator, full $10 cap untouched.
+function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders {
+  return {
+    readPaused: () => Promise.resolve(false),
+    readOwner: () => Promise.resolve(OWNER),
+    readNativeBalance: () => Promise.resolve(parseEther('1')),
+    readDailyCap: (token) =>
+      Promise.resolve(parseUnits('10', token === T.cUSD.address ? 18 : 6)),
+    readSpentToday: () => Promise.resolve(0n),
+    ...overrides,
+  };
+}
+
+describe('checkSpendReadiness', () => {
+  it('is ready when the wallet is unpaused, funded, and under cap', async () => {
+    expect(
+      await checkSpendReadiness({ chainId: CHAIN, tokenSymbol: 'cUSD', readers: readiness() }),
+    ).toEqual({ ok: true });
+  });
+
+  it('is not ready while the AgentWallet kill-switch is engaged', async () => {
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'USDT',
+      readers: readiness({ readPaused: () => Promise.resolve(true) }),
+    });
+    expect(r).toEqual({ ok: false, reason: 'paused' });
+  });
+
+  it('is not ready when the orchestrator EOA is out of gas', async () => {
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'USDC',
+      readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.001')) }),
+    });
+    expect(r).toEqual({ ok: false, reason: 'gas' });
+  });
+
+  it('reads gas for the on-chain owner, never a configured address', async () => {
+    let askedFor: Address | null = null;
+    await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'cUSD',
+      readers: readiness({
+        readNativeBalance: (a) => {
+          askedFor = a;
+          return Promise.resolve(parseEther('1'));
+        },
+      }),
+    });
+    expect(askedFor).toBe(OWNER);
+  });
+
+  it('treats gas exactly at the floor as ready (strictly below is low)', async () => {
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'cUSD',
+      minGasCelo: 0.05,
+      readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.05')) }),
+    });
+    expect(r).toEqual({ ok: true });
+  });
+
+  it('is not ready when the remaining daily cap cannot cover a whole thread', async () => {
+    // $10 cap with $9.9985 spent leaves $0.0015 — less than the 4 x $0.001 a
+    // worst-case thread (mode B) needs, so the thread could die mid-run.
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'USDT',
+      readers: readiness({ readSpentToday: () => Promise.resolve(parseUnits('9.9985', 6)) }),
+    });
+    expect(r).toEqual({ ok: false, reason: 'cap' });
+  });
+
+  it('is ready when the remaining cap covers exactly one worst-case thread', async () => {
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'USDT',
+      readers: readiness({ readSpentToday: () => Promise.resolve(parseUnits('9.996', 6)) }),
+    });
+    expect(r).toEqual({ ok: true });
+  });
+
+  it('catches an unset cap, which would revert every thread in that token', async () => {
+    // dailySpendCap defaults to 0 for a token whose cap was never set — every
+    // executeX402Call in it reverts CAP_EXCEEDED. Must be caught before paying.
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'USDC',
+      readers: readiness({ readDailyCap: () => Promise.resolve(0n) }),
+    });
+    expect(r).toEqual({ ok: false, reason: 'cap' });
+  });
+
+  it('reports paused first when several conditions fail at once', async () => {
+    const r = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'cUSD',
+      readers: readiness({
+        readPaused: () => Promise.resolve(true),
+        readNativeBalance: () => Promise.resolve(0n),
+        readDailyCap: () => Promise.resolve(0n),
+      }),
+    });
+    expect(r).toEqual({ ok: false, reason: 'paused' });
+  });
+
+  it('never consults the AgentWallet token balance', async () => {
+    // The 50% split delivers $0.025 of the paid token before generate runs, so
+    // balance is not the predicate — and mainnet cUSD sits at 0 today, which a
+    // balance check would wrongly treat as "cannot pay".
+    const readers = readiness();
+    expect(readers).not.toHaveProperty('readBalanceOf');
+    expect(
+      await checkSpendReadiness({ chainId: CHAIN, tokenSymbol: 'cUSD', readers }),
+    ).toEqual({ ok: true });
   });
 });
