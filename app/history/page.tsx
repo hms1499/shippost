@@ -38,7 +38,8 @@ export default function HistoryPage() {
         </div>
 
         <p className="text-sm font-sans text-muted-foreground leading-snug">
-          Every thread you&apos;ve run, in order.
+          Every thread you&apos;ve run, in order. Tap a row to reopen its text and
+          copy it again.
         </p>
       </header>
 
