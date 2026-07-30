@@ -13,6 +13,23 @@ const MODE_FALLBACK: Record<number, string> = {
   5: 'News Breakdown',
 };
 
+// Three-letter badge for dense mono rows (thread history). Keep this the single
+// home for mode display strings: a new mode that lands here and in
+// MODE_FALLBACK can't render as broken data in one list and fine in another.
+// Ids are the on-chain ones emitted by ThreadRequested — see lib/pipeline/modes.
+const MODE_CODE: Record<number, string> = {
+  0: 'EDU',
+  1: 'HOT',
+  2: 'TKN',
+  3: 'REC',
+  4: 'CMP',
+  5: 'NWS',
+};
+
+export function modeCode(mode: number): string {
+  return MODE_CODE[mode] ?? '???';
+}
+
 const CHAIN_LABEL: Record<string, string> = Object.fromEntries(
   CHAINS.map((c) => [c.key, c.label]),
 );

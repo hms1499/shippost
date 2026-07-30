@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { Check, X, Loader2 } from 'lucide-react';
+import { modeCode } from '@/lib/threadLabel';
 
 interface Thread {
   chain_id: number;
@@ -23,13 +24,6 @@ interface Props {
   chainId: number;
   explorerBase: string;
 }
-
-const MODE_LABEL: Record<number, string> = {
-  0: 'EDU',
-  1: 'HOT',
-  2: 'TKN',
-  3: 'REC',
-};
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -100,7 +94,7 @@ function HistoryEntry({
   explorerBase: string;
   index: number;
 }) {
-  const modeLabel = MODE_LABEL[thread.mode] ?? '???';
+  const modeLabel = modeCode(thread.mode);
 
   const statusGlyph =
     thread.status === 'completed' ? (

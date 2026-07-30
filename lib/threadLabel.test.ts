@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { threadLabel } from './threadLabel';
+import { threadLabel, modeCode } from './threadLabel';
 
 describe('threadLabel', () => {
   it('uses the topic when present', () => {
@@ -44,5 +44,28 @@ describe('threadLabel', () => {
     expect(threadLabel({ mode: 5, topic: 'SEC approves spot ETH ETFs' })).toBe(
       'SEC approves spot ETH ETFs',
     );
+  });
+});
+
+describe('modeCode', () => {
+  it('covers every shipped mode id', () => {
+    expect(modeCode(0)).toBe('EDU');
+    expect(modeCode(1)).toBe('HOT');
+    expect(modeCode(2)).toBe('TKN');
+    expect(modeCode(3)).toBe('REC');
+    expect(modeCode(4)).toBe('CMP');
+    expect(modeCode(5)).toBe('NWS');
+  });
+
+  it('never renders a shipped mode as unknown data', () => {
+    // Regression: history showed '???' for comparison (4) and news-breakdown (5)
+    // because the badge map stopped at 3.
+    for (const mode of [0, 1, 2, 3, 4, 5]) {
+      expect(modeCode(mode)).not.toBe('???');
+    }
+  });
+
+  it('falls back for an id this build does not know', () => {
+    expect(modeCode(9)).toBe('???');
   });
 });
