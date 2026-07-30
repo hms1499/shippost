@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { haptic } from '@/lib/haptics';
+import { useCopy } from '@/lib/useCopy';
 import { buildShareText, tweetIntentUrl } from '@/lib/shareText';
 
 interface Props {
@@ -21,21 +21,8 @@ function postFirstTweet(text: string): void {
 }
 
 export function ShareToX({ tweets }: Props) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
+  const { copied, failed, copy } = useCopy();
   const [credit, setCredit] = useState(true);
-
-  async function copyAll() {
-    setCopyError(null);
-    try {
-      await navigator.clipboard.writeText(tweets.join('\n\n'));
-      setCopied(true);
-      haptic('tick');
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopyError('Clipboard blocked — long-press a tweet card to copy manually.');
-    }
-  }
 
   const first = tweets[0] ?? '';
   const rest = tweets.slice(1);
@@ -63,7 +50,7 @@ export function ShareToX({ tweets }: Props) {
         Add a small &#8220;made with CoinOp&#8221; credit to the first tweet
       </label>
 
-      <Button variant="outline" onClick={copyAll}>
+      <Button variant="outline" onClick={() => void copy(tweets.join('\n\n'))}>
         {copied ? (
           <span className="flex items-center gap-1.5">
             Copied
@@ -74,7 +61,11 @@ export function ShareToX({ tweets }: Props) {
         )}
       </Button>
 
-      {copyError && <p className="text-xs font-sans text-destructive">{copyError}</p>}
+      {failed && (
+        <p className="text-xs font-sans text-destructive">
+          Clipboard blocked — long-press a tweet card to copy manually.
+        </p>
+      )}
 
       {rest.length > 0 && (
         <details className="text-xs">
