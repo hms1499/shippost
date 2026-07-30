@@ -33,7 +33,8 @@ export function ShareToX({ tweets }: Props) {
 
       <p className="text-xs font-sans text-muted-foreground">
         X mobile can&apos;t post a full thread at once. Tap <b>Post first tweet</b> below — then in
-        X, use the <b>+</b> button under your own tweet to add each follow-up from the clipboard.
+        X, use the <b>+</b> button under your own tweet to add each follow-up. Come back and tap{' '}
+        <b>copy</b> on a tweet card above to grab them one at a time.
       </p>
 
       <Button onClick={() => postFirstTweet(buildShareText(first, { attribution: credit }))}>

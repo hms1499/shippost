@@ -5,6 +5,7 @@ import { Pencil, X as XIcon, ChevronUp, ChevronDown, Trash2 } from 'lucide-react
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { CopyNib } from '@/components/CopyNib';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { moveTweet, deleteTweet } from '@/lib/threadEdits';
 import { detectBannedPhrases } from '@/lib/bannedPhrases';
@@ -166,7 +167,9 @@ function FolioLeaf({
       <Card className="relative p-5 pt-4 flex flex-col gap-3 transition-colors duration-200 hover:border-primary/50">
         {/* Tweet index marker — top-left */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-2 leading-none">
+          {/* shrink-0: the nib cluster grew by one control, and without this the
+              index block is the flex item that gives — wrapping "of 03". */}
+          <div className="flex shrink-0 items-baseline gap-2 leading-none whitespace-nowrap">
             <span
               className="font-mono font-bold text-2xl text-muted-foreground"
               aria-hidden
@@ -207,6 +210,11 @@ function FolioLeaf({
                 </LeafNib>
               </>
             )}
+
+            {/* Copy nib — X mobile can't post a thread in one shot, so the
+                follow-ups are pasted one at a time (see ShareToX). Copying a
+                single tweet is the actual last-mile action, not copy-all. */}
+            {!isEditing && <CopyNib text={text} />}
 
             {/* Edit nib */}
             {!isEditing ? (
