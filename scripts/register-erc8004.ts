@@ -71,6 +71,13 @@ const REGISTRY_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    name: 'getAgentWallet',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'agentId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
     name: 'Transfer',
     type: 'event',
     inputs: [
@@ -165,6 +172,27 @@ async function main() {
 
   // ─── Step 2: Sign EIP-712 message for setAgentWallet ─────────────────────
   // The signature must come from newWallet (we use deployer EOA as the agent wallet)
+
+  // …but the deployed registry already links the minting owner as the agent
+  // wallet, so on a fresh register there is nothing to set. Skipping matters:
+  // walletSetNonces is absent from the deployed bytecode, so the nonce read
+  // below silently falls back to 0, the signature fails to verify, and the call
+  // reverts — after the mint has already succeeded. Check the live value first.
+  const linked = (await publicClient
+    .readContract({
+      address: registryAddress,
+      abi: REGISTRY_ABI,
+      functionName: 'getAgentWallet',
+      args: [agentId],
+    })
+    .catch(() => null)) as `0x${string}` | null;
+
+  if (linked && linked.toLowerCase() === deployer.account.address.toLowerCase()) {
+    console.log(`\n[2/3] Agent wallet already linked to ${linked} — skipping setAgentWallet.`);
+    await writeResult({ agentWallet: linked, setWalletTx: '(already linked)' });
+    return;
+  }
+
   console.log('\n[2/3] Signing EIP-712 AgentWalletSet message...');
 
   // Domain confirmed from contract source: __EIP712_init("SelfAgentRegistry", "1")
@@ -235,26 +263,33 @@ async function main() {
 
   console.log(`    tx: ${walletHash.transactionHash}`);
 
+  await writeResult({ agentWallet: newWallet, setWalletTx: walletHash.transactionHash });
+
   // ─── Summary ──────────────────────────────────────────────────────────────
-  const result = {
-    network: networkName,
-    chainId: domainChainId,
-    registry: registryAddress,
-    agentId: agentId.toString(),
-    agentURI,
-    agentWallet: newWallet,
-    registerTx: registerTx ?? '(skipped)',
-    setWalletTx: walletHash.transactionHash,
-    timestamp: new Date().toISOString(),
-  };
+  // Declared (not assigned to a const) so the early return in step 2 can call
+  // it — a mint that lands must always leave a record on disk, even when the
+  // wallet-linking step is skipped.
+  async function writeResult(extra: { agentWallet: string; setWalletTx: string }) {
+    const result = {
+      network: networkName,
+      chainId,
+      registry: registryAddress,
+      agentId: agentId.toString(),
+      agentURI,
+      agentWallet: extra.agentWallet,
+      registerTx: registerTx ?? '(skipped)',
+      setWalletTx: extra.setWalletTx,
+      timestamp: new Date().toISOString(),
+    };
 
-  const outPath = path.join(__dirname, '..', 'deployments', `erc8004-${networkName}.json`);
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
+    const outPath = path.join(__dirname, '..', 'deployments', `erc8004-${networkName}.json`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(result, null, 2));
 
-  console.log('\n✓ ERC-8004 registration complete');
-  console.log(JSON.stringify(result, null, 2));
-  console.log(`\nSaved to: ${outPath}`);
+    console.log('\n✓ ERC-8004 registration complete');
+    console.log(JSON.stringify(result, null, 2));
+    console.log(`\nSaved to: ${outPath}`);
+  }
 }
 
 main().catch((e) => {

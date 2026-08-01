@@ -1,0 +1,16 @@
+{
+  "network": "celo",
+  "chainId": 42220,
+  "registry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+  "agentId": "9751",
+  "agentURI": "https://shippost-kappa.vercel.app/agent.json",
+  "agentWallet": "0x64Ad61211C1b0B7f20B3e04B49661f30f152ae78",
+  "registerTx": "0xc2675c4511bac4e9db905297060c2a4a2a2f6624f9c6d27360fca3312a29ffdc",
+  "registerBlock": 73660190,
+  "setWalletTx": "(linked at mint)",
+  "timestamp": "2026-08-01T05:11:56.962Z",
+  "supersedes": {
+    "agentId": "9057",
+    "reason": "owned by the leaked deployer key 0xcFAB15C950093391fA1CA3b9810880839b05BCBC; its tokenURI points at the never-deployed host shippost.vercel.app and 404s. Cannot be reclaimed."
+  }
+}
