@@ -4,8 +4,15 @@
 |---|---|---|---|
 | Insufficient balance | `computeTokenAmount > balance` in EducationalInput / HotTakeInput | Inline message + link to `https://minipay.to` top-up | `ErrorSurface kind="insufficient"` |
 | Token not approved | `usePayForThread` sees no allowance | Auto-trigger approve tx (Week 1 already does) | `usePayForThread` |
-| Approve rejected | `approve` tx throws | "Cancelled. Try again?" with retry button | `ErrorSurface kind="approve-rejected"` |
-| Pay tx failed | `payForThread` reverts or tx fails | "Payment failed — funds not moved" (no refund needed) | `ErrorSurface kind="pay-failed"` |
+| Approve rejected or failed | `usePayForThread` throws while `errorPhase === 'approve'` | "Approval did not go through" + retry button | `ErrorSurface kind="approve-failed"` |
+| Pay tx failed | `payForThread` reverts or the wallet throws (`errorPhase === 'pay'`) | "Payment failed — funds not moved" (no refund needed) | `ErrorSurface kind="pay-failed"` |
+| Wallet never opened | `errorPhase === 'setup'` — no client, wrong chain, no RPC | "Wallet did not respond — nothing charged" | `ErrorSurface kind="wallet-unavailable"` |
+| Pay outcome unknown | `errorPhase === 'confirm'` — receipt never arrived | "Payment not confirmed — check before retrying" (the one case where retry can double-charge) | `ErrorSurface kind="pay-unconfirmed"` |
+
+The kind is chosen from the **recorded phase** (`PayPhase` in `lib/usePayForThread.ts`),
+never by matching the wallet's wording, and every card prints the wallet's raw
+message via `detail` — a payment failing inside the MiniPay webview leaves no
+server-side trace, so that string is the only evidence of what happened.
 | x402 fails mid-pipeline | `step_failed` emitted, but `tweets` exist (partial output) | "Partial output saved. We'll refund the failed step within 24h." | `ErrorSurface kind="partial"` |
 | All x402 fail | `fatal` event with no tweets | "Generation failed — full refund in progress." + request refund CTA | `ErrorSurface kind="full-fail"` |
 | Agent bucket empty | Orchestrator catches `DailySpendCapExceeded` revert | Pause app UI + "We ran out of budget today, back tomorrow" | `ErrorSurface kind="cap-hit"` (global banner) |

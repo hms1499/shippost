@@ -2,10 +2,16 @@
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useCopy } from '@/lib/useCopy';
 
 export type ErrorKind =
-  | 'approve-rejected'
+  | 'approve-failed'
   | 'pay-failed'
+  // The wallet never got as far as a signing sheet.
+  | 'wallet-unavailable'
+  // The pay tx was signed but its outcome is unknown — the one case where
+  // retrying could charge twice.
+  | 'pay-unconfirmed'
   | 'partial'
   | 'full-fail'
   // Preflight said the agent cannot settle, so we stopped before the wallet
@@ -25,20 +31,40 @@ interface Props {
   onRefundRequest?: () => void;
   refundStatus?: RefundRequestStatus;
   refundError?: string | null;
+  /**
+   * The wallet's own words. A payment that fails inside the MiniPay webview
+   * leaves no server-side trace, so this string is the only evidence of what
+   * went wrong — show it verbatim and make it copyable rather than replacing
+   * it with reassuring copy.
+   */
+  detail?: string | null;
 }
 
 const COPY: Record<
   ErrorKind,
   { title: string; body: string; primary?: string }
 > = {
-  'approve-rejected': {
-    title: 'Approval cancelled',
-    body: 'You rejected the approve step. No funds moved.',
+  // Covers a deliberate rejection and a wallet-side error alike: the phase is
+  // known, the reason is not, so the copy must not accuse the user of
+  // cancelling something the wallet may have failed on its own.
+  'approve-failed': {
+    title: 'Approval did not go through',
+    body: 'The one-time token approval never completed, so nothing was charged. You can retry safely.',
     primary: 'Try again',
   },
   'pay-failed': {
     title: 'Payment failed',
-    body: 'The pay transaction reverted. No funds moved. You can retry safely.',
+    body: 'The pay transaction did not go through. No funds moved. You can retry safely.',
+    primary: 'Try again',
+  },
+  'wallet-unavailable': {
+    title: 'Wallet did not respond',
+    body: 'Your wallet never opened the payment, so nothing was sent and nothing was charged. Reopening CoinOp from MiniPay usually clears this.',
+    primary: 'Try again',
+  },
+  'pay-unconfirmed': {
+    title: 'Payment not confirmed',
+    body: "We couldn't confirm your payment. Don't pay again yet — check your wallet history first, and use Recover thread if the payment did land.",
     primary: 'Try again',
   },
   partial: {
@@ -79,8 +105,10 @@ export function ErrorSurface({
   onRefundRequest,
   refundStatus = 'idle',
   refundError,
+  detail,
 }: Props) {
   const c = COPY[kind];
+  const { copied, failed: copyFailed, copy } = useCopy();
   const isRefundKind =
     kind === 'partial' ||
     kind === 'full-fail' ||
@@ -106,6 +134,20 @@ export function ErrorSurface({
         <p className="text-xs font-sans text-muted-foreground">
           auto refund queued — nothing was delivered
         </p>
+      )}
+      {detail && (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-mono text-muted-foreground break-words select-text">
+            {detail}
+          </p>
+          <button
+            type="button"
+            onClick={() => copy(detail)}
+            className="self-start text-xs font-mono text-muted-foreground underline underline-offset-2"
+          >
+            {copied ? 'copied ✓' : copyFailed ? 'select the text above' : 'copy error'}
+          </button>
+        </div>
       )}
       {buttonLabel && primary && (
         <Button variant="outline" onClick={primary} disabled={disabled}>

@@ -17,6 +17,7 @@ import { isSupportedChain, getChain } from './chains';
 import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
 import { haptic } from './haptics';
 import { getAttributionSuffix } from './attributionTag';
+import { describePayError } from './payError';
 
 export type PayStatus =
   | 'idle'
@@ -26,11 +27,20 @@ export type PayStatus =
   | 'success'
   | 'error';
 
+/**
+ * Where the flow stood when it threw. The UI used to guess this by matching
+ * the message against /approve/i, which silently showed nothing whenever the
+ * wallet worded a failure some other way — the failure mode that hid the
+ * first-payment bug. The phase is recorded, never inferred.
+ */
+export type PayPhase = 'setup' | 'approve' | 'pay' | 'confirm';
+
 export interface PayResult {
   status: PayStatus;
   threadId: bigint | null;
   txHash: Hex | null;
   error: string | null;
+  errorPhase: PayPhase | null;
   pay: (token: TokenConfig, mode: number) => Promise<void>;
   reset: () => void;
 }
@@ -68,29 +78,34 @@ export function usePayForThread(): PayResult {
   const [threadId, setThreadId] = useState<bigint | null>(null);
   const [txHash, setTxHash] = useState<Hex | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorPhase, setErrorPhase] = useState<PayPhase | null>(null);
 
   const reset = useCallback(() => {
     setStatus('idle');
     setThreadId(null);
     setTxHash(null);
     setError(null);
+    setErrorPhase(null);
+  }, []);
+
+  const fail = useCallback((phase: PayPhase, message: string) => {
+    setError(message);
+    setErrorPhase(phase);
+    setStatus('error');
   }, []);
 
   const pay = useCallback(
     async (token: TokenConfig, mode: number) => {
       if (!address) {
-        setError('Wallet not connected');
-        setStatus('error');
+        fail('setup', 'Wallet not connected');
         return;
       }
       if (chainId !== TARGET_CHAIN_ID) {
-        setError(`Wrong network. Switch your wallet to ${targetChainName()} (${TARGET_CHAIN_ID}).`);
-        setStatus('error');
+        fail('setup', `Wrong network. Switch your wallet to ${targetChainName()} (${TARGET_CHAIN_ID}).`);
         return;
       }
       if (!publicClient) {
-        setError(`No RPC for chainId ${chainId}. Switch network in your wallet.`);
-        setStatus('error');
+        fail('setup', `No RPC for chainId ${chainId}. Switch network in your wallet.`);
         return;
       }
       let wc: WalletClient | undefined = walletClient ?? undefined;
@@ -119,13 +134,14 @@ export function usePayForThread(): PayResult {
         }
       }
       if (!wc) {
-        setError(
+        fail(
+          'setup',
           `Wallet client not ready (connector=${connector?.name ?? 'none'}). Try Disconnect → reconnect.`,
         );
-        setStatus('error');
         return;
       }
 
+      let phase: PayPhase = 'setup';
       try {
         const contracts = getContracts(chainId);
         const paymentAddr = contracts.ShipPostPayment;
@@ -137,11 +153,10 @@ export function usePayForThread(): PayResult {
           try {
             await wc.switchChain({ id: chainId });
           } catch (e) {
-            const m = (e as { shortMessage?: string; message?: string });
-            setError(
-              `Wallet is on chainId ${walletChainId}; switch to ${targetChainName()} (${TARGET_CHAIN_ID}) in your wallet. ${m.shortMessage ?? m.message ?? ''}`,
+            fail(
+              'setup',
+              `Wallet is on chainId ${walletChainId}; switch to ${targetChainName()} (${TARGET_CHAIN_ID}) in your wallet. ${describePayError(e)}`,
             );
-            setStatus('error');
             return;
           }
           for (let i = 0; i < 15 && walletChainId !== chainId; i++) {
@@ -149,8 +164,7 @@ export function usePayForThread(): PayResult {
             walletChainId = await wc.getChainId();
           }
           if (walletChainId !== chainId) {
-            setError(`Wallet is still on chainId ${walletChainId}; please switch to ${targetChainName()} (${TARGET_CHAIN_ID}) manually and retry.`);
-            setStatus('error');
+            fail('setup', `Wallet is still on chainId ${walletChainId}; please switch to ${targetChainName()} (${TARGET_CHAIN_ID}) manually and retry.`);
             return;
           }
         }
@@ -163,6 +177,7 @@ export function usePayForThread(): PayResult {
         });
 
         if (allowance < amount) {
+          phase = 'approve';
           setStatus('approving');
           const approveHash = await wc.writeContract({
             address: token.address,
@@ -200,6 +215,7 @@ export function usePayForThread(): PayResult {
           }
         }
 
+        phase = 'pay';
         setStatus('paying');
         haptic('tap');
         const payHash = await wc.writeContract({
@@ -213,10 +229,15 @@ export function usePayForThread(): PayResult {
         });
         setTxHash(payHash);
 
+        phase = 'confirm';
         setStatus('waiting-confirmation');
         const receipt = await publicClient.waitForTransactionReceipt({ hash: payHash });
 
         if (receipt.status !== 'success') {
+          // A revert moves no funds, so this is the ordinary "pay failed, retry
+          // safely" story — not the unconfirmed one, where the money may have
+          // left and a second attempt would double-charge.
+          phase = 'pay';
           throw new Error('Payment transaction reverted');
         }
 
@@ -229,16 +250,15 @@ export function usePayForThread(): PayResult {
         setStatus('success');
         haptic('success');
       } catch (e) {
-        const msg =
-          (e as { shortMessage?: string }).shortMessage ??
-          (e instanceof Error ? e.message : 'Payment failed');
-        setError(msg);
-        setStatus('error');
+        // The wallet's own wording is the only evidence for a webview-side
+        // failure, so log it whole and keep the readable form for the UI.
+        console.error(`payForThread failed during ${phase}`, e);
+        fail(phase, describePayError(e));
         haptic('error');
       }
     },
-    [walletClient, refetchWalletClient, publicClient, address, chainId, connector]
+    [walletClient, refetchWalletClient, publicClient, address, chainId, connector, fail]
   );
 
-  return { status, threadId, txHash, error, pay, reset };
+  return { status, threadId, txHash, error, errorPhase, pay, reset };
 }

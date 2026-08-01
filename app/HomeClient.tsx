@@ -164,7 +164,7 @@ export default function HomeClient() {
           : comparison
             ? 'comparison'
             : 'news-breakdown';
-  const { pay, status, threadId, txHash, error, reset } = usePayForThread();
+  const { pay, status, threadId, txHash, error, errorPhase, reset } = usePayForThread();
   const { state: gen, start: startGen, reset: resetGen } = useThreadGeneration();
 
   // When the user disconnects mid-flow, clear all transient state and return to
@@ -781,27 +781,22 @@ export default function HomeClient() {
           </p>
         </div>
       )}
-      {error && /approve/i.test(error) && (
+      {/* Every pay failure lands here — the kind comes from the recorded phase,
+          never from matching the wallet's wording, so a message we didn't
+          anticipate can no longer leave the user on a silent 'generating'
+          screen with no card at all. */}
+      {error && (
         <ErrorSurface
-          kind="approve-rejected"
-          onRetry={() => {
-            const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
-            reset();
-            resetGen();
-            setDraftTweets(null);
-            setSubmitted(null);
-            setHotTake(null);
-            setNewsBreakdown(null);
-            setTokenAnalysis(null);
-            setDailyRecap(null);
-            setComparison(null);
-            setScreen(back);
-          }}
-        />
-      )}
-      {error && !/approve/i.test(error) && /revert|reject|fail/i.test(error) && (
-        <ErrorSurface
-          kind="pay-failed"
+          kind={
+            errorPhase === 'approve'
+              ? 'approve-failed'
+              : errorPhase === 'confirm'
+                ? 'pay-unconfirmed'
+                : errorPhase === 'setup'
+                  ? 'wallet-unavailable'
+                  : 'pay-failed'
+          }
+          detail={error}
           onRetry={() => {
             const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
             reset();
