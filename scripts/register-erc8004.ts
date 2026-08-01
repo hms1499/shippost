@@ -98,9 +98,23 @@ async function main() {
   console.log(`Deployer:  ${deployer.account.address}`);
 
   // ─── Step 1: Register agent (skip if AGENT_ID env var is set) ───────────
-  const agentURI = process.env.NEXT_PUBLIC_APP_URL
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/agent.json`
-    : 'https://shippost.vercel.app/agent.json';
+  // No silent fallback. The first registration (mainnet agentId 9057) fell back
+  // to a hardcoded domain that was never deployed, so tokenURI has pointed at a
+  // 404 ever since — and the URI is fixed at mint, so a wrong one is permanent.
+  // Blank counts as absent: a Vercel env var stored as "" is present-but-empty.
+  const baseURL = (process.env.ERC8004_AGENT_URI || process.env.NEXT_PUBLIC_APP_URL || '').trim();
+  if (!baseURL) {
+    throw new Error(
+      'Set NEXT_PUBLIC_APP_URL (or ERC8004_AGENT_URI) to the deployed origin — refusing to mint an agent with a guessed URI.',
+    );
+  }
+  const agentURI = baseURL.endsWith('/agent.json') ? baseURL : `${baseURL.replace(/\/$/, '')}/agent.json`;
+
+  // Fetch it before spending gas. A registration that mints an unreachable URI
+  // is unfixable without re-minting under a new agentId.
+  const probe = await fetch(agentURI).catch((e: unknown) => e as Error);
+  if (probe instanceof Error) throw new Error(`agentURI ${agentURI} is unreachable: ${probe.message}`);
+  if (!probe.ok) throw new Error(`agentURI ${agentURI} returned HTTP ${probe.status} — deploy it before registering.`);
 
   let agentId: bigint;
   let registerTx: string | undefined;

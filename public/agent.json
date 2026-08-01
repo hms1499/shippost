@@ -1,26 +1,52 @@
 {
-  "type": "Agent",
-  "name": "ShipPost",
-  "description": "Pay-per-use AI thread writer running as a MiniApp inside Opera's MiniPay wallet. Users pay $0.05 stablecoin per thread. An ERC-8004 agent wallet makes x402 micro-payments to AI services (Groq, Serper, CoinGecko) to generate a ready-to-post X thread.",
-  "image": "https://shippost.vercel.app/logo.png",
-  "endpoints": [
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "CoinOp",
+  "description": "Coin-operated AI thread writer running as a MiniApp inside Opera's MiniPay wallet. A user pays $0.05 in cUSD, USDT or USDC on Celo; the agent then makes 1-4 x402 micro-payments to AI services (Groq, Serper, CoinGecko, DefiLlama) out of its own on-chain wallet and returns a ready-to-post X thread. Payment is verified on-chain before any spend, and delivery is gated on settlement, so every failure path stays refundable.",
+  "image": "https://shippost-kappa.vercel.app/logo.png",
+  "services": [
     {
-      "type": "a2a",
-      "url": "https://shippost.vercel.app/agent.json"
+      "name": "web",
+      "endpoint": "https://shippost-kappa.vercel.app"
     },
     {
-      "type": "wallet",
-      "address": "0x7538627c5eef2193fa4960f03157f482eca333be",
-      "chainId": 11142220
+      "name": "x402-groq",
+      "endpoint": "https://shippost-kappa.vercel.app/api/x402/groq",
+      "description": "Paid thread generation over x402. The caller signs an EIP-3009 X-Payment, verified before the handler runs and settled only on a 2xx response."
+    },
+    {
+      "name": "registration",
+      "endpoint": "https://shippost-kappa.vercel.app/agent.json"
     }
   ],
+  "capabilities": [
+    "Educational thread",
+    "Hot take",
+    "Token analysis",
+    "Daily recap",
+    "Chain-vs-chain comparison",
+    "News breakdown"
+  ],
   "supportedTrust": ["reputation"],
-  "version": "1.0.0",
+  "version": "2.0.0",
   "network": {
+    "mainnet": {
+      "chainId": 42220,
+      "agentWallet": "0x006cBA3012139C299Aa4A522697B4A0c49F38895",
+      "paymentContract": "0x0dea32414e884253b51a43b19a6a8c6b8f3b1800",
+      "tokens": {
+        "cUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+        "USDT": "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
+        "USDC": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C"
+      }
+    },
     "testnet": {
       "chainId": 11142220,
       "agentWallet": "0x7538627c5eef2193fa4960f03157f482eca333be",
-      "paymentContract": "0x277e140933d600cafcad38e2f1018e4fbd5476b2"
+      "paymentContract": "0xa15bded7b53111e6477d63294c6643e82cba1c07"
     }
+  },
+  "attribution": {
+    "standard": "ERC-8021",
+    "code": "celo_9d82109d057f"
   }
 }
