@@ -16,6 +16,7 @@ import { computeTokenAmount, type TokenConfig } from './tokens';
 import { isSupportedChain, getChain } from './chains';
 import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
 import { haptic } from './haptics';
+import { getAttributionSuffix } from './attributionTag';
 
 export type PayStatus =
   | 'idle'
@@ -170,6 +171,7 @@ export function usePayForThread(): PayResult {
             args: [paymentAddr, amount * APPROVE_BATCH],
             account: address,
             chain,
+            dataSuffix: getAttributionSuffix(),
           });
           const approveReceipt = await publicClient.waitForTransactionReceipt({
             hash: approveHash,
@@ -207,6 +209,7 @@ export function usePayForThread(): PayResult {
           args: [token.address, mode],
           account: address,
           chain,
+          dataSuffix: getAttributionSuffix(),
         });
         setTxHash(payHash);
 
