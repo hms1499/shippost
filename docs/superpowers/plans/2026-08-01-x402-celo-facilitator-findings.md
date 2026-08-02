@@ -164,7 +164,7 @@ That is a plausible explanation for the half-served kind table: x402 v2 support
 looks de-prioritised mid-migration. It also means a v1 client written today
 would be built against the path Celo is walking away from.
 
-### 3d. What our stack emits
+### 3g. What our stack emits
 
 - `@x402/{core,evm,next,fetch}` are all **2.14.0**, and the EVM exact scheme
   hard-codes `x402Version: 2`.
