@@ -21,7 +21,17 @@
 
 ---
 
-### Task 1: Resolve the facilitator wire format (blocking spike)
+### Task 1: Resolve the facilitator wire format (blocking spike) — **DONE 2026-08-02: NO-GO**
+
+> **Outcome: NO-GO. Tasks 2–5 must not start.** Findings:
+> [`2026-08-01-x402-celo-facilitator-findings.md`](2026-08-01-x402-celo-facilitator-findings.md).
+> The envelope question resolved *in our favour* — the facilitator speaks the
+> standard interface and `HTTPFacilitatorClient` is reusable. The blocker is a
+> different one: it serves only `(x402Version 1, bare network name)` on
+> `/verify`, while `@x402` 2.14.0 emits `(2, eip155:*)`. It advertises the v2
+> kind in `/supported` and then rejects it. Auth (`X-API-Key`) is confirmed.
+> Mainnet has been 500 for ~36h; the testnet host
+> `api.x402.sepolia.celo.org` is up and is what the matrix was probed against.
 
 The spec's one open question. The Celo facilitator's landing page advertises `POST /settle` with `{"payment": "<x402-payload>", "network": "celo"}`, while `@x402/core`'s `HTTPFacilitatorClient` posts the standard `{x402Version, paymentPayload, paymentRequirements}`. If they differ, none of the tasks below are the right work.
 
@@ -32,7 +42,7 @@ The spec's one open question. The Celo facilitator's landing page advertises `PO
 - Consumes: nothing.
 - Produces: a go/no-go decision for Tasks 2–5, plus the confirmed facilitator base URL and the exact auth header name.
 
-- [ ] **Step 1: Check whether the facilitator is up at all**
+- [x] **Step 1: Check whether the facilitator is up at all**
 
 ```bash
 for p in /supported /health /verify; do
@@ -44,7 +54,7 @@ done
 
 Expected when healthy: `/supported` returns `200` with JSON. It returned **500 on every route** on 2026-08-01, and the relayer `0x0d74d5cefd2e7f24e623330ebe3d8d4cb45ffb48` had been idle for ~2 hours. **If it is still 500, stop here** — record the timestamp in the findings file and end the task. Do not write code against an API you cannot observe.
 
-- [ ] **Step 2: Confirm the relayer is actually settling**
+- [x] **Step 2: Confirm the relayer is actually settling**
 
 ```bash
 node -e '
@@ -64,7 +74,7 @@ const c=createPublicClient({transport:http("https://forno.celo.org")});
 
 Expected: the nonce increases between the 1-hour-ago and now samples. A flat nonce means the service is down regardless of what any status page says.
 
-- [ ] **Step 3: Compare the response shape against what the client sends**
+- [x] **Step 3: Compare the response shape against what the client sends**
 
 Read `GET /supported` and check it returns the x402 `supported` shape — a list of `{x402Version, scheme, network}` entries — and that `network` uses CAIP-2 (`eip155:42220`) rather than a bare string like `"celo"`.
 
@@ -74,14 +84,14 @@ Then read the installed client to see exactly what it posts:
 grep -rn "verify\|settle\|x402Version" node_modules/@x402/core/dist/**/*facilitator* | head -30
 ```
 
-- [ ] **Step 4: Record the decision**
+- [x] **Step 4: Record the decision**
 
 Write `docs/superpowers/plans/2026-08-01-x402-celo-facilitator-findings.md` containing: the probe timestamp, the raw `/supported` body, the auth header name the docs require, and one of two verdicts stated explicitly:
 
 - **GO** — the facilitator speaks the standard interface; `HTTPFacilitatorClient` is reusable; continue to Task 2.
 - **NO-GO** — the shapes differ; stop, and return to the spec to design a custom facilitator client. Do not start Task 2.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-08-01-x402-celo-facilitator-findings.md
