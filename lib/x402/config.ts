@@ -6,6 +6,13 @@ export interface X402ChainConfig {
   caip2: `eip155:${number}`;
   usdc: Address;
   usdcDecimals: number;
+  /**
+   * Bare network name for a facilitator still serving x402 v1. Set only where
+   * the facilitator cannot speak v2 — its presence is what makes the resource
+   * server wrap the facilitator in the v1 downgrade shim. Delete it and the
+   * chain goes back to plain v2 with no other change.
+   */
+  v1Network?: string;
 }
 
 // Single source of truth for the x402 Groq price (human USDC). The displayed
@@ -19,6 +26,8 @@ export const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 const BASE_MAINNET = 8453;
 const BASE_SEPOLIA = 84532;
+const CELO_MAINNET = 42220;
+const CELO_SEPOLIA = 11142220;
 
 const CONFIG: Record<number, X402ChainConfig> = {
   [BASE_MAINNET]: {
@@ -30,6 +39,21 @@ const CONFIG: Record<number, X402ChainConfig> = {
     caip2: 'eip155:84532',
     usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     usdcDecimals: 6,
+  },
+  // Celo. USDC here is Circle's native issuance and supports EIP-3009 with the
+  // EIP-712 domain name "USDC" version "2" — which is what the exact scheme
+  // signs — so no client-side change is needed to settle here.
+  [CELO_MAINNET]: {
+    caip2: 'eip155:42220',
+    usdc: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+    usdcDecimals: 6,
+    v1Network: 'celo',
+  },
+  [CELO_SEPOLIA]: {
+    caip2: 'eip155:11142220',
+    usdc: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
+    usdcDecimals: 6,
+    v1Network: 'celo-sepolia',
   },
 };
 
@@ -44,10 +68,12 @@ export function isX402Chain(chainId: number): boolean {
 }
 
 // x402 only when explicitly enabled AND the settlement chain (X402_CHAIN_ID)
-// is a supported Base chain; everything else stays legacy. Deliberately NOT
-// keyed on the user's payment chain: MiniPay users pay on Celo while the
-// agent's own Groq spend settles on Base (Model 2, spec
-// docs/superpowers/specs/2026-07-08-model2-x402-all-threads-design.md).
+// is a configured chain; everything else stays legacy. Deliberately NOT keyed
+// on the user's payment chain — that stays Celo either way (Model 1). The
+// settle chain is an independent choice: Base via the Coinbase CDP
+// facilitator, or Celo via the hosted Celo facilitator (Model 2, specs
+// docs/superpowers/specs/2026-07-08-model2-x402-all-threads-design.md and
+// docs/superpowers/specs/2026-08-01-x402-celo-facilitator-design.md).
 export function getSettleMode(): SettleMode {
   return process.env.X402_SETTLE_MODE === 'x402' && isX402Chain(getSettleChainId())
     ? 'x402'

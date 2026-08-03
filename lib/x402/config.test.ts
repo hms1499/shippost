@@ -6,6 +6,8 @@ import {
 const BASE = 8453;
 const BASE_SEPOLIA = 84532;
 const CELO = 42220;
+const CELO_SEPOLIA = 11142220;
+const UNSUPPORTED = 1; // Ethereum mainnet — no x402 config, and not meant to have one
 
 afterEach(() => { vi.unstubAllEnvs(); });
 
@@ -18,18 +20,43 @@ describe('x402 config', () => {
       .toBe('0x036cbd53842c5426634e7929541ec2318f3dcf7e');
   });
 
-  it('throws for non-Base chains', () => {
-    expect(() => getX402ChainConfig(CELO)).toThrow();
-    expect(isX402Chain(CELO)).toBe(false);
+  it('maps Celo chains to CAIP-2 + canonical USDC (6 dec)', () => {
+    expect(getX402ChainConfig(CELO).caip2).toBe('eip155:42220');
+    expect(getX402ChainConfig(CELO).usdc.toLowerCase())
+      .toBe('0xceba9300f2b948710d2653dd7b07f33a8b32118c');
+    expect(getX402ChainConfig(CELO).usdcDecimals).toBe(6);
+    expect(isX402Chain(CELO)).toBe(true);
+
+    expect(getX402ChainConfig(CELO_SEPOLIA).caip2).toBe('eip155:11142220');
+    expect(getX402ChainConfig(CELO_SEPOLIA).usdc.toLowerCase())
+      .toBe('0x01c5c0122039549ad1493b8220cabedd739bc44e');
   });
 
-  it('x402 only when flag=x402 AND X402_CHAIN_ID is a supported Base chain', () => {
+  // The bare name is what the Celo facilitator's /verify actually answers to;
+  // its presence is also what tells the resource server to wrap the facilitator
+  // in the v1 downgrade shim at all.
+  it('carries the v1 bare network name only for chains whose facilitator needs it', () => {
+    expect(getX402ChainConfig(CELO).v1Network).toBe('celo');
+    expect(getX402ChainConfig(CELO_SEPOLIA).v1Network).toBe('celo-sepolia');
+    expect(getX402ChainConfig(BASE).v1Network).toBeUndefined();
+    expect(getX402ChainConfig(BASE_SEPOLIA).v1Network).toBeUndefined();
+  });
+
+  it('throws for chains with no x402 config', () => {
+    expect(() => getX402ChainConfig(UNSUPPORTED)).toThrow();
+    expect(isX402Chain(UNSUPPORTED)).toBe(false);
+  });
+
+  it('x402 only when flag=x402 AND X402_CHAIN_ID is a configured chain', () => {
     vi.stubEnv('X402_SETTLE_MODE', 'x402');
     vi.stubEnv('X402_CHAIN_ID', '8453');
     expect(getSettleMode()).toBe('x402');
     expect(getSettleChainId()).toBe(BASE);
 
-    vi.stubEnv('X402_CHAIN_ID', String(CELO)); // flag on, non-Base settle chain
+    vi.stubEnv('X402_CHAIN_ID', String(CELO)); // Celo is a configured chain now
+    expect(getSettleMode()).toBe('x402');
+
+    vi.stubEnv('X402_CHAIN_ID', String(UNSUPPORTED)); // flag on, unconfigured chain
     expect(getSettleMode()).toBe('legacy');
 
     vi.stubEnv('X402_CHAIN_ID', 'garbage'); // flag on, unparseable
