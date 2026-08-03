@@ -1,10 +1,15 @@
 # x402 Celo facilitator — Task 1 findings (blocking spike)
 
-**Probed:** 2026-08-02, 02:07–02:25 UTC
+**Probed:** 2026-08-02, 02:07–02:25 UTC · **re-probed 2026-08-03, 15:00 UTC** (§4)
 **Plan:** [`2026-08-01-x402-celo-facilitator.md`](2026-08-01-x402-celo-facilitator.md) Task 1
 **Spec:** [`../specs/2026-08-01-x402-celo-facilitator-design.md`](../specs/2026-08-01-x402-celo-facilitator-design.md)
 
-## Verdict: **NO-GO**
+> **Superseded in part by §4.** The kind mismatch below is confirmed still live,
+> on mainnet as well as testnet. What changed is the *cost of working around it*:
+> the v1 downgrade is a ~50-line adapter, not a custom facilitator client. The
+> verdict is now **GO via a v1 downgrade shim** (user decision, 2026-08-03).
+
+## Verdict (2026-08-02): **NO-GO**
 
 Not for the reason the spec expected. The *envelope* question resolved in our
 favour — the facilitator speaks the standard x402 facilitator interface and
@@ -198,6 +203,89 @@ Options, for the spec to decide between — **not** to be adapted inline:
    settlements remain unattributable to Celo.
 
 Recommendation: **(2) then (1)**. Do not build a v1 client.
+
+## 4. Re-probe, 2026-08-03 15:00 UTC
+
+Per §"Options" (1) — wait and re-probe. Two things changed, one did not.
+
+### 4a. Mainnet is back, and genuinely settling
+
+| check | 2026-08-02 | 2026-08-03 15:00 UTC |
+|---|---|---|
+| `GET /supported` (mainnet) | 500 after 11.5s | **200 in 1.84s** |
+| relayer nonce | 244,139, flat ~12.5h | **247,934**, +564 in the last hour |
+
+The outage ran from 2026-08-01 13:38 UTC to somewhere between 2026-08-02 15:04
+(still 244,139) and 2026-08-03 14:04 — roughly two days. Throughput is back to
+~13.5k tx/day, in line with the ~10,600/day baseline. Mainnet is observable now,
+so §3c's "presumably `celo`" no longer has to be a guess.
+
+### 4b. The kind mismatch is unchanged — and now confirmed on mainnet
+
+Mainnet `/supported` advertises the two kinds in the **opposite order** to testnet:
+
+```json
+{"kinds":[{"x402Version":2,"scheme":"exact","network":"eip155:42220","extra":{}},
+          {"x402Version":1,"scheme":"exact","network":"celo"}], …}
+```
+
+The §3c matrix, re-run against both hosts with each host's real USDC:
+
+| host | `x402Version` | `network` | result |
+|---|---|---|---|
+| sepolia | 1 | `celo-sepolia` | `insufficient_funds` — accepted |
+| sepolia | 2 | `eip155:11142220` | `unsupported_scheme` |
+| sepolia | 1 | `eip155:11142220` | `unsupported_scheme` |
+| sepolia | 2 | `celo-sepolia` | `unsupported_scheme` |
+| **mainnet** | **2** | **`eip155:42220`** | **`unsupported_scheme`** ← what we emit |
+| **mainnet** | **1** | **`celo`** | **`insufficient_funds` — accepted** |
+| mainnet | 1 | `eip155:42220` | `unsupported_scheme` |
+| mainnet | 2 | `celo` | `unsupported_scheme` |
+
+**§3c's "only the first entry in `kinds` is served" was wrong.** Mainnet lists the
+v2/CAIP-2 kind *first* and still serves only v1. The rule is simpler and worse:
+**the facilitator speaks v1 + bare network name, on both networks, regardless of
+what it advertises.** Confirmed: the mainnet bare name is `celo`.
+
+Bug <https://github.com/celo-org/agent-skills/issues/4> is still OPEN with no
+comments as of this probe.
+
+### 4c. The v1 downgrade is much cheaper than §"Options" (3) assumed
+
+Option (3) was costed as "a custom facilitator client or a pinned older
+`@x402`". Neither is needed:
+
+- **`@x402/core` already ships the v1 schemas** — `PaymentPayloadV1Schema`,
+  `PaymentRequirementsV1Schema`, `PaymentRequiredV1Schema`, `isPaymentPayloadV1`.
+- **But v1 is client-side only.** `x402Client.registerV1(network, client)` exists;
+  `x402ResourceServer` has only `register(network: Network, …)`, and
+  `Network = ` `` `${string}:${string}` `` — a bare `"celo"` will not even
+  typecheck. Checked in **2.14.0 (installed) and 2.20.0 (latest)**: unchanged.
+  We sell, so the library's v1 path is the wrong side of the wire for us.
+- **The v1↔v2 delta is mechanical.** Requirements: `amount` →
+  `maxAmountRequired`, plus the per-accept `resource`/`description`/`mimeType`
+  that v2 hoisted into a top-level `resource` object; network CAIP-2 → bare name.
+  Payload: `{x402Version, scheme, network, payload}` in both — the inner
+  `payload` (signature + EIP-3009 authorization) is byte-identical.
+- **The signature survives the downgrade.** EIP-3009 signs the *token's* EIP-712
+  domain (`name`/`version`/`chainId`/`verifyingContract`); the x402 network
+  string is not in the signed data. §3d is the evidence: the same inner payload
+  that v2 rejects on kind, v1 carries all the way to an on-chain balance read.
+- **The response shape is shared** — `isValid`/`invalidReason`/
+  `invalidReasonDetails`/`payer` (§3b), so nothing downstream changes.
+
+So the workaround is one adapter implementing the facilitator-client interface,
+wrapping `HTTPFacilitatorClient` and rewriting the envelope on the way out —
+isolated at `lib/x402/server.ts:59`, deleted in one commit if Celo ever fixes v2.
+
+### 4d. Decision
+
+**GO, via the shim** (user, 2026-08-03). §3f's caution stands and is the reason
+the shim is a translation layer rather than a v1-native rewrite: Celo is moving
+to MPP, so nothing outside the adapter may learn that v1 exists. Tasks 2–5 of the
+plan are unblocked as written; the shim is inserted as Task 2b, and Celo Sepolia
+comes into scope (§3e verified its USDC) so the shim can be proven on testnet
+before any mainnet key is bought.
 
 ## Reproducing
 
