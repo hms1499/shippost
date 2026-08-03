@@ -12,7 +12,7 @@
 
 - **Spec:** `docs/superpowers/specs/2026-08-01-x402-celo-facilitator-design.md`. Read it before Task 1.
 - **Task 1 is a hard gate.** If the facilitator's wire format does not match `HTTPFacilitatorClient`, stop and redesign. Do not adapt inline.
-- **Celo mainnet only** (chainId `42220`, USDC `0xcebA9300f2b948710d2653dD7B07f33A8B32118C`, 6 decimals). Celo Sepolia is out of scope — its USDC address is unverified.
+- **Celo mainnet** (chainId `42220`, USDC `0xcebA9300f2b948710d2653dD7B07f33A8B32118C`, 6 decimals) **and Celo Sepolia** (`11142220`, USDC `0x01C5C0122039549AD1493B8220cABEdD739BC44E`). Sepolia was out of scope only while its USDC was unverified; the Task 1 probes resolved that asset on-chain, and it is what lets the shim be exercised off mainnet.
 - **Base must keep working.** No task removes the CDP path or its env vars.
 - **Never move a `step_output` emit before its settle**, and never expose `settleX402Call` unguarded — see `.claude/docs/x402.md`.
 - **Model 1 is untouched.** No edits under `lib/pipeline/` or `lib/agent/`.
@@ -21,9 +21,21 @@
 
 ---
 
-### Task 1: Resolve the facilitator wire format (blocking spike) — **DONE 2026-08-02: NO-GO**
+### Task 1: Resolve the facilitator wire format (blocking spike) — **DONE 2026-08-02, re-probed 2026-08-03: GO via a v1 shim**
 
-> **Outcome: NO-GO. Tasks 2–5 must not start.** Findings:
+> **Re-probe 2026-08-03 (findings §4–§5) supersedes the gate below.** Mainnet is
+> back up and settling, and the kind mismatch is confirmed on *both* networks —
+> §3c's "only the first `kinds` entry is served" was wrong, it is v1-only
+> whatever the advertised order. What changed is the price of the workaround:
+> `@x402/core` already ships the v1 schemas and the EIP-3009 signature is
+> indifferent to the envelope, so the downgrade is a ~50-line adapter at one
+> call site rather than the custom client this spike costed.
+>
+> **Verdict: GO via `lib/x402/facilitator-v1.ts` (Task 2b). Tasks 2–5 unblocked**,
+> and Celo Sepolia is in scope now that its USDC is verified. The shim is proven
+> on the wire against both live hosts (findings §5).
+
+> **Original outcome (2026-08-02): NO-GO. Tasks 2–5 must not start.** Findings:
 > [`2026-08-01-x402-celo-facilitator-findings.md`](2026-08-01-x402-celo-facilitator-findings.md).
 > The envelope question resolved *in our favour* — the facilitator speaks the
 > standard interface and `HTTPFacilitatorClient` is reusable. The blocker is a
@@ -100,7 +112,11 @@ git commit -m "docs(x402): probe the Celo facilitator's wire format"
 
 ---
 
-### Task 2: Add Celo mainnet to the x402 chain table
+### Task 2: Add Celo mainnet to the x402 chain table — **DONE 2026-08-03** (`3e4b613`)
+
+> Shipped wider than planned: Celo **Sepolia** too (its USDC is verified now), and
+> each Celo entry carries a `v1Network` bare name. That field is not decoration —
+> its presence is what selects the shim in Task 2b, so deleting it is the rollback.
 
 **Files:**
 - Modify: `lib/x402/config.ts:20-34` (add the Celo entry), `lib/x402/config.ts:46-50` (fix the stale "Base chain" comment)
@@ -110,7 +126,7 @@ git commit -m "docs(x402): probe the Celo facilitator's wire format"
 - Consumes: nothing.
 - Produces: `getX402ChainConfig(42220)` returns `{ caip2: 'eip155:42220', usdc: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', usdcDecimals: 6 }`; `isX402Chain(42220) === true`. Task 4 uses `cfg.caip2` as a cap-key component.
 
-- [ ] **Step 1: Update the two tests that encode "Celo is not supported"**
+- [x] **Step 1: Update the two tests that encode "Celo is not supported"**
 
 In `lib/x402/config.test.ts`, replace the `throws for non-Base chains` test and fix the settle-mode test, which uses Celo as its example of an unsupported chain. Add `const UNSUPPORTED = 1;` (Ethereum mainnet) next to the existing chain constants.
 
@@ -145,12 +161,12 @@ In `lib/x402/config.test.ts`, replace the `throws for non-Base chains` test and 
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run lib/x402/config.test.ts`
 Expected: FAIL — `getX402ChainConfig(42220)` throws `no x402 config for chain 42220`.
 
-- [ ] **Step 3: Add the Celo entry**
+- [x] **Step 3: Add the Celo entry**
 
 In `lib/x402/config.ts`, next to the Base constants:
 
@@ -175,7 +191,7 @@ and inside `CONFIG`:
   },
 ```
 
-- [ ] **Step 4: Fix the stale comment on `getSettleMode`**
+- [x] **Step 4: Fix the stale comment on `getSettleMode`**
 
 Replace "is a supported Base chain" with wording that no longer claims Base is the only option:
 
@@ -187,12 +203,12 @@ Replace "is a supported Base chain" with wording that no longer claims Base is t
 // facilitator (spec docs/superpowers/specs/2026-08-01-x402-celo-facilitator-design.md).
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run lib/x402/config.test.ts && npx tsc --noEmit`
 Expected: PASS, no type errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/x402/config.ts lib/x402/config.test.ts
@@ -201,7 +217,38 @@ git commit -m "feat(x402): configure Celo mainnet as a settlement chain"
 
 ---
 
-### Task 3: Select the facilitator auth scheme explicitly
+---
+
+### Task 2b: Speak v1 to the facilitator — **DONE 2026-08-03** (`4fa3831`, `18b63ea`)
+
+Added by the 2026-08-03 re-probe. `@x402` has no server-side v1 path
+(`registerV1` is client-only; `x402ResourceServer.register` takes a CAIP-2
+`Network`), so the translation happens in one adapter at the facilitator
+boundary and nowhere else.
+
+**Files:**
+- Create: `lib/x402/facilitator-v1.ts`, `lib/x402/facilitator-v1.test.ts`
+- Modify: `lib/x402/server.ts` (wrap the facilitator when `cfg.v1Network` is set)
+
+- [x] **Step 1: `V1DowngradeFacilitator`** — payload to `{x402Version: 1, scheme,
+  network, payload}`; requirements `amount` → `maxAmountRequired` plus the
+  `resource`/`description`/`mimeType` v2 hoisted onto the payload; the settled
+  network mapped back to CAIP-2 so the bare name cannot leak into
+  `X-PAYMENT-RESPONSE`; `getSupported()` states the v2 CAIP-2 kind itself,
+  because the resource server refuses to build a 402 challenge for a kind the
+  facilitator does not advertise.
+- [x] **Step 2: refuse a foreign chain.** One shim, one chain — rewriting another
+  network's payment would settle real money on the wrong chain.
+- [x] **Step 3: select it from the chain table**, not from an env flag, so the
+  rollback is deleting `v1Network`.
+- [x] **Step 4: prove it on the wire** against both live hosts — findings §5.
+  Sepolia reaches `insufficient_funds`, mainnet reaches `ECRecover: invalid
+  signature length` inside the real USDC contract. Neither is
+  `unsupported_scheme`.
+
+---
+
+### Task 3: Select the facilitator auth scheme explicitly — **DONE 2026-08-03** (`76580b8`)
 
 Today `buildAuthHeaders` checks `CDP_API_KEY_ID` first, so pointing `X402_FACILITATOR_URL` at Celo while CDP vars remain set would mint Coinbase JWTs against the Celo host — an auth failure that reads like a facilitator outage.
 
@@ -213,7 +260,7 @@ Today `buildAuthHeaders` checks `CDP_API_KEY_ID` first, so pointing `X402_FACILI
 - Consumes: `X402_FACILITATOR_URL` (unchanged).
 - Produces: `X402_FACILITATOR_AUTH` ∈ `cdp | api-key | bearer | none`; when set to `api-key`, every operation carries `X-API-Key: <X402_FACILITATOR_API_KEY>`. Unset preserves today's precedence exactly.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to the `describe` block in `lib/x402/server.test.ts`. Also add `delete process.env.X402_FACILITATOR_AUTH;` and `delete process.env.X402_FACILITATOR_API_KEY;` to the existing `beforeEach`.
 
@@ -264,12 +311,12 @@ Append to the `describe` block in `lib/x402/server.test.ts`. Also add `delete pr
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run lib/x402/server.test.ts`
 Expected: FAIL — the `api-key` test gets `Authorization: Bearer jwt:...` because the CDP branch wins; the throwing tests get no throw.
 
-- [ ] **Step 3: Rewrite `buildAuthHeaders`**
+- [x] **Step 3: Rewrite `buildAuthHeaders`**
 
 Replace the body of `buildAuthHeaders` in `lib/x402/server.ts` with an explicitly named scheme, keeping the legacy precedence as the unset default:
 
@@ -341,12 +388,12 @@ function buildAuthHeaders(facilitatorUrl: string): (() => Promise<AuthHeaders>) 
 
 Note the existing module already declares `type AuthHeaders` above `buildAuthHeaders`; keep it.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run lib/x402/server.test.ts && npx tsc --noEmit`
 Expected: PASS — including the three pre-existing tests (no-auth, CDP, static bearer), which cover the unset-default path.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/x402/server.ts lib/x402/server.test.ts
@@ -355,7 +402,7 @@ git commit -m "fix(x402): name the facilitator auth scheme instead of inferring 
 
 ---
 
-### Task 4: Namespace the daily spend counter by chain
+### Task 4: Namespace the daily spend counter by chain — **DONE 2026-08-03** (`db58bb8`)
 
 `cap.ts` keys the counter by token address alone, so two chains would share one budget and a cutover silently resets it. Namespacing by CAIP-2 makes the budgets independent; the one-time reset on cutover day is accepted and documented in the spec.
 
@@ -367,7 +414,7 @@ git commit -m "fix(x402): name the facilitator auth scheme instead of inferring 
 - Consumes: `cfg.caip2` from `getX402ChainConfig` (Task 2).
 - Produces: `reserveDailySpend({ caip2, token, amountRaw, capRaw })` — `caip2` is a new **required** parameter; the Redis key becomes `x402:spend:${day}:${caip2}:${token}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to the `reserveDailySpend` describe block in `lib/x402/cap.test.ts`:
 
@@ -391,12 +438,12 @@ Add to the `reserveDailySpend` describe block in `lib/x402/cap.test.ts`:
 
 Then add `caip2: 'eip155:8453',` to the two existing `reserveDailySpend` calls in that file so they still typecheck.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run lib/x402/cap.test.ts`
 Expected: FAIL — the key has no `eip155:` segment.
 
-- [ ] **Step 3: Add `caip2` to the key**
+- [x] **Step 3: Add `caip2` to the key**
 
 In `lib/x402/cap.ts`:
 
@@ -417,7 +464,7 @@ export async function reserveDailySpend(params: {
 
 The rest of the function is unchanged.
 
-- [ ] **Step 4: Update the caller**
+- [x] **Step 4: Update the caller**
 
 In `lib/x402/client.ts:69`:
 
@@ -425,12 +472,12 @@ In `lib/x402/client.ts:69`:
   await reserveDailySpend({ caip2: cfg.caip2, token: cfg.usdc, amountRaw: priceRawUSDC(), capRaw: dailyCapRawUSDC() });
 ```
 
-- [ ] **Step 5: Run the full lib suite to verify nothing else called it**
+- [x] **Step 5: Run the full lib suite to verify nothing else called it**
 
 Run: `pnpm test:lib && npx tsc --noEmit`
 Expected: PASS — `caip2` is required, so any missed caller is a type error, not a silent wrong key.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/x402/cap.ts lib/x402/cap.test.ts lib/x402/client.ts
@@ -439,7 +486,7 @@ git commit -m "fix(x402): namespace the daily spend cap by settlement chain"
 
 ---
 
-### Task 5: Tell an exhausted key apart from a facilitator outage
+### Task 5: Tell an exhausted key apart from a facilitator outage — **DONE 2026-08-03** (`cbe8ec4`)
 
 Credits are prepaid and finite. When they run out the rail stops, every thread quietly degrades to Model 1, and the ops alert says only that the proxy failed — which reads as "the facilitator is down" and sends whoever is on call to the wrong place. The spec calls for the error to name the difference.
 
@@ -451,7 +498,7 @@ Credits are prepaid and finite. When they run out the rail stops, every thread q
 - Consumes: nothing new.
 - Produces: the error thrown by `payGroqViaX402` starts with `x402 payment rejected` for 401/402/403 and `x402 groq proxy failed` for everything else. `generateDraft` already forwards this message into the ops alert unchanged.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to the `describe('payGroqViaX402', …)` block in `lib/x402/client.test.ts`. That file already provides everything needed: the mocked fetch is `payFetch`, the response helper is `res(body, status)`, and the request fixture is the module-level `params` — use them rather than hand-rolling a response object.
 
@@ -469,12 +516,12 @@ Append to the `describe('payGroqViaX402', …)` block in `lib/x402/client.test.t
   });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run lib/x402/client.test.ts`
 Expected: FAIL — a 402 currently throws `x402 groq proxy failed (402)`.
 
-- [ ] **Step 3: Split the branch**
+- [x] **Step 3: Split the branch**
 
 Replace the `!res.ok` branch in `lib/x402/client.ts`:
 
@@ -495,12 +542,12 @@ Replace the `!res.ok` branch in `lib/x402/client.ts`:
   }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run lib/x402/client.test.ts && npx tsc --noEmit`
 Expected: PASS, including the pre-existing client tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add lib/x402/client.ts lib/x402/client.test.ts
@@ -509,7 +556,7 @@ git commit -m "fix(x402): name a rejected payment apart from a proxy outage"
 
 ---
 
-### Task 6: Document the env surface and roll out to production
+### Task 6: Document the env surface and roll out to production — **docs DONE, rollout BLOCKED on the user**
 
 **Files:**
 - Modify: `.env.example:100-108`, `.claude/docs/x402.md:8`
@@ -519,7 +566,7 @@ git commit -m "fix(x402): name a rejected payment apart from a proxy outage"
 - Consumes: everything from Tasks 2–5, plus an API key obtained by the user at x402.celo.org.
 - Produces: a production deployment settling on Celo, and one on-chain settlement transaction as proof.
 
-- [ ] **Step 1: Document the new vars in `.env.example`**
+- [x] **Step 1: Document the new vars in `.env.example`**
 
 Replace the facilitator block (lines 100–108) with:
 
@@ -546,7 +593,7 @@ X402_FACILITATOR_API_KEY=
 X402_FACILITATOR_TOKEN=
 ```
 
-- [ ] **Step 2: Update the agent rule-set to stop saying settlement is Base-only**
+- [x] **Step 2: Update the agent rule-set to stop saying settlement is Base-only**
 
 In `.claude/docs/x402.md`, the Model 2 bullet says USDC "settles on **Base**". Replace that clause with:
 
@@ -554,7 +601,7 @@ In `.claude/docs/x402.md`, the Model 2 bullet says USDC "settles on **Base**". R
 USDC settles on the chain named by `X402_CHAIN_ID` — Base via the Coinbase CDP facilitator, or Celo mainnet via the hosted Celo facilitator (`X402_FACILITATOR_AUTH=api-key`, prepaid credits at $0.001/settlement) — to `X402_PAY_TO`.
 ```
 
-- [ ] **Step 3: Commit the docs**
+- [x] **Step 3: Commit the docs**
 
 ```bash
 git add .env.example .claude/docs/x402.md

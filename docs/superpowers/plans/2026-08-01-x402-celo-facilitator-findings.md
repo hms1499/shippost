@@ -287,6 +287,28 @@ plan are unblocked as written; the shim is inserted as Task 2b, and Celo Sepolia
 comes into scope (§3e verified its USDC) so the shim can be proven on testnet
 before any mainnet key is bought.
 
+## 5. The shim, proven on the wire (2026-08-03)
+
+Unit tests prove the shape we intended to send. This proves the shape the
+facilitator agrees to: the real `V1DowngradeFacilitator` wrapping a real
+`HTTPFacilitatorClient`, pointed at each live host, with a deliberately
+fabricated signature.
+
+| host | `getSupported` exposes `(2, CAIP-2)` | `verify` |
+|---|---|---|
+| sepolia | yes | `insufficient_funds` |
+| mainnet | yes | `unexpected_error` → `ECRecover: invalid signature length` |
+
+Neither is `unsupported_scheme`, which is the whole question. Mainnet is the
+stronger result: the body parsed, the asset resolved, and the facilitator called
+the real USDC contract, which reverted inside `ECRecover` because the probe's
+signature is 64 bytes with no `v`. That is as deep as it is possible to get
+without a genuine EIP-3009 authorization — everything between our code and the
+token contract is confirmed working.
+
+What is still unproven: `/settle` (needs an API key and a real signature) and a
+mainnet settlement transaction.
+
 ## Reproducing
 
 ```bash
