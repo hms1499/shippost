@@ -89,6 +89,18 @@ describe('payGroqViaX402', () => {
     await expect(payGroqViaX402(params)).rejects.toThrow('422');
   });
 
+  it('names a rejected payment separately from a proxy outage', async () => {
+    payFetch.mockResolvedValue(res({ error: 'insufficient credits' }, 402));
+    await expect(payGroqViaX402(params)).rejects.toThrow(
+      /x402 payment rejected \(402\).*credit or key/i,
+    );
+  });
+
+  it('still reports a 5xx as a proxy failure', async () => {
+    payFetch.mockResolvedValue(res({ error: 'bad gateway' }, 502));
+    await expect(payGroqViaX402(params)).rejects.toThrow(/x402 groq proxy failed \(502\)/);
+  });
+
   it('throws when the proxy returns no tweets', async () => {
     payFetch.mockResolvedValue(res({ tweets: [] }));
     await expect(payGroqViaX402(params)).rejects.toThrow('no tweets');

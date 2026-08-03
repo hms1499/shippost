@@ -93,6 +93,16 @@ export async function payGroqViaX402(params: PayGroqParams): Promise<PayGroqResu
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    // A 401/402/403 is the payment rail refusing us, not the service being
+    // down: an invalid key, or — on a metered facilitator like Celo's, which
+    // sells prepaid credits — a balance that has run out. Both degrade every
+    // thread to Model 1 silently, so the alert has to name the cause instead of
+    // sending whoever is on call to look for an outage.
+    if (res.status === 401 || res.status === 402 || res.status === 403) {
+      throw new Error(
+        `x402 payment rejected (${res.status}) — check the facilitator credit or key: ${text.slice(0, 200)}`,
+      );
+    }
     throw new Error(`x402 groq proxy failed (${res.status}): ${text.slice(0, 200)}`);
   }
 
