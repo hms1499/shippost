@@ -43,6 +43,8 @@ describe('getResourceServer facilitator auth', () => {
     delete process.env.CDP_API_KEY_ID;
     delete process.env.CDP_API_KEY_SECRET;
     delete process.env.X402_FACILITATOR_URL;
+    delete process.env.X402_FACILITATOR_AUTH;
+    delete process.env.X402_FACILITATOR_API_KEY;
     delete process.env.X402_FACILITATOR_TOKEN;
     process.env.X402_CHAIN_ID = '8453';
   });
@@ -90,6 +92,52 @@ describe('getResourceServer facilitator auth', () => {
     expect(headers.verify.Authorization).toBe('Bearer static-tok');
     expect(generateJwt).not.toHaveBeenCalled();
   });
+
+  it('api-key: sends X-API-Key on every operation and never touches CDP', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'api-key';
+    process.env.X402_FACILITATOR_API_KEY = 'x402_live_abc';
+    process.env.X402_FACILITATOR_URL = 'https://api.x402.celo.org';
+    // CDP creds present but must be ignored — this is the trap the named
+    // scheme exists to close: they outlive a chain switch, and Coinbase JWTs
+    // sent to a Celo host fail in a way that reads like an outage.
+    process.env.CDP_API_KEY_ID = 'key-id';
+    process.env.CDP_API_KEY_SECRET = 'key-secret';
+
+    const { getResourceServer } = await import('./server');
+    getResourceServer();
+
+    const headers = (await captured.config!.createAuthHeaders!()) as {
+      verify: Record<string, string>;
+      settle: Record<string, string>;
+      supported: Record<string, string>;
+    };
+    expect(headers.verify['X-API-Key']).toBe('x402_live_abc');
+    expect(headers.settle['X-API-Key']).toBe('x402_live_abc');
+    expect(headers.supported['X-API-Key']).toBe('x402_live_abc');
+    expect(headers.verify.Authorization).toBeUndefined();
+    expect(generateJwt).not.toHaveBeenCalled();
+  });
+
+  it('a named scheme with its env missing throws instead of degrading to no auth', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'api-key'; // no X402_FACILITATOR_API_KEY
+    const { getResourceServer } = await import('./server');
+    expect(() => getResourceServer()).toThrow(/X402_FACILITATOR_API_KEY/);
+  });
+
+  it('an unknown scheme name throws rather than silently picking one', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'oauth';
+    const { getResourceServer } = await import('./server');
+    expect(() => getResourceServer()).toThrow(/X402_FACILITATOR_AUTH/);
+  });
+
+  it('scheme=none sends no auth even when CDP creds are present', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'none';
+    process.env.CDP_API_KEY_ID = 'key-id';
+    process.env.CDP_API_KEY_SECRET = 'key-secret';
+    const { getResourceServer } = await import('./server');
+    getResourceServer();
+    expect(captured.config?.createAuthHeaders).toBeUndefined();
+  });
 });
 
 describe('getResourceServer facilitator selection', () => {
@@ -100,6 +148,8 @@ describe('getResourceServer facilitator selection', () => {
     delete process.env.CDP_API_KEY_ID;
     delete process.env.CDP_API_KEY_SECRET;
     delete process.env.X402_FACILITATOR_URL;
+    delete process.env.X402_FACILITATOR_AUTH;
+    delete process.env.X402_FACILITATOR_API_KEY;
   });
   afterEach(() => {
     process.env = { ...ENV };
