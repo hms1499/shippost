@@ -66,7 +66,7 @@ export async function payGroqViaX402(params: PayGroqParams): Promise<PayGroqResu
 
   // Layer 3 then Layer 2, BEFORE any payment. Either throws => refundable, no spend.
   if (await isPaused()) throw new Error('x402 settlement paused');
-  await reserveDailySpend({ token: cfg.usdc, amountRaw: priceRawUSDC(), capRaw: dailyCapRawUSDC() });
+  await reserveDailySpend({ caip2: cfg.caip2, token: cfg.usdc, amountRaw: priceRawUSDC(), capRaw: dailyCapRawUSDC() });
 
   // Constructed per call (cheap; mirrors the per-call wallet-client pattern in
   // lib/agent/orchestrator.ts). The agent EOA signs the EIP-3009 X-Payment.

@@ -22,12 +22,17 @@ export async function isPaused(): Promise<boolean> {
 // within JS Number range, so incrby/decrby take Number. Over-counting on later
 // failure is conservative (stops sooner) — acceptable for a spend cap.
 export async function reserveDailySpend(params: {
+  caip2: string;
   token: string;
   amountRaw: bigint;
   capRaw: bigint;
 }): Promise<void> {
   const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
-  const key = `x402:spend:${day}:${params.token}`;
+  // Namespaced by chain: the same token symbol has a different address per
+  // chain, and two settlement chains must not share one budget. Changing this
+  // key shape resets the running counter once, on the day it ships — bounded at
+  // one extra cap's worth of spend, which the cap exists to bound anyway.
+  const key = `x402:spend:${day}:${params.caip2}:${params.token}`;
   const r = redis();
   const total = await r.incrby(key, Number(params.amountRaw));
   await r.expire(key, secondsToNextUtcMidnight());
