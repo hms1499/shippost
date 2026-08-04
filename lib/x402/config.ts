@@ -7,6 +7,12 @@ export interface X402ChainConfig {
   usdc: Address;
   usdcDecimals: number;
   /**
+   * EIP-712 domain of `usdc`, as the token contract declares it. The client
+   * signs the EIP-3009 authorization against this, so it travels with the
+   * price in the 402 challenge (see `priceForChain`).
+   */
+  eip712: { name: string; version: string };
+  /**
    * Bare network name for a facilitator still serving x402 v1. Set only where
    * the facilitator cannot speak v2 — its presence is what makes the resource
    * server wrap the facilitator in the v1 downgrade shim. Delete it and the
@@ -18,7 +24,6 @@ export interface X402ChainConfig {
 // Single source of truth for the x402 Groq price (human USDC). The displayed
 // cost derives from this, so it cannot drift from what settles.
 export const X402_PRICE_USD = '0.001';
-export const X402_PRICE_LABEL = `$${X402_PRICE_USD}`; // withX402 `price` form
 
 // Groq model used by both the x402 proxy and the legacy pipeline. One source so
 // a model rotation can't leave the two settlement paths on different models.
@@ -34,11 +39,13 @@ const CONFIG: Record<number, X402ChainConfig> = {
     caip2: 'eip155:8453',
     usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     usdcDecimals: 6,
+    eip712: { name: 'USD Coin', version: '2' },
   },
   [BASE_SEPOLIA]: {
     caip2: 'eip155:84532',
     usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     usdcDecimals: 6,
+    eip712: { name: 'USDC', version: '2' },
   },
   // Celo. USDC here is Circle's native issuance and supports EIP-3009 with the
   // EIP-712 domain name "USDC" version "2" — which is what the exact scheme
@@ -47,12 +54,14 @@ const CONFIG: Record<number, X402ChainConfig> = {
     caip2: 'eip155:42220',
     usdc: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
     usdcDecimals: 6,
+    eip712: { name: 'USDC', version: '2' },
     v1Network: 'celo',
   },
   [CELO_SEPOLIA]: {
     caip2: 'eip155:11142220',
     usdc: '0x01C5C0122039549AD1493B8220cABEdD739BC44E',
     usdcDecimals: 6,
+    eip712: { name: 'USDC', version: '2' },
     v1Network: 'celo-sepolia',
   },
 };
@@ -85,6 +94,24 @@ export function getSettleMode(): SettleMode {
 // degrades to legacy instead of throwing.
 export function getSettleChainId(): number {
   return Number(process.env.X402_CHAIN_ID);
+}
+
+// The x402 price as an explicit asset + atomic amount, never a money string.
+// A money string makes @x402/evm resolve the token through its own
+// DEFAULT_STABLECOINS table, which covers Base but not Celo — on Celo it threw
+// "No default asset configured for network eip155:42220" while building the 402
+// challenge, and the pipeline degraded to legacy without ever paying x402.
+export function priceForChain(chainId: number): {
+  asset: Address;
+  amount: string;
+  extra: { name: string; version: string };
+} {
+  const cfg = getX402ChainConfig(chainId);
+  return {
+    asset: cfg.usdc,
+    amount: parseUnits(X402_PRICE_USD, cfg.usdcDecimals).toString(),
+    extra: cfg.eip712,
+  };
 }
 
 export function priceRawUSDC(): bigint {

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   getX402ChainConfig, isX402Chain, getSettleMode, getSettleChainId, priceRawUSDC, dailyCapRawUSDC,
+  priceForChain,
 } from './config';
 
 const BASE = 8453;
@@ -67,6 +68,29 @@ describe('x402 config', () => {
     vi.stubEnv('X402_SETTLE_MODE', 'legacy');
     vi.stubEnv('X402_CHAIN_ID', '8453');
     expect(getSettleMode()).toBe('legacy');
+  });
+
+  // @x402/evm resolves a bare "$0.001" through its own DEFAULT_STABLECOINS
+  // table, which has no Celo entry — building the 402 challenge threw
+  // "No default asset configured for network eip155:42220" and the whole x402
+  // path degraded to legacy. Naming the asset ourselves skips that table.
+  it('prices in explicit asset + atomic amount, never a money string', () => {
+    for (const chainId of [BASE, BASE_SEPOLIA, CELO, CELO_SEPOLIA]) {
+      const price = priceForChain(chainId);
+      expect(price.asset).toBe(getX402ChainConfig(chainId).usdc);
+      expect(price.amount).toBe('1000'); // 0.001 USDC at 6 decimals
+    }
+  });
+
+  // The client signs EIP-3009 against the token's own EIP-712 domain, so a
+  // wrong name/version here produces a signature the token contract rejects
+  // inside ECRecover.
+  it('carries each USDC contract EIP-712 domain for the payment signature', () => {
+    expect(priceForChain(CELO).extra).toEqual({ name: 'USDC', version: '2' });
+    expect(priceForChain(CELO_SEPOLIA).extra).toEqual({ name: 'USDC', version: '2' });
+    // Mirrors @x402/evm's own table for Base, which our Base settlements proved.
+    expect(priceForChain(BASE).extra).toEqual({ name: 'USD Coin', version: '2' });
+    expect(priceForChain(BASE_SEPOLIA).extra).toEqual({ name: 'USDC', version: '2' });
   });
 
   it('computes raw USDC amounts (6 decimals)', () => {

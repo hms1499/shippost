@@ -4,9 +4,15 @@ const create = vi.fn();
 vi.mock('groq-sdk', () => ({
   default: class { chat = { completions: { create } }; },
 }));
+// Records what the route declares to the x402 layer, so the 402 challenge's
+// price/asset is assertable and not just whatever the SDK infers.
+const x402Config = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
 // withX402 passes the handler through unchanged so we exercise handler logic.
 vi.mock('@x402/next', () => ({
-  withX402: (handler: unknown) => handler,
+  withX402: (handler: unknown, config: Record<string, unknown>) => {
+    x402Config.last = config;
+    return handler;
+  },
   x402ResourceServer: class { register() { return this; } },
 }));
 vi.mock('@x402/evm/exact/server', () => ({ ExactEvmScheme: class {} }));
@@ -84,5 +90,39 @@ describe('POST /api/x402/groq (handler)', () => {
     create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
     const res = await POST(postReq(okBody));
     expect(res.status).toBe(500);
+  });
+});
+
+// The route reads X402_CHAIN_ID once at module scope, so each chain needs a
+// fresh import rather than a stubbed env on the already-loaded module.
+async function loadRouteOn(chainId: number) {
+  vi.resetModules();
+  vi.stubEnv('X402_CHAIN_ID', String(chainId));
+  vi.stubEnv('X402_PAY_TO', '0x' + '2'.repeat(40));
+  await import('./route');
+  return x402Config.last!.accepts as { price: unknown; network: string };
+}
+
+describe('402 challenge price', () => {
+  // A money string ("$0.001") makes @x402/evm resolve the token through its own
+  // DEFAULT_STABLECOINS table. That table has no Celo entry, so building the
+  // challenge threw and every Celo run silently fell back to legacy.
+  it('names the asset explicitly on Celo instead of leaving it to the SDK', async () => {
+    const accepts = await loadRouteOn(42220);
+    expect(accepts.network).toBe('eip155:42220');
+    expect(accepts.price).toEqual({
+      asset: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+      amount: '1000',
+      extra: { name: 'USDC', version: '2' },
+    });
+  });
+
+  it('names the asset explicitly on Base too — one code path, no SDK table', async () => {
+    const accepts = await loadRouteOn(8453);
+    expect(accepts.price).toEqual({
+      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      amount: '1000',
+      extra: { name: 'USD Coin', version: '2' },
+    });
   });
 });

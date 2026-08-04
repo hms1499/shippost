@@ -3,7 +3,7 @@ import Groq from 'groq-sdk';
 import { withX402 } from '@x402/next';
 import { parseThread, boundThread } from '@/lib/threadParser';
 import { getResourceServer } from '@/lib/x402/server';
-import { getX402ChainConfig, X402_PRICE_LABEL, GROQ_MODEL } from '@/lib/x402/config';
+import { getX402ChainConfig, priceForChain, GROQ_MODEL } from '@/lib/x402/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,7 +55,8 @@ const handler = async (req: NextRequest): Promise<NextResponse<unknown>> => {
   return NextResponse.json({ tweets }, { status: 200 });
 };
 
-const cfg = getX402ChainConfig(Number(process.env.X402_CHAIN_ID || '84532'));
+const SETTLE_CHAIN_ID = Number(process.env.X402_CHAIN_ID || '84532');
+const cfg = getX402ChainConfig(SETTLE_CHAIN_ID);
 
 // payTo for the x402 charge. Mirrors GROQ_SINK in groqStep.ts: an unset/invalid
 // value falls back to the burn address rather than throwing, so `next build`
@@ -73,7 +74,9 @@ export const POST = withX402(
   {
     accepts: {
       scheme: 'exact',
-      price: X402_PRICE_LABEL,
+      // Explicit asset + atomic amount. A money string would send @x402/evm to
+      // its own DEFAULT_STABLECOINS table, which has no Celo entry.
+      price: priceForChain(SETTLE_CHAIN_ID),
       network: cfg.caip2,
       payTo: PAY_TO as `0x${string}`,
       maxTimeoutSeconds: 120,
