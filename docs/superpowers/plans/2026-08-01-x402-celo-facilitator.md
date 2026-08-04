@@ -608,9 +608,17 @@ git add .env.example .claude/docs/x402.md
 git commit -m "docs(x402): document the Celo facilitator env surface"
 ```
 
-- [ ] **Step 4: Get the API key (user action)**
+- [x] **Step 4: Get the API key (user action)**
 
 Ask the user to visit x402.celo.org, connect the agent wallet, and sign the message — no gas, no transaction. The key looks like `x402_live_…` and comes with 500 free credits.
+
+Done 2026-08-04; the key is in `.env.local` (local only — production is still unset, Step 5).
+
+> **Steps 6–8 were satisfied against Celo mainnet from local dev, ahead of the production switch.**
+>
+> One real paid thread (thread `72`, mode 2) settled 0.001 USDC on `eip155:42220` in tx `0x116ddbec…9139`, block 73915090, broadcast gaslessly by the facilitator relayer `0x0d74d5ce…FB48`. Recorded in `docs/x402-mainnet-proof.md`.
+>
+> That run also surfaced a blocker this plan never anticipated: pricing the 402 challenge as the money string `"$0.001"` sends `@x402/evm` to its own `DEFAULT_STABLECOINS` table, which has no Celo entry, so the challenge threw and every run degraded to legacy while still returning a thread. Fixed in `6f83b50` by pricing in an explicit asset + atomic amount. Steps 6–8 below still stand as written for the production deployment.
 
 - [ ] **Step 5: Set production env**
 
