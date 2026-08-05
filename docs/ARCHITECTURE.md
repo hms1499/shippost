@@ -170,16 +170,30 @@ stateDiagram-v2
     refundable --> [*]: refundThread (idempotent, 1 lần duy nhất)
 ```
 
-Pipeline có 2 mode (`runModeA` / `runModeB`) trong `lib/pipeline/`:
+Pipeline có **6 mode**, khai báo trong `lib/pipeline/modes/` và tra ra bằng `getMode(body.mode)`.
+Mỗi mode là một `ModeDef` tự khai chuỗi bước của nó; route chỉ biết `UnifiedModeOutput` chung
+(`tweets` + `totalCostUsd` + context), nên thêm mode không phải sửa route.
+
+| id | key | Nguồn ngoài Groq | Ghi chú |
+|---|---|---|---|
+| 0 | `educational` | Serper | chạy qua `runModeA` |
+| 1 | `hotTake` | Serper · CoinGecko | chạy qua `runModeB` |
+| 2 | `tokenAnalysis` | Serper · CoinGecko · DefiLlama | |
+| 3 | `dailyRecap` | Serper · CoinGecko · DefiLlama | input-free (không có `topic`) |
+| 4 | `comparison` | Serper · DefiLlama | `topic` mã hoá `"<aKey>\|<bKey>"` |
+| 5 | `newsReaction` | Serper · CoinGecko | |
+
+> **`ModeDef.id` phải bằng đúng `uint8` mà `ThreadRequested` phát ra** — nó là field được
+> `verifyPayment` khớp lại. Bảng này **append-only**: không bao giờ đánh số lại một mode đã có,
+> vì id cũ đã nằm vĩnh viễn trong log on-chain. Chuỗi hiển thị của mode chỉ có một chỗ ở
+> `lib/threadLabel.ts` (`MODE_CODE` + `MODE_FALLBACK`).
+
+Hình dạng chung của một mode (lấy id 1 `hotTake` làm ví dụ). `defiLlamaStep` của các mode 2–4 là
+fetch thuần: **free, không API key, không settle**, soft-fail về null.
 
 ```mermaid
 flowchart LR
-    subgraph A["Mode A — Educational"]
-        gA["groqStep<br/>🔴 HARD"]
-    end
-    subgraph B["Mode B — Hot Take"]
-        s["serperStep<br/>🟢 soft"] --> c["coingeckoStep<br/>🟢 soft · free"] --> g["groqStep<br/>🔴 HARD"] --> f["factCheckStep<br/>🟢 soft"]
-    end
+    s["serperStep<br/>🟢 soft"] --> c["coingeckoStep<br/>🟢 soft · free"] --> g["groqStep<br/>🔴 HARD"] --> f["factCheckStep<br/>🟢 soft"]
 ```
 
 🟢 **soft-fail** → emit `step_failed` (không terminal), chạy tiếp với context null. 🔴 **hard-fail**
@@ -199,29 +213,60 @@ flowchart LR
         direction LR
         AW["AgentWallet<br/>(ví của MÌNH)"] ==>|"cUSD"| Svc["Groq/Serper sink"]
     end
-    subgraph M2["Model 2 — Base · mình BÁN dịch vụ"]
+    subgraph M2["Model 2 — mình BÁN dịch vụ"]
         direction LR
-        Caller["Agent gọi<br/>(trả X-Payment)"] ==>|"x402 verified"| Me["/api/x402/groq<br/>→ payTo treasury"]
+        Caller["Agent gọi<br/>(trả X-Payment)"] ==>|"x402 verified"| Me["/api/x402/groq · /api/x402/data<br/>→ payTo treasury"]
     end
 ```
 
-| | Model 1 — Celo in-process | Model 2 — `/api/x402/groq` |
+| | Model 1 — Celo in-process | Model 2 — `/api/x402/*` |
 |---|---|---|
 | Vai trò | Mình **MUA** dịch vụ | Mình **BÁN** dịch vụ |
 | Giao thức | Mô phỏng, không có `X-Payment` | x402 **thật** qua `@x402/next` |
 | Ai trả | AgentWallet chi cho service | **Người gọi** trả cho mình |
 | Settle về | sink/burn (`X402_SINK_ADDRESS`) | `X402_PAY_TO` treasury |
 | Rủi ro nếu hở | Drain AgentWallet | Không — không trả thì không có content |
-| Mạng | Celo (42220 / 11142220) | Base (84532 / mainnet) |
+| Mạng | Celo (42220 / 11142220) | Celo 42220 (từ 2026-08-04; trước đó Base) |
 
 **Model 1** giờ là đường settle của Serper/CoinGecko/FactCheck — và là **fallback** cho Groq khi
-đường x402 gặp sự cố hạ tầng (CDP down, đụng cap, hết float): `generateDraft` bắn Discord alert rồi
-rơi êm về push-to-sink, user vẫn nhận thread. **Model 2** từ 2026-07 là đường chính của Groq cho
-**mọi** thread trả phí: `getSettleMode()` đọc `X402_SETTLE_MODE` + `X402_CHAIN_ID` từ env (tách
-khỏi chain thanh toán — user vẫn trả cUSD trên Celo), agent EOA ký `X-Payment`, CDP facilitator
-settle USDC trên Base về `X402_PAY_TO`, **không chạm AgentWallet**. `step_settled` mang `chainId`
-để UI link đúng Basescan cho tx groq. Rollback: đổi env, hoặc tức thời `redis set x402:paused 1`
-(= fallback về Model 1, không phải outage).
+đường x402 gặp sự cố hạ tầng (facilitator down, hết credit, đụng cap, hết float): `generateDraft`
+bắn Discord alert rồi rơi êm về push-to-sink, user vẫn nhận thread. **Model 2** từ 2026-07 là đường
+chính của Groq cho **mọi** thread trả phí: `getSettleMode()` đọc `X402_SETTLE_MODE` +
+`X402_CHAIN_ID` từ env (tách khỏi chain thanh toán — user vẫn trả cUSD trên Celo), agent EOA ký
+`X-Payment`, facilitator settle USDC về `X402_PAY_TO`, **không chạm AgentWallet**. `step_settled`
+mang `chainId` để UI link đúng explorer của chain settle (`explorerBase()` — Celoscan hay Basescan).
+Rollback: đổi env, hoặc tức thời `redis set x402:paused 1` (= fallback về Model 1, không phải
+outage).
+
+**Facilitator nào đang chạy** — chọn bằng `X402_FACILITATOR_AUTH`, *đặt tên chứ không suy ra*: creds
+CDP sống dai hơn một lần đổi chain, nên suy-ra-từ-env từng khiến facilitator Celo nhận JWT của
+Coinbase và fail như thể nó chết (`lib/x402/server.ts`).
+
+| | Celo (đang chạy, từ 2026-08-04) | Base / CDP (nhánh cũ, vẫn còn code) |
+|---|---|---|
+| `X402_FACILITATOR_URL` | `https://api.x402.celo.org` | `https://api.cdp.coinbase.com/platform/v2/x402` |
+| `X402_FACILITATOR_AUTH` | `api-key` (header `X-API-Key`) | `cdp` (JWT ~2 phút, scope theo path) |
+| `X402_CHAIN_ID` | `42220` | `8453` |
+| Giá dịch vụ | `X402_PRICE_USD` = $0.001 USDC | như trên |
+| Chi phí vận hành | **credit trả trước, $0.001/settle**, mua tại x402.celo.org — hết credit ⇒ 402 `insufficient_credits` ⇒ rơi về Model 1 | gas do CDP lo |
+
+Facilitator Celo còn ở x402 **v1**, nên `cfg.v1Network` bật `V1DowngradeFacilitator` — cả hệ thống
+phía trên vẫn nói v2, dịch xuống v1 đúng tại biên đó. Bỏ `v1Network` khỏi bảng chain là rollback
+toàn bộ.
+
+**Hai mặt hàng đang bán** (cùng rail, cùng giá `X402_PRICE_USD`, cùng `withX402`):
+
+| Route | Bán gì | Chi phí phục vụ mỗi lần bán |
+|---|---|---|
+| `/api/x402/groq` | một lượt gọi LLM (`GROQ_MODEL`) | một lượt inference Groq |
+| `/api/x402/data` | market snapshot CoinGecko, cache 60s | gần như không — một lượt upstream phục vụ mọi buyer |
+
+`/api/x402/data` là bản không-LLM của route groq: `getRows()` (`lib/x402/marketSnapshot.ts`) gom
+top-250 + bộ Celo pin sẵn vào một snapshot dùng chung, filter `coins` áp lên **cache** chứ không bắn
+thêm request lên CoinGecko, nên chi phí upstream không tăng theo số lần bán. Hai lối thoát của nó cố
+ý **không** settle: upstream chết trong lúc cache lạnh ⇒ `502`; `coins` không khớp gì ⇒ `422` (bad
+request, không phải một lần bán). Cache còn ấm thì snapshot cũ được trả ra và lần bán vẫn tính —
+dữ liệu thật cũ vài giây tốt hơn một lần bán hỏng.
 
 Lịch sử: route `/api/x402/*` *đời đầu* là proxy không xác thực gọi thẳng `settleX402Call` (drain
 free) — xóa ở `8f4c222`; Model 2 hiện tại (`c8a796b`) là bản dựng lại an toàn. **Rule:** mọi x402
@@ -443,10 +488,10 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | **daily spend cap** | Hạn mức chi mỗi token mỗi 24h (UTC) trong `AgentWallet`; mặc định $10 trên mainnet ($50 testnet). Giới hạn blast-radius nếu key lộ. |
 | **degraded mode** | Khi Supabase chết: vẫn phục vụ generate nhưng mất replay-guard (có chủ đích, không phải bug). |
 | **ERC-8004** | Chuẩn ví cho agent tự trị; `AgentWallet` thiết kế tương thích. |
-| **facilitator (CDP)** | Dịch vụ Coinbase Developer Platform verify + settle x402 **thật** (chỉ dùng ở Model 2 / Base). |
+| **facilitator** | Dịch vụ verify + settle x402 **thật** và trả gas hộ (chỉ dùng ở Model 2). Đang chạy: facilitator của Celo (`api.x402.celo.org`, credit trả trước); nhánh CDP của Coinbase (Base) vẫn còn code — chọn bằng `X402_FACILITATOR_AUTH`. Xem §2.3. |
 | **fail-closed (preview gate)** | `checkPreviewAllowed`: limiter chết ⇒ **deny** (ngược `checkRateLimit` fail-open). Bảo vệ quota Serper free-tier dùng chung. Xem §2.7. |
 | **free preview / preview-locked** | Xem tweet đầu miễn phí trước khi trả (`/api/preview` + màn `preview-locked`). Settle-free, không ghi DB; Unlock mới chạy luồng phí (sinh thread mới). Xem §2.7. |
-| **Mode A / Mode B** | A = Educational (`groqStep`); B = Hot Take (`serper → coingecko → groq → factCheck`). |
+| **mode** | Một trong **6** kiểu thread, khai trong `lib/pipeline/modes/`. `id` = `uint8` on-chain trong `ThreadRequested`, **append-only**. Mode A/B là tên cũ của id 0 (`educational`, qua `runModeA`) và id 1 (`hotTake`, qua `runModeB`). Xem bảng §2.2. |
 | **MiniPay** | Ví stablecoin của Opera (webview di động). App chạy như **MiniApp** bên trong nó. |
 | **orchestrator** | EOA backend, là **owner** của `AgentWallet` — chiếc "chìa khoá vương miện"; ký `executeX402Call`. |
 | **payTxHash** | Hash của tx `payForThread`; **bằng chứng đã trả** mà backend verify lại on-chain. |

@@ -38,7 +38,7 @@ The paid generation flow (`/api/generate/stream`, SSE) is the heart of the app a
 
 1. **Pay** — `ShipPostPayment.payForThread(token, mode)` pulls $0.05 stablecoin and splits it 50% → AgentWallet / 40% → treasury / 10% → reserve, emitting `ThreadRequested`.
 2. **Verify** — the route decodes that log from `payTxHash` and asserts threadId/payer/token/mode + exact amount **before any paid work**.
-3. **Generate** — a pipeline of steps fires 1–4 x402 micro-payments from **AgentWallet** to AI services (Model 1). Mode A (Educational) = `serperStep (soft grounding) → groqStep`; Mode B (Hot Take) = `serperStep → coingeckoStep → groqStep → factCheckStep`.
+3. **Generate** — a pipeline of steps fires 1–4 x402 micro-payments to AI services. Which steps run is declared per mode in `lib/pipeline/modes/` (**6 modes**, id 0–5, looked up by `getMode(body.mode)`); e.g. id 1 `hotTake` = `serperStep → coingeckoStep → groqStep → factCheckStep`. `ModeDef.id` is the on-chain `uint8` — **append-only, never renumber**.
 4. **Settle gates delivery** — tweets are emitted only *after* the x402 settle confirms; every failure path is a clean, refundable state.
 
 The non-negotiable invariants of this flow are in [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md). Read it before editing anything under `/api/generate` or `lib/pipeline/`.
@@ -49,7 +49,7 @@ Never change or assume these without explicit sign-off:
 
 - **Payment is verified on-chain before any spend.** Never trust `amountPaidRaw` or any body field; persist the verified amount. See `generate-flow.md`.
 - **Settle gates delivery.** Never move a `step_output` emit before its `settleX402Call` — that reintroduces free-content-plus-refund.
-- **Two unrelated x402 models — don't conflate them.** Model 1 (Celo, we *buy* services, custom/simulated through AgentWallet) vs Model 2 (`/api/x402/groq`, we *sell* a service, real x402 via CDP facilitator on Base). See [`.claude/docs/x402.md`](.claude/docs/x402.md). **Rule:** any public agent-callable x402 surface MUST verify a signed `X-Payment` before any spend, and must never expose `settleX402Call` unguarded.
+- **Two unrelated x402 models — don't conflate them.** Model 1 (Celo, we *buy* services, custom/simulated through AgentWallet) vs Model 2 (`/api/x402/groq` + `/api/x402/data`, we *sell* a service, real x402 via a hosted facilitator — currently Celo mainnet `api.x402.celo.org` on prepaid credits, not Base/CDP). See [`.claude/docs/x402.md`](.claude/docs/x402.md). **Rule:** any public agent-callable x402 surface MUST verify a signed `X-Payment` before any spend, and must never expose `settleX402Call` unguarded.
 - **`threads.refund_tx_hash` is the single source of truth for payouts** — once set, never send again. Refund amount is read on-chain, never from client-supplied fields. See [`.claude/docs/refunds.md`](.claude/docs/refunds.md).
 - **Contracts:** keep the `Pausable` kill-switch (`whenNotPaused`) intact; enforce the AgentWallet $10/token/day (mainnet; $50 testnet) cap in `executeX402Call`; use `IERC20Metadata(token).decimals()` — never hardcode (cUSD=18, USDT/USDC=6); token whitelist only.
 - **Supabase is service-role only** (`getSupabaseServer()`, bypasses RLS); there is no anon client. No PII is stored.
