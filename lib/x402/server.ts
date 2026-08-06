@@ -1,8 +1,10 @@
 import { HTTPFacilitatorClient } from '@x402/core/server';
+import type { FacilitatorClient } from '@x402/core/server';
 import { x402ResourceServer } from '@x402/next';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { getX402ChainConfig } from './config';
 import { V1DowngradeFacilitator } from './facilitator-v1';
+import { RotatingKeyFacilitator, parseFacilitatorKeys, parseKeyBudget } from './facilitator-keys';
 
 let cached: ReturnType<typeof build> | null = null;
 
@@ -34,9 +36,7 @@ function resolveScheme(): AuthScheme {
 // Per-operation facilitator auth. The x402 core calls this fresh on every
 // verify/settle (see HTTPFacilitatorClient), so request-scoped, short-lived
 // tokens never go stale.
-function buildAuthHeaders(facilitatorUrl: string): (() => Promise<AuthHeaders>) | undefined {
-  const scheme = resolveScheme();
-
+function buildAuthHeaders(scheme: AuthScheme, facilitatorUrl: string): (() => Promise<AuthHeaders>) | undefined {
   if (scheme === 'none') return undefined;
 
   // CDP (Base mainnet): the Coinbase facilitator rejects a static bearer — it
@@ -63,16 +63,36 @@ function buildAuthHeaders(facilitatorUrl: string): (() => Promise<AuthHeaders>) 
     };
   }
 
-  // Celo's hosted facilitator meters prepaid credits against an API key, and
-  // sends it under X-API-Key rather than Authorization. Same header on every
-  // operation — unlike the CDP JWT it is not scoped to a path.
-  if (scheme === 'api-key') {
-    const h = { 'X-API-Key': requireEnv('X402_FACILITATOR_API_KEY') };
-    return async () => ({ verify: h, settle: h, supported: h });
-  }
+  // api-key is handled by buildApiKeyFacilitator: its keys come as a pool, one
+  // HTTP client each, so a spent key can be retired without disturbing the rest.
+  if (scheme === 'api-key') return undefined;
 
   const h = { Authorization: `Bearer ${requireEnv('X402_FACILITATOR_TOKEN')}` };
   return async () => ({ verify: h, settle: h, supported: h });
+}
+
+// Celo's hosted facilitator meters prepaid credits against an API key, and
+// sends it under X-API-Key rather than Authorization. Same header on every
+// operation — unlike the CDP JWT it is not scoped to a path.
+//
+// One client per key, wrapped in the rotator: a key whose credits run out is
+// retired mid-flight and the next one takes over, instead of every paid
+// endpoint staying down until someone redeploys. See ./facilitator-keys.
+function buildApiKeyFacilitator(url: string): FacilitatorClient {
+  const keys = parseFacilitatorKeys();
+  if (keys.length === 0) {
+    throw new Error('X402_FACILITATOR_API_KEY or X402_FACILITATOR_API_KEYS is required for X402_FACILITATOR_AUTH=api-key');
+  }
+
+  const clients = keys.map((key) => {
+    const h = { 'X-API-Key': key };
+    return new HTTPFacilitatorClient({ url, createAuthHeaders: async () => ({ verify: h, settle: h, supported: h }) });
+  });
+
+  return new RotatingKeyFacilitator(clients, {
+    budget: parseKeyBudget(),
+    onRotate: (message) => console.warn(message),
+  });
 }
 
 function build() {
@@ -80,12 +100,16 @@ function build() {
   // Mainnet (Base): X402_FACILITATOR_URL = CDP facilitator
   // (https://api.cdp.coinbase.com/platform/v2/x402) + CDP_API_KEY_ID/SECRET.
   const url = process.env.X402_FACILITATOR_URL || 'https://x402.org/facilitator';
-  const createAuthHeaders = buildAuthHeaders(url);
+  const scheme = resolveScheme();
+  const createAuthHeaders = buildAuthHeaders(scheme, url);
 
-  const http = new HTTPFacilitatorClient({
-    url,
-    ...(createAuthHeaders ? { createAuthHeaders } : {}),
-  });
+  const http =
+    scheme === 'api-key'
+      ? buildApiKeyFacilitator(url)
+      : new HTTPFacilitatorClient({
+          url,
+          ...(createAuthHeaders ? { createAuthHeaders } : {}),
+        });
 
   const cfg = getX402ChainConfig(Number(process.env.X402_CHAIN_ID || '84532'));
 

@@ -2,15 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Capture the config handed to HTTPFacilitatorClient so we can drive its
 // createAuthHeaders without a real facilitator.
+type CapturedConfig = { url: string; createAuthHeaders?: () => Promise<unknown> };
 const captured: {
-  config?: { url: string; createAuthHeaders?: () => Promise<unknown> };
+  config?: CapturedConfig;
+  configs: CapturedConfig[];
   facilitator?: unknown;
-} = {};
+} = { configs: [] };
 
 vi.mock('@x402/core/server', () => ({
   HTTPFacilitatorClient: class {
-    constructor(config: { url: string; createAuthHeaders?: () => Promise<unknown> }) {
+    constructor(config: CapturedConfig) {
       captured.config = config;
+      captured.configs.push(config);
     }
   },
 }));
@@ -38,6 +41,7 @@ describe('getResourceServer facilitator auth', () => {
   beforeEach(() => {
     vi.resetModules();
     captured.config = undefined;
+    captured.configs = [];
     captured.facilitator = undefined;
     generateJwt.mockClear();
     delete process.env.CDP_API_KEY_ID;
@@ -45,6 +49,8 @@ describe('getResourceServer facilitator auth', () => {
     delete process.env.X402_FACILITATOR_URL;
     delete process.env.X402_FACILITATOR_AUTH;
     delete process.env.X402_FACILITATOR_API_KEY;
+    delete process.env.X402_FACILITATOR_API_KEYS;
+    delete process.env.X402_FACILITATOR_KEY_BUDGET;
     delete process.env.X402_FACILITATOR_TOKEN;
     process.env.X402_CHAIN_ID = '8453';
   });
@@ -118,6 +124,45 @@ describe('getResourceServer facilitator auth', () => {
     expect(generateJwt).not.toHaveBeenCalled();
   });
 
+  it('api-key: a pool gets one client per key, each carrying its own key', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'api-key';
+    process.env.X402_FACILITATOR_API_KEYS = 'x402_one, x402_two, x402_three';
+    process.env.X402_FACILITATOR_URL = 'https://api.x402.celo.org';
+
+    const { getResourceServer } = await import('./server');
+    getResourceServer();
+
+    expect(captured.configs).toHaveLength(3);
+    const keys = await Promise.all(
+      captured.configs.map(async (c) => {
+        const h = (await c.createAuthHeaders!()) as { verify: Record<string, string> };
+        return h.verify['X-API-Key'];
+      }),
+    );
+    expect(keys).toEqual(['x402_one', 'x402_two', 'x402_three']);
+    expect(captured.configs.every((c) => c.url === 'https://api.x402.celo.org')).toBe(true);
+  });
+
+  it('api-key: the resource server is handed the rotator, not a bare client', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'api-key';
+    process.env.X402_FACILITATOR_API_KEYS = 'x402_one,x402_two';
+
+    const { getResourceServer } = await import('./server');
+    getResourceServer();
+
+    const { RotatingKeyFacilitator } = await import('./facilitator-keys');
+    expect(captured.facilitator).toBeInstanceOf(RotatingKeyFacilitator);
+  });
+
+  it('api-key: a bad budget throws at build time rather than mid-run', async () => {
+    process.env.X402_FACILITATOR_AUTH = 'api-key';
+    process.env.X402_FACILITATOR_API_KEYS = 'x402_one,x402_two';
+    process.env.X402_FACILITATOR_KEY_BUDGET = 'five hundred';
+
+    const { getResourceServer } = await import('./server');
+    expect(() => getResourceServer()).toThrow(/X402_FACILITATOR_KEY_BUDGET/);
+  });
+
   it('a named scheme with its env missing throws instead of degrading to no auth', async () => {
     process.env.X402_FACILITATOR_AUTH = 'api-key'; // no X402_FACILITATOR_API_KEY
     const { getResourceServer } = await import('./server');
@@ -144,12 +189,15 @@ describe('getResourceServer facilitator selection', () => {
   beforeEach(() => {
     vi.resetModules();
     captured.config = undefined;
+    captured.configs = [];
     captured.facilitator = undefined;
     delete process.env.CDP_API_KEY_ID;
     delete process.env.CDP_API_KEY_SECRET;
     delete process.env.X402_FACILITATOR_URL;
     delete process.env.X402_FACILITATOR_AUTH;
     delete process.env.X402_FACILITATOR_API_KEY;
+    delete process.env.X402_FACILITATOR_API_KEYS;
+    delete process.env.X402_FACILITATOR_KEY_BUDGET;
   });
   afterEach(() => {
     process.env = { ...ENV };
