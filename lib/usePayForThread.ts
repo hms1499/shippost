@@ -58,7 +58,7 @@ export interface PayResult {
   reset: () => void;
 }
 
-// Approve a bounded batch instead of the exact $0.05 per thread, so a repeat
+// Approve a bounded batch instead of the exact price per thread, so a repeat
 // user only signs the approve once every APPROVE_BATCH threads — every pay in
 // between is a single tx. Bounded (not maxUint256) so the standing allowance
 // the payment contract holds on the user's token stays capped at ~$2.
@@ -363,7 +363,7 @@ export function usePayForThread(): PayResult {
         haptic('error');
       }
     },
-    [walletClient, refetchWalletClient, publicClient, address, chainId, connector, fail]
+    [walletClient, refetchWalletClient, publicClient, address, chainId, connector, config, fail]
   );
 
   return { status, threadId, txHash, error, errorPhase, pay, reset };

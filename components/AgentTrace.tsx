@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Check, X, Loader2, Lock } from 'lucide-react';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { explorerBase } from '@/lib/chains';
+import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 import { appendTraceLines, type TraceLine } from '@/lib/traceLog';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
@@ -129,7 +130,7 @@ export function AgentTrace({
         className="rounded-md border border-border bg-background/60 p-2.5 max-h-44 overflow-y-auto text-[11px] font-mono leading-relaxed"
         aria-live="polite"
       >
-        <LogRow glyph={payTxHash ? 'ok' : payStatus === 'error' ? 'fail' : 'run'} text={payLabel} txHash={payTxHash ?? undefined} explorer={chainExplorerBase} amount={payTxHash ? '$0.05' : undefined} />
+        <LogRow glyph={payTxHash ? 'ok' : payStatus === 'error' ? 'fail' : 'run'} text={payLabel} txHash={payTxHash ?? undefined} explorer={chainExplorerBase} amount={payTxHash ? THREAD_PRICE_LABEL : undefined} />
         {lines.map((l) => (
           <motion.div
             key={l.key}

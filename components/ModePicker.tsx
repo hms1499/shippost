@@ -2,6 +2,7 @@
 
 import { ArrowRight, Flame, GraduationCap, Coins, PenLine, GitCompare, Newspaper } from 'lucide-react';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
+import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 interface Props {
   onSelect: (mode: 'educational' | 'hot-take' | 'news-breakdown' | 'token-analysis' | 'daily-recap' | 'comparison') => void;
@@ -114,7 +115,7 @@ export function ModePicker({ onSelect }: Props) {
         ))}
       </ul>
       <p className="mt-3 text-[11px] font-sans text-muted-foreground text-center">
-        flat <span className="font-mono text-money">$0.05</span>/thread — mode only changes the agent&apos;s recipe
+        flat <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>/thread — mode only changes the agent&apos;s recipe
       </p>
     </TerminalPanel>
   );

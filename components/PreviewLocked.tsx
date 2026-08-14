@@ -3,6 +3,7 @@
 import { Lock, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 interface Props {
   firstTweet: string;
@@ -20,7 +21,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">Sample · First tweet free</p>
         <p className="text-sm font-sans text-muted-foreground leading-snug">
-          A free taste of the opening. Pay <span className="font-mono text-money">$0.05</span> to
+          A free taste of the opening. Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> to
           generate your full thread — freshly written and fact-checked.
         </p>
       </div>
@@ -45,7 +46,7 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       </div>
 
       <Button onClick={onUnlock}>
-        Generate full thread · $0.05
+        Generate full thread · {THREAD_PRICE_LABEL}
       </Button>
 
       {/* Placed at the moment of hesitation: the refund promise the backend

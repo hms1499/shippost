@@ -67,7 +67,7 @@ export function checkReserveBalance(params: {
 // provably cannot settle never takes their money.
 //
 // Deliberately NOT a token-balance check. payForThread transfers 50% of the
-// $0.05 to the AgentWallet in the SAME token, in the same tx, and the route
+// the agent's split to the AgentWallet in the SAME token, in the same tx, and the route
 // only generates after verifyPayment confirms it — so every thread arrives
 // with $0.025 against a $0.004 worst case. Mainnet cUSD balance is 0 right
 // now, and those threads still succeed; `balance >= cost` here would block all

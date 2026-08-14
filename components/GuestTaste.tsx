@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { fetchGuestPreview, type PreviewResult } from '@/lib/previewClient';
 import { track } from '@/lib/funnel';
+import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 /**
  * Pre-connect free taste on the landing. A guest types a topic and gets the
@@ -47,7 +48,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         <p className="text-xs font-sans text-muted-foreground text-center leading-snug">
           {locked > 0 ? `+${locked} more ${locked === 1 ? 'tweet' : 'tweets'} — ` : ''}
           connect your wallet to unlock &amp; keep the full thread for{' '}
-          <span className="font-mono text-money">$0.05</span>.
+          <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>.
         </p>
         <button
           type="button"

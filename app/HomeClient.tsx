@@ -501,7 +501,7 @@ export default function HomeClient() {
 
     // This is the only path to pay(), including from 'preview-unavailable'. Ask
     // whether the agent can settle at all BEFORE the wallet sheet opens — a run
-    // that provably cannot finish must never take the user's $0.05. Fails open,
+    // that provably cannot finish must never take the user's money. Fails open,
     // so an unreachable preflight leaves the existing flow untouched.
     const readiness = await fetchSpendReadiness(token.symbol, chainId);
     if (!readiness.ok) {
@@ -512,7 +512,10 @@ export default function HomeClient() {
 
     setScreen('generating');
     await pay(token, mode);
-  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay]);
+    // chainId is a real dependency: a stale one would preflight the chain the
+    // user was on when this callback was last built, not the one they are
+    // paying from.
+  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId]);
 
   const formNode =
     screen === 'mode' ? (

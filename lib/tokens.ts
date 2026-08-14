@@ -91,6 +91,12 @@ export function getTokens(chainId: number): Partial<Record<TokenSymbol, TokenCon
 // so anything computed locally can be stale.
 export const THREAD_PRICE_USD = 0.1;
 
+// One label for every price shown in copy. It was six hardcoded "$0.05" strings
+// before, which is six places to miss on a repricing. Still display-only: the
+// authoritative price is the contract's, so this can lag a setPrice — what the
+// user is actually charged comes from readThreadPrice, never from here.
+export const THREAD_PRICE_LABEL = `$${THREAD_PRICE_USD.toFixed(2)}`;
+
 export function computeTokenAmount(token: TokenConfig): bigint {
   return parseUnits(String(THREAD_PRICE_USD), token.decimals);
 }

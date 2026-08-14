@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
 import { GuestTaste } from '@/components/GuestTaste';
+import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 /**
  * Pre-connect landing hero. Terminal mission-control framing: headline copy,
@@ -23,7 +24,7 @@ export function LandingHero() {
         </h1>
         <p className="text-sm text-muted-foreground max-w-xs font-sans">
           Type a topic, get a ready-to-post X thread in ~20s. Pay{' '}
-          <span className="font-mono text-money">$0.05</span> only if you keep it.
+          <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> only if you keep it.
         </p>
       </div>
 
