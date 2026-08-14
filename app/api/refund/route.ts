@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refundThread } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
+import { isSupportedChain } from '@/lib/chainPolicy';
 import { alertOps } from '@/lib/alert';
 import type { Address } from 'viem';
 
@@ -19,6 +20,9 @@ const ALLOWED_TOKENS = ['cUSD', 'USDT', 'USDC'] as const;
 
 function validate(b: Partial<RefundRequest>): string | null {
   if (typeof b.chainId !== 'number') return 'chainId required';
+  // Explicit allowlist, same reasoning as /api/generate/stream: an unsupported
+  // chain must be a 400 here, not a 500 from getContracts() further in.
+  if (!isSupportedChain(b.chainId)) return 'unsupported chainId';
   if (!b.onchainThreadId) return 'onchainThreadId required';
   if (!b.to || !/^0x[a-fA-F0-9]{40}$/.test(b.to)) return 'to must be a 0x address';
   if (!b.tokenSymbol || !ALLOWED_TOKENS.includes(b.tokenSymbol)) return 'invalid tokenSymbol';

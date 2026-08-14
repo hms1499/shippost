@@ -1,5 +1,6 @@
 import { getMode } from '@/lib/pipeline/modes';
 import { getContracts } from '@/lib/contracts';
+import { isSupportedChain } from '@/lib/chainPolicy';
 import { verifyPayment } from '@/lib/agent/orchestrator';
 import { getSupabaseServer } from '@/lib/supabase';
 import { claimGenerationOnce } from '@/lib/rateLimit';
@@ -70,6 +71,10 @@ function getSupabaseSafe() {
 function validate(b: Partial<StreamRequest>): string | null {
   if (!b.threadId) return 'threadId required';
   if (!b.chainId) return 'chainId required';
+  // Explicit allowlist. Relying on getContracts() to throw made an unsupported
+  // chain a 500 raised partway through the route; it must be a 400 raised
+  // before anything happens.
+  if (!isSupportedChain(b.chainId)) return 'unsupported chainId';
   if (!b.walletAddress) return 'walletAddress required';
   if (!b.tokenSymbol) return 'tokenSymbol required';
   if (!b.tokenAddress) return 'tokenAddress required';

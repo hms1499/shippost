@@ -20,6 +20,11 @@ vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA, MODE_A_TOTAL_COST_USD }));
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB }));
 
+// chainPolicy reads the allowlist from env at module load, and this suite pays
+// on Celo Sepolia — which the production default (Base + Celo mainnet) rejects.
+// Must be set before the route is imported.
+process.env.NEXT_PUBLIC_SUPPORTED_CHAIN_IDS = '11142220,8453,42220';
+
 const { POST } = await import('./route');
 
 const CHAIN_ID = celoSepolia.id;
@@ -337,5 +342,39 @@ describe('POST /api/generate/stream', () => {
       expect(sse).toContain('"type":"done"');
       expect(runModeA).toHaveBeenCalledOnce();
     });
+  });
+});
+
+// body.chainId is fully attacker-controlled. An unknown chain must be turned
+// away by an explicit allowlist, before any Supabase query, RPC call or paid
+// work — not incidentally, by getContracts() throwing a 500 further in.
+describe('chain allowlist', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rejects an unsupported chainId with 400 and does no work', async () => {
+    const res = await POST(
+      new Request('http://localhost/api/generate/stream', {
+        method: 'POST',
+        body: JSON.stringify({
+          threadId: '1',
+          chainId: 1, // Ethereum mainnet — not supported
+          walletAddress: '0x5028000000000000000000000000000000009779',
+          tokenSymbol: 'USDC',
+          tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          amountPaidRaw: '100000',
+          payTxHash: '0xdeadbeef',
+          mode: 0,
+          topic: 'test',
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain('unsupported chainId');
+    // The gate is before every side effect: no payment proof, no DB.
+    expect(verifyPayment).not.toHaveBeenCalled();
+    expect(getSupabaseServer).not.toHaveBeenCalled();
   });
 });
