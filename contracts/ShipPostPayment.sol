@@ -27,6 +27,11 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
     uint256 public treasuryBp = 4000; // 40%
     uint256 public reserveBp = 1000;  // 10% — retained in-contract
 
+    /// @notice Thread price in whole US cents. Settable so a price change never
+    /// requires a redeploy — the previous version hardcoded $0.05 in
+    /// requiredAmount, which made every repricing a migration.
+    uint256 public priceUsdCents = 10;
+
     event ThreadRequested(
         address indexed user,
         uint256 indexed threadId,
@@ -40,6 +45,7 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
     event TreasuryUpdated(address indexed previous, address indexed current);
     event Refunded(uint256 indexed threadId, address indexed token, address indexed to, uint256 amount);
     event ReserveWithdrawn(address indexed token, address indexed to, uint256 amount);
+    event PriceUpdated(uint256 previous, uint256 current);
 
     /// @param _startThreadId initial value for threadCounter. On a redeploy this
     /// MUST be set above the previous contract's highest threadId — the backend
@@ -82,18 +88,30 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
         treasury = _treasury;
     }
 
+    /// @notice Reprice a thread. Users are protected from a price change landing
+    /// between their read and their transaction by payForThread's maxAmount.
+    function setPrice(uint256 newPriceUsdCents) external onlyOwner {
+        require(newPriceUsdCents > 0, "ZERO_PRICE");
+        emit PriceUpdated(priceUsdCents, newPriceUsdCents);
+        priceUsdCents = newPriceUsdCents;
+    }
+
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
-    /// @notice Compute the required amount for a $0.05 thread in this token.
+    /// @notice Compute the required amount for a thread in this token, at the
+    /// current price.
     function requiredAmount(address token) public view returns (uint256) {
         uint8 d = IERC20Metadata(token).decimals();
         require(d >= 2, "BAD_DECIMALS");
-        // $0.05 = 5 * 10^(d-2)
-        return 5 * (10 ** (d - 2));
+        return priceUsdCents * (10 ** (d - 2));
     }
 
-    function payForThread(address token, uint8 mode)
+    /// @param maxAmount the most the caller consents to pay, in token base
+    /// units. The price is settable, so without this ceiling an owner could
+    /// reprice in the gap between a user reading the price and their
+    /// transaction landing, and the user would pay the new price silently.
+    function payForThread(address token, uint8 mode, uint256 maxAmount)
         external
         whenNotPaused
         nonReentrant
@@ -101,6 +119,7 @@ contract ShipPostPayment is Ownable, Pausable, ReentrancyGuard {
     {
         require(allowedTokens[token], "TOKEN_NOT_ALLOWED");
         uint256 amount = requiredAmount(token);
+        require(amount <= maxAmount, "PRICE_EXCEEDS_MAX");
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
