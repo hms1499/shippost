@@ -44,9 +44,12 @@ export default defineConfig({
       },
     },
   },
+  // Base verifies on Basescan (Etherscan), Celo on Blockscout. Both are enabled
+  // so Hardhat can pick the right one per chain; Blockscout is keyless, Etherscan
+  // needs BASESCAN_API_KEY (an Etherscan V2 key covers Base).
   verify: {
     blockscout: { enabled: true },
-    etherscan: { enabled: false },
+    etherscan: { enabled: true, apiKey: process.env.BASESCAN_API_KEY || '' },
     sourcify: { enabled: false },
   },
   paths: {
@@ -80,6 +83,18 @@ export default defineConfig({
       url: CELO_RPC_URL,
       accounts: [DEPLOYER_PK],
       chainId: 42220,
+    },
+    base: {
+      type: 'http',
+      url: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+      accounts: [DEPLOYER_PK],
+      chainId: 8453,
+    },
+    baseSepolia: {
+      type: 'http',
+      url: process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+      accounts: [DEPLOYER_PK],
+      chainId: 84532,
     },
   },
 });
