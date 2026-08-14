@@ -4,7 +4,8 @@
 **Status:** Design approved, pending spec review
 **Scope:** Make **Base mainnet (8453)** a fully supported payment chain and the
 default one, with gas sponsored by a paymaster, **without removing the working
-Celo/MiniPay path**. Sub-project 1 of 3 (see Non-goals).
+Celo/MiniPay path**. Raise the thread price from **$0.05 to $0.25** and make it
+owner-settable (§7). Sub-project 1 of 3 (see Non-goals).
 
 ## Background
 
@@ -230,13 +231,20 @@ per-chain alerts stay distinct with no key redesign.
 `checkOrchestratorGas({ minCelo })` becomes `{ minNative }` with a per-chain
 threshold, since an ETH balance and a CELO balance are not comparable numbers.
 
-### 5. Contracts: redeploy, do not modify
+### 5. Contracts: one deliberate Solidity change (see §7), then redeploy
 
-`ShipPostPayment.sol` and `AgentWallet.sol` run on Base unchanged —
-`IERC20Metadata(token).decimals()` is already dynamic, SafeERC20 is already used,
-and `Pausable` plus the token whitelist carry over. **No Solidity change means no
-invariant needs re-auditing**, which is the main reason §2 chose a paymaster over
-an EIP-3009 rewrite.
+`AgentWallet.sol` runs on Base unchanged. `ShipPostPayment.sol` would also have
+run unchanged — `IERC20Metadata(token).decimals()` is already dynamic, SafeERC20
+is already used, `Pausable` and the token whitelist carry over — but the pricing
+change in §7 requires modifying it.
+
+**This weakens, but does not overturn, the §2 argument.** Choosing a paymaster
+over an EIP-3009 rewrite was justified partly by "no Solidity change, so no
+invariant needs re-auditing". That is no longer free. It remains the right call
+for a narrower reason: the §7 change is additive and local (a price variable, an
+owner setter, one extra parameter), whereas an EIP-3009 rewrite would replace
+the entire payment entry point and the `ThreadRequested` evidence that
+`verifyPayment` depends on. The blast radius differs by an order of magnitude.
 
 Outside Solidity:
 
@@ -260,6 +268,76 @@ non-Celo chain. On Base the ERC-8021 suffix is calldata no program reads; the
 EVM ignores it, so it is harmless but dishonest — it makes transactions look
 tagged for a program they cannot enter.
 
+### 7. Pricing: $0.05 → $0.25, and make it settable
+
+The price is currently hardcoded in Solidity with no setter
+(`ShipPostPayment.sol:88-94`: `return 5 * (10 ** (d - 2))`), so changing it at
+all means redeploying. Base is a fresh deploy regardless, which makes this the
+cheapest moment this change will ever have.
+
+**Why raise it at all.** At $0.05 the 50/40/10 split yields $0.025 to the agent,
+$0.02 to treasury, $0.005 to reserve, while the agent spends at most 4 × $0.001 =
+$0.004 — the agent share is roughly 6× oversized. More importantly, **Base
+introduces a cost Celo never had**: sponsored gas. On Celo the user paid gas in
+cUSD; on Base we pay it. A sponsored bundle plausibly costs a meaningful
+fraction of the $0.02 treasury share, so $0.05 may not be profitable on Base at
+all. $0.25 covers sponsorship with real headroom while staying an impulse
+purchase.
+
+**Note honestly:** organic usage is currently near zero, so price is not the
+constraint on revenue — distribution is. This change makes each sale sustainable;
+it does not by itself increase sales.
+
+**The contract change** is additive:
+
+- `uint256 public priceUsdCents` (initialised to `25`), replacing the literal
+  `5` in `requiredAmount`, which becomes `priceUsdCents * (10 ** (d - 2))`.
+- `setPrice(uint256 newPriceUsdCents) external onlyOwner`, emitting
+  `PriceUpdated(uint256 previous, uint256 current)`.
+- **`payForThread(address token, uint8 mode, uint256 maxAmount)`** — reverts with
+  `PRICE_EXCEEDS_MAX` if `requiredAmount(token) > maxAmount`. This is not
+  optional. A settable price without a ceiling lets the owner change the price
+  in the interval between a user reading it and their transaction landing,
+  charging more than the user consented to. The ceiling makes the user's consent
+  explicit and on-chain.
+
+**Consequence for refunds — a real bug this introduces.** `getOnChainPaidAmount`
+(`lib/agent/orchestrator.ts:48-63`) derives the refundable amount from a live
+`requiredAmount(token)` read, and `scripts/process-refund-request.ts:127` refunds
+that. Correct while the price is immutable; **wrong the moment it is not** — a
+thread bought at $0.05 would be refunded at the current price, draining reserve
+beyond what was ever paid.
+
+The CLAUDE.md invariant ("refund amount is read on-chain, never from
+client-supplied fields") is preserved, but its **source must change**: read the
+`amount` field of the `ThreadRequested` event for that specific `threadId`. That
+value is what was actually transferred, it is already decoded by `verifyPayment`
+(`orchestrator.ts:96-115`), and it is immune to later price changes.
+
+**Consequence for the client.** With a mutable price the client must stop
+computing the price and start reading it. `computeTokenAmount()`
+(`lib/tokens.ts:65-71`) becomes a display fallback only; the approve amount, the
+`maxAmount` argument, and the displayed price all derive from a
+`readContract requiredAmount(token)` call. If the price changes between that read
+and the transaction, the `maxAmount` ceiling reverts it — which is the intended
+behaviour, not an error to paper over.
+
+**Also fix the volume metric.** `app/api/public/analytics/route.ts:46` computes
+`volumeUsd = threads * 0.05` from a hardcoded constant that does not even import
+`THREAD_PRICE_USD`. Once two prices exist in history this is permanently wrong,
+for old and new threads alike. It must sum the per-thread stored amount instead.
+
+**Copy carrying the old price** must move in the same commit: `app/layout.tsx:25`
+and `components/ModePicker.tsx:117` both state "$0.05" literally.
+
+**Celo pays a migration cost.** Unlike Base, Celo has a live contract holding the
+reserve in its own balance. Raising the price there means: deploy the new
+contract, `withdrawReserve` from the old one, seed the new one, repoint
+`NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET`, and leave the old contract paused but
+callable so any outstanding refund against it can still be honoured. Old threads
+keep resolving against the old address, which the per-thread event lookup above
+already handles.
+
 ## Testing
 
 **Vitest — runs immediately, costs nothing:**
@@ -275,8 +353,22 @@ tagged for a program they cannot enter.
 - the bundle builder produces the expected `calls` array and `capabilities`
   object (pure function, no wallet needed).
 
+- **the refund amount comes from the thread's `ThreadRequested.amount`, not from
+  a live `requiredAmount()` read** — assert explicitly that a thread priced at
+  the old rate still refunds at the old rate after `setPrice`;
+- `volumeUsd` sums stored per-thread amounts, and is correct for a data set
+  containing both a $0.05 and a $0.25 thread.
+
 **Hardhat:** generalise the `CELO_FORK` flag to select a fork network, and add a
-Base fork for the decimals tests so they run against real USDC.
+Base fork for the decimals tests so they run against real USDC. Plus, for §7:
+
+- `requiredAmount` tracks `setPrice` across all supported decimals (6 and 18);
+- `setPrice` is `onlyOwner` and emits `PriceUpdated`;
+- **`payForThread` reverts when `requiredAmount > maxAmount`**, including the
+  race it exists to prevent: read price, owner raises it, transaction lands,
+  transaction reverts rather than overcharging;
+- the reserve/agent/treasury split still sums exactly to `amount` at the new
+  price, with dust landing in reserve.
 
 **Manual, unavoidable:** EIP-5792 sponsorship cannot be meaningfully mocked. The
 `bundle id → tx hash → verifyPayment` chain must be exercised on Base Sepolia,
@@ -289,18 +381,24 @@ typechecks `*.test.ts`, so type errors in tests only surface in CI.
 
 Each step is one commit, straight to `main`.
 
-1. **Config, allowlist, tests.** `chainPolicy`, registry additions, the 400
+1. **Contract change + tests (§7).** `priceUsdCents`, `setPrice`, the `maxAmount`
+   parameter, and the refund-source fix. Nothing deployed yet; Hardhat tests
+   carry it. Doing this first means every later deploy ships the final contract.
+2. **Config, allowlist, tests.** `chainPolicy`, registry additions, the 400
    allowlist, chain-conditional attribution, cron/preflight loops, the paymaster
-   route with its allowlist tests. Nothing is deployed; no money is at risk. This
-   is the bulk of the code.
-2. **Base Sepolia.** Deploy, then run one real thread through the paymaster and
+   route with its allowlist tests, the client's switch from computing the price
+   to reading it, the volume-metric fix, and the price copy. Nothing is deployed;
+   no money is at risk. This is the bulk of the code.
+3. **Base Sepolia.** Deploy, then run one real thread through the paymaster and
    confirm `bundle id → tx hash → verifyPayment` end to end.
-3. **Base mainnet.** Verify the USDC address on-chain, deploy, whitelist, seed the
+4. **Base mainnet.** Verify the USDC address on-chain, deploy, whitelist, seed the
    reserve, set the daily cap, and **prove the refund path with real money** the
    way the Celo path was proven on 2026-07-27.
-4. **Flip the default** to `DEFAULT_CHAIN_ID=8453`.
-5. **Reseed the Celo reserve**, closing the gap in §4.
+5. **Flip the default** to `DEFAULT_CHAIN_ID=8453`.
+6. **Celo redeploy at the new price**, migrating the reserve per §7 and closing
+   the empty-reserve gap in §4 in the same move. Celo goes last because it is the
+   only step that disturbs something currently live.
 
-Step 1 carries most of the work and none of the financial risk, so it is where
-effort should concentrate. No step after 1 should begin while step 1's tests are
+Steps 1–2 carry most of the work and none of the financial risk, so that is where
+effort should concentrate. No step after 2 should begin while their tests are
 red.
