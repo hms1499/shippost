@@ -1,4 +1,4 @@
-import { celo } from 'wagmi/chains';
+import { celo, base, baseSepolia } from 'wagmi/chains';
 import { parseUnits, type Address } from 'viem';
 import { celoSepolia } from './chains';
 
@@ -54,19 +54,45 @@ export const CELO_SEPOLIA_TOKENS: Record<TokenSymbol, TokenConfig> = {
   },
 };
 
-export function getTokens(chainId: number): Record<TokenSymbol, TokenConfig> {
+// Base mainnet. USDC only for now: USDT on Base is deliberately out of scope
+// until its address is verified on-chain — an unverified token address reaching
+// setAllowedToken on mainnet is the expensive class of mistake.
+export const BASE_MAINNET_TOKENS: Partial<Record<TokenSymbol, TokenConfig>> = {
+  USDC: {
+    symbol: 'USDC',
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    decimals: 6,
+    displayName: 'USD Coin',
+  },
+};
+
+// Base Sepolia — Circle's testnet USDC, used for the step-3 dry run.
+export const BASE_SEPOLIA_TOKENS: Partial<Record<TokenSymbol, TokenConfig>> = {
+  USDC: {
+    symbol: 'USDC',
+    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    decimals: 6,
+    displayName: 'USD Coin',
+  },
+};
+
+// Partial, not Record: Base has no cUSD, so callers must handle a missing
+// symbol rather than assume all three exist on every chain.
+export function getTokens(chainId: number): Partial<Record<TokenSymbol, TokenConfig>> {
+  if (chainId === base.id) return BASE_MAINNET_TOKENS;
+  if (chainId === baseSepolia.id) return BASE_SEPOLIA_TOKENS;
   if (chainId === celo.id) return CELO_MAINNET_TOKENS;
   if (chainId === celoSepolia.id) return CELO_SEPOLIA_TOKENS;
   throw new Error(`Unsupported chain: ${chainId}`);
 }
 
-export const THREAD_PRICE_USD = 0.05;
+// Display/fallback only. The authoritative price is requiredAmount(token) read
+// from the contract (see lib/threadPrice.ts) — the on-chain price is settable,
+// so anything computed locally can be stale.
+export const THREAD_PRICE_USD = 0.1;
 
 export function computeTokenAmount(token: TokenConfig): bigint {
-  // 0.05 * 10^decimals
-  // cUSD (18 dec): 5 * 10^16 = 50_000_000_000_000_000
-  // USDT/USDC (6 dec): 5 * 10^4 = 50_000
-  return BigInt(5) * BigInt(10) ** BigInt(token.decimals - 2);
+  return parseUnits(String(THREAD_PRICE_USD), token.decimals);
 }
 
 // Every simulated x402 micro-charge (Serper grounding, FactCheck, the Groq

@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import { celo } from 'wagmi/chains';
+import { celo, base, baseSepolia } from 'wagmi/chains';
 import { celoSepolia } from './chains';
 
 export const shipPostPaymentAbi = [
@@ -17,6 +17,7 @@ export const shipPostPaymentAbi = [
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'previousOwner', type: 'address' }, { indexed: true, internalType: 'address', name: 'newOwner', type: 'address' }], name: 'OwnershipTransferred', type: 'event' },
   { anonymous: false, inputs: [{ indexed: false, internalType: 'address', name: 'account', type: 'address' }], name: 'Paused', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'user', type: 'address' }, { indexed: true, internalType: 'uint256', name: 'threadId', type: 'uint256' }, { indexed: false, internalType: 'uint8', name: 'mode', type: 'uint8' }, { indexed: false, internalType: 'address', name: 'token', type: 'address' }, { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'ThreadRequested', type: 'event' },
+  { anonymous: false, inputs: [{ indexed: false, internalType: 'uint256', name: 'previous', type: 'uint256' }, { indexed: false, internalType: 'uint256', name: 'current', type: 'uint256' }], name: 'PriceUpdated', type: 'event' },
   { anonymous: false, inputs: [{ indexed: true, internalType: 'address', name: 'token', type: 'address' }, { indexed: false, internalType: 'bool', name: 'allowed', type: 'bool' }], name: 'TokenAllowed', type: 'event' },
   { anonymous: false, inputs: [{ indexed: false, internalType: 'address', name: 'account', type: 'address' }], name: 'Unpaused', type: 'event' },
   { inputs: [], name: 'agentBp', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -25,7 +26,9 @@ export const shipPostPaymentAbi = [
   { inputs: [], name: 'owner', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'pause', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'paused', outputs: [{ internalType: 'bool', name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
-  { inputs: [{ internalType: 'address', name: 'token', type: 'address' }, { internalType: 'uint8', name: 'mode', type: 'uint8' }], name: 'payForThread', outputs: [{ internalType: 'uint256', name: 'threadId', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'address', name: 'token', type: 'address' }, { internalType: 'uint8', name: 'mode', type: 'uint8' }, { internalType: 'uint256', name: 'maxAmount', type: 'uint256' }], name: 'payForThread', outputs: [{ internalType: 'uint256', name: 'threadId', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'priceUsdCents', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ internalType: 'uint256', name: 'newPriceUsdCents', type: 'uint256' }], name: 'setPrice', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'renounceOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'address', name: 'token', type: 'address' }], name: 'requiredAmount', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: 'threadId', type: 'uint256' }, { internalType: 'address', name: 'token', type: 'address' }, { internalType: 'address', name: 'to', type: 'address' }, { internalType: 'uint256', name: 'amount', type: 'uint256' }], name: 'refund', outputs: [], stateMutability: 'nonpayable', type: 'function' },
@@ -80,6 +83,17 @@ export interface ContractAddresses {
 }
 
 export const CONTRACTS: Record<number, ContractAddresses> = {
+  // Base has no deployed address until the rollout runs. Read from env with no
+  // fallback so a missing value fails loudly instead of silently pointing at a
+  // placeholder — the addresses do not exist yet.
+  [base.id]: {
+    ShipPostPayment: process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_BASE as Address,
+    AgentWallet: process.env.NEXT_PUBLIC_AGENT_WALLET_BASE as Address,
+  },
+  [baseSepolia.id]: {
+    ShipPostPayment: process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_BASE_SEPOLIA as Address,
+    AgentWallet: process.env.NEXT_PUBLIC_AGENT_WALLET_BASE_SEPOLIA as Address,
+  },
   [celoSepolia.id]: {
     ShipPostPayment: (process.env.NEXT_PUBLIC_PAYMENT_CONTRACT_TESTNET ?? '0x277e140933d600cafcad38e2f1018e4fbd5476b2') as Address,
     AgentWallet: (process.env.NEXT_PUBLIC_AGENT_WALLET_TESTNET ?? '0x7538627c5eef2193fa4960f03157f482eca333be') as Address,

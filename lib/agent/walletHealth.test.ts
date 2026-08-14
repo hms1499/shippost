@@ -16,9 +16,9 @@ const T = getTokens(CHAIN);
 // token's decimals (cUSD 18, USDT/USDC 6).
 function readerFrom(usd: Record<'cUSD' | 'USDT' | 'USDC', string>) {
   const byAddress = new Map<string, bigint>([
-    [T.cUSD.address.toLowerCase(), parseUnits(usd.cUSD, T.cUSD.decimals)],
-    [T.USDT.address.toLowerCase(), parseUnits(usd.USDT, T.USDT.decimals)],
-    [T.USDC.address.toLowerCase(), parseUnits(usd.USDC, T.USDC.decimals)],
+    [T.cUSD!.address.toLowerCase(), parseUnits(usd.cUSD, T.cUSD!.decimals)],
+    [T.USDT!.address.toLowerCase(), parseUnits(usd.USDT, T.USDT!.decimals)],
+    [T.USDC!.address.toLowerCase(), parseUnits(usd.USDC, T.USDC!.decimals)],
   ]);
   return (tokenAddress: Address) => Promise.resolve(byAddress.get(tokenAddress.toLowerCase()) ?? 0n);
 }
@@ -81,7 +81,7 @@ function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders 
     readOwner: () => Promise.resolve(OWNER),
     readNativeBalance: () => Promise.resolve(parseEther('1')),
     readDailyCap: (token) =>
-      Promise.resolve(parseUnits('10', token === T.cUSD.address ? 18 : 6)),
+      Promise.resolve(parseUnits('10', token === T.cUSD!.address ? 18 : 6)),
     readSpentToday: () => Promise.resolve(0n),
     ...overrides,
   };

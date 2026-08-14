@@ -22,6 +22,9 @@ export async function settleX402Call(params: {
 
   const contracts = getContracts(params.chainId);
   const token = getTokens(params.chainId)[params.tokenSymbol];
+  if (!token) {
+    throw new Error(`token ${params.tokenSymbol} not configured for chain ${params.chainId}`);
+  }
   // Amount is derived from the token's own decimals here — callers pass only the
   // token symbol, so a step can never hand us a wrong-scaled bigint (e.g. an
   // 18-decimal amount for 6-decimal USDT).
@@ -207,6 +210,9 @@ export async function refundThread(params: {
   const publicClient = createPublicClient({ chain, transport: http() });
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
+  if (!token) {
+    throw new Error(`token ${params.tokenSymbol} not configured for chain ${params.chainId}`);
+  }
   const amount = parseUnits(params.amountHuman, token.decimals);
   const contracts = getContracts(params.chainId);
 

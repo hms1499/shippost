@@ -34,6 +34,9 @@ async function checkHolderBalances(params: {
 
   for (const symbol of Object.keys(tokens) as TokenSymbol[]) {
     const token = tokens[symbol];
+    // Keys come from the map itself, so this cannot miss — the guard is here
+    // only because the map is Partial (Base has no cUSD).
+    if (!token) continue;
     const raw = await read(token.address);
     const usd = Number(formatUnits(raw, token.decimals));
     balances[symbol] = usd;
@@ -137,6 +140,9 @@ export async function checkSpendReadiness(params: {
   if (gas.low) return { ok: false, reason: 'gas' };
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
+  if (!token) {
+    throw new Error(`token ${params.tokenSymbol} not configured for chain ${params.chainId}`);
+  }
   const [cap, spent] = await Promise.all([
     readers.readDailyCap(token.address),
     readers.readSpentToday(token.address),

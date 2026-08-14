@@ -222,7 +222,9 @@ export function usePayForThread(): PayResult {
           address: paymentAddr,
           abi: shipPostPaymentAbi,
           functionName: 'payForThread',
-          args: [token.address, mode],
+          // maxAmount is the user's consent ceiling: exactly the amount this
+          // flow computed and approved, never padded.
+          args: [token.address, mode, amount],
           account: address,
           chain,
           dataSuffix: getAttributionSuffix(),
