@@ -44,12 +44,16 @@ export default defineConfig({
       },
     },
   },
-  // Base verifies on Basescan (Etherscan), Celo on Blockscout. Both are enabled
-  // so Hardhat can pick the right one per chain; Blockscout is keyless, Etherscan
-  // needs BASESCAN_API_KEY (an Etherscan V2 key covers Base).
+  // Base verifies on Etherscan, Celo on Blockscout. Both are enabled so Hardhat
+  // picks the right one per chain: the Celo descriptor below declares only
+  // Blockscout, so Etherscan is skipped there.
+  //
+  // ETHERSCAN_API_KEY, not BASESCAN_API_KEY: Etherscan V2 authenticates every
+  // supported chain with one key (verified against chainid=8453 on 2026-08-14),
+  // so a separate Basescan key would be a second secret for no reason.
   verify: {
     blockscout: { enabled: true },
-    etherscan: { enabled: true, apiKey: process.env.BASESCAN_API_KEY || '' },
+    etherscan: { enabled: true, apiKey: process.env.ETHERSCAN_API_KEY || '' },
     sourcify: { enabled: false },
   },
   paths: {
