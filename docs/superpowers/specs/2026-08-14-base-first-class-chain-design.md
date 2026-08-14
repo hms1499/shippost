@@ -4,7 +4,7 @@
 **Status:** Design approved, pending spec review
 **Scope:** Make **Base mainnet (8453)** a fully supported payment chain and the
 default one, with gas sponsored by a paymaster, **without removing the working
-Celo/MiniPay path**. Raise the thread price from **$0.05 to $0.25** and make it
+Celo/MiniPay path**. Raise the thread price from **$0.05 to $0.10** and make it
 owner-settable (§7). Sub-project 1 of 3 (see Non-goals).
 
 ## Background
@@ -92,7 +92,7 @@ Read directly from the repo in this session:
 
 ## Goal and non-goals
 
-**Goal:** a user with only USDC and no ETH on Base can pay $0.05 and get a
+**Goal:** a user with only USDC and no ETH on Base can pay $0.10 and get a
 thread, with the same refundability guarantees the Celo path has; Celo/MiniPay
 keeps working unchanged.
 
@@ -268,7 +268,7 @@ non-Celo chain. On Base the ERC-8021 suffix is calldata no program reads; the
 EVM ignores it, so it is harmless but dishonest — it makes transactions look
 tagged for a program they cannot enter.
 
-### 7. Pricing: $0.05 → $0.25, and make it settable
+### 7. Pricing: $0.05 → $0.10, and make it settable
 
 The price is currently hardcoded in Solidity with no setter
 (`ShipPostPayment.sol:88-94`: `return 5 * (10 ** (d - 2))`), so changing it at
@@ -281,8 +281,16 @@ $0.004 — the agent share is roughly 6× oversized. More importantly, **Base
 introduces a cost Celo never had**: sponsored gas. On Celo the user paid gas in
 cUSD; on Base we pay it. A sponsored bundle plausibly costs a meaningful
 fraction of the $0.02 treasury share, so $0.05 may not be profitable on Base at
-all. $0.25 covers sponsorship with real headroom while staying an impulse
-purchase.
+all. At $0.10 the split yields $0.05 / $0.04 / $0.01, and the $0.04 treasury
+share is what sponsorship comes out of.
+
+**The margin at $0.10 is deliberately thin, and that is the accepted risk.** It
+covers sponsored gas under normal Base conditions but not a sustained congestion
+spike. This is tolerable *only because* the price is now settable: if sponsorship
+starts eating the treasury share, `setPrice` corrects it in one owner
+transaction with no redeploy. Whoever operates this should watch actual
+sponsorship cost per thread once step 4 is live, and treat a sustained cost above
+~$0.02 per thread as the trigger to raise the price.
 
 **Note honestly:** organic usage is currently near zero, so price is not the
 constraint on revenue — distribution is. This change makes each sale sustainable;
@@ -290,7 +298,7 @@ it does not by itself increase sales.
 
 **The contract change** is additive:
 
-- `uint256 public priceUsdCents` (initialised to `25`), replacing the literal
+- `uint256 public priceUsdCents` (initialised to `10`), replacing the literal
   `5` in `requiredAmount`, which becomes `priceUsdCents * (10 ** (d - 2))`.
 - `setPrice(uint256 newPriceUsdCents) external onlyOwner`, emitting
   `PriceUpdated(uint256 previous, uint256 current)`.
@@ -357,7 +365,7 @@ already handles.
   a live `requiredAmount()` read** — assert explicitly that a thread priced at
   the old rate still refunds at the old rate after `setPrice`;
 - `volumeUsd` sums stored per-thread amounts, and is correct for a data set
-  containing both a $0.05 and a $0.25 thread.
+  containing both a $0.05 and a $0.10 thread.
 
 **Hardhat:** generalise the `CELO_FORK` flag to select a fork network, and add a
 Base fork for the decimals tests so they run against real USDC. Plus, for §7:
