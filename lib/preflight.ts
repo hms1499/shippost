@@ -9,11 +9,17 @@ export type SpendBlockReason = Extract<SpendReadiness, { ok: false }>['reason'];
 // run that provably cannot settle.
 const TIMEOUT_MS = 4_000;
 
-export async function fetchSpendReadiness(tokenSymbol: string): Promise<SpendReadiness> {
+// chainId is required, not optional: without it the route falls back to the
+// default chain and would answer about a wallet the user is not paying from.
+export async function fetchSpendReadiness(
+  tokenSymbol: string,
+  chainId: number,
+): Promise<SpendReadiness> {
   try {
-    const res = await fetch(`/api/preflight?token=${encodeURIComponent(tokenSymbol)}`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    const res = await fetch(
+      `/api/preflight?token=${encodeURIComponent(tokenSymbol)}&chainId=${chainId}`,
+      { signal: AbortSignal.timeout(TIMEOUT_MS) },
+    );
     if (!res.ok) return { ok: true };
     const body = (await res.json()) as unknown;
     return parseReadiness(body);

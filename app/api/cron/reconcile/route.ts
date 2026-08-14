@@ -10,7 +10,7 @@ import { checkPreviewAlive } from '@/lib/agent/previewHealth';
 import { claimAlertOnce } from '@/lib/rateLimit';
 import { alertOps } from '@/lib/alert';
 import { shareAppUrl } from '@/lib/shareText';
-import { TARGET_CHAIN_ID } from '@/lib/targetChain';
+import { SUPPORTED_CHAIN_IDS } from '@/lib/chainPolicy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,8 @@ export const dynamic = 'force-dynamic';
 const LOW_BALANCE_TTL_SEC = 6 * 60 * 60;
 const DEFAULT_AGENT_MIN_USD = 2;
 const DEFAULT_RESERVE_MIN_USD = 0.5;
-// ~0.002 CELO per executeX402Call, so this is roughly 25 threads of runway.
-const DEFAULT_MIN_GAS_CELO = 0.05;
+// ~0.002 native per executeX402Call, so this is roughly 25 threads of runway.
+const DEFAULT_MIN_GAS_NATIVE = 0.05;
 // Preview being down is a revenue-path outage, not a balance warning — page on
 // every cron run it stays broken, so it cannot be slept through.
 const PREVIEW_DOWN_TTL_SEC = 60;
@@ -50,72 +50,81 @@ export async function GET(req: Request) {
       );
     }
 
-    // Heartbeat: agent wallet balance. Isolated so an RPC hiccup here never
-    // fails the primary reconcile job (which already succeeded above).
-    try {
-      const minUsd = Number(process.env.AGENT_WALLET_MIN_BALANCE_USD) || DEFAULT_AGENT_MIN_USD;
-      const health = await checkAgentWalletBalance({ chainId: TARGET_CHAIN_ID, minUsd });
-      if (
-        health.low.length > 0 &&
-        (await claimAlertOnce(`agent-wallet-low:${TARGET_CHAIN_ID}`, LOW_BALANCE_TTL_SEC))
-      ) {
-        await alertOps('AgentWallet balance low', {
-          chainId: TARGET_CHAIN_ID,
-          minUsd,
-          low: health.low,
-          balances: health.balances,
-        });
+    // Every chain we accept payments on, not one pinned chain: a chain nobody
+    // watches is a chain that quietly runs out of gas or reserve. Each check is
+    // isolated per chain, so one dead RPC never hides the others — and never
+    // fails the primary reconcile job, which already succeeded above.
+    for (const chainId of SUPPORTED_CHAIN_IDS) {
+      // Heartbeat: agent wallet balance.
+      try {
+        const minUsd = Number(process.env.AGENT_WALLET_MIN_BALANCE_USD) || DEFAULT_AGENT_MIN_USD;
+        const health = await checkAgentWalletBalance({ chainId, minUsd });
+        if (
+          health.low.length > 0 &&
+          (await claimAlertOnce(`agent-wallet-low:${chainId}`, LOW_BALANCE_TTL_SEC))
+        ) {
+          await alertOps('AgentWallet balance low', {
+            chainId,
+            minUsd,
+            low: health.low,
+            balances: health.balances,
+          });
+        }
+      } catch (e) {
+        console.error(
+          `[cron/reconcile] wallet health check failed on ${chainId}:`,
+          e instanceof Error ? e.message : e,
+        );
       }
-    } catch (e) {
-      console.error(
-        '[cron/reconcile] wallet health check failed:',
-        e instanceof Error ? e.message : e,
-      );
-    }
 
-    // Heartbeat: native gas on the EOA that signs executeX402Call. The ERC-20
-    // check above is blind to it — a wallet full of stablecoins still settles
-    // nothing once its signer is out of CELO. Users now hit the preflight and
-    // are blocked before paying, so page while there is still time to top up.
-    try {
-      const minCelo = Number(process.env.ORCHESTRATOR_MIN_GAS_CELO) || DEFAULT_MIN_GAS_CELO;
-      const gas = await checkOrchestratorGas({ chainId: TARGET_CHAIN_ID, minCelo });
-      if (gas.low && (await claimAlertOnce(`orchestrator-gas-low:${TARGET_CHAIN_ID}`, LOW_BALANCE_TTL_SEC))) {
-        await alertOps('Orchestrator EOA low on gas — x402 settles will fail', {
-          chainId: TARGET_CHAIN_ID,
-          minCelo,
-          address: gas.address,
-          celo: gas.celo,
-        });
+      // Heartbeat: native gas on the EOA that signs executeX402Call. The ERC-20
+      // check above is blind to it — a wallet full of stablecoins still settles
+      // nothing once its signer is out of gas. Users now hit the preflight and
+      // are blocked before paying, so page while there is still time to top up.
+      try {
+        const minNative =
+          Number(process.env.ORCHESTRATOR_MIN_GAS_NATIVE) || DEFAULT_MIN_GAS_NATIVE;
+        const gas = await checkOrchestratorGas({ chainId, minNative });
+        if (
+          gas.low &&
+          (await claimAlertOnce(`orchestrator-gas-low:${chainId}`, LOW_BALANCE_TTL_SEC))
+        ) {
+          await alertOps('Orchestrator EOA low on gas — x402 settles will fail', {
+            chainId,
+            minNative,
+            address: gas.address,
+            native: gas.native,
+          });
+        }
+      } catch (e) {
+        console.error(
+          `[cron/reconcile] orchestrator gas check failed on ${chainId}:`,
+          e instanceof Error ? e.message : e,
+        );
       }
-    } catch (e) {
-      console.error(
-        '[cron/reconcile] orchestrator gas check failed:',
-        e instanceof Error ? e.message : e,
-      );
-    }
 
-    // Heartbeat: refund reserve held by the payment contract. A dry reserve
-    // makes refunds fail, so page while there is still time to top it up.
-    try {
-      const minUsd = Number(process.env.RESERVE_MIN_BALANCE_USD) || DEFAULT_RESERVE_MIN_USD;
-      const health = await checkReserveBalance({ chainId: TARGET_CHAIN_ID, minUsd });
-      if (
-        health.low.length > 0 &&
-        (await claimAlertOnce(`reserve-low:${TARGET_CHAIN_ID}`, LOW_BALANCE_TTL_SEC))
-      ) {
-        await alertOps('Refund reserve low', {
-          chainId: TARGET_CHAIN_ID,
-          minUsd,
-          low: health.low,
-          balances: health.balances,
-        });
+      // Heartbeat: refund reserve held by the payment contract. A dry reserve
+      // makes refunds fail, so page while there is still time to top it up.
+      try {
+        const minUsd = Number(process.env.RESERVE_MIN_BALANCE_USD) || DEFAULT_RESERVE_MIN_USD;
+        const health = await checkReserveBalance({ chainId, minUsd });
+        if (
+          health.low.length > 0 &&
+          (await claimAlertOnce(`reserve-low:${chainId}`, LOW_BALANCE_TTL_SEC))
+        ) {
+          await alertOps('Refund reserve low', {
+            chainId,
+            minUsd,
+            low: health.low,
+            balances: health.balances,
+          });
+        }
+      } catch (e) {
+        console.error(
+          `[cron/reconcile] reserve health check failed on ${chainId}:`,
+          e instanceof Error ? e.message : e,
+        );
       }
-    } catch (e) {
-      console.error(
-        '[cron/reconcile] reserve health check failed:',
-        e instanceof Error ? e.message : e,
-      );
     }
 
     // Heartbeat: the free preview, probed over HTTP like a real visitor. It

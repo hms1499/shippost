@@ -92,23 +92,25 @@ export interface ReadinessReaders {
 // factCheck), so a thread must have headroom for four to avoid dying mid-run.
 const MAX_X402_CALLS_PER_THREAD = 4n;
 
-// ~0.002 CELO settles one executeX402Call, so this floor is roughly 25 threads
-// of runway — enough for the cron heartbeat to page a human before users are
-// ever blocked.
-const DEFAULT_MIN_GAS_CELO = 0.05;
+// ~0.002 of the native token settles one executeX402Call, so this floor is
+// roughly 25 threads of runway — enough for the cron heartbeat to page a human
+// before users are ever blocked. Deliberately one number for both chains: it is
+// a floor, and ETH gas on Base is cheaper than CELO gas, so it errs safe.
+const DEFAULT_MIN_GAS_NATIVE = 0.05;
 
 export interface GasHealth {
   low: boolean;
-  celo: number; // human CELO held by the orchestrator EOA
+  native: number; // human units of the chain's native token on the orchestrator EOA
   address: Address;
 }
 
 // Native-gas heartbeat for the EOA that signs executeX402Call. The ERC-20
 // checks above cannot see this: a wallet full of stablecoins still cannot
-// settle anything once its signer is out of CELO.
+// settle anything once its signer is out of native gas. Named minNative rather
+// than minCelo because an ETH threshold is not a CELO threshold.
 export async function checkOrchestratorGas(params: {
   chainId: number;
-  minCelo?: number;
+  minNative?: number;
   readers?: Pick<ReadinessReaders, 'readOwner' | 'readNativeBalance'>;
 }): Promise<GasHealth> {
   const readers = params.readers ?? defaultReadinessReaders(params.chainId);
@@ -116,14 +118,14 @@ export async function checkOrchestratorGas(params: {
   // nothing here touches a private key.
   const address = await readers.readOwner();
   const raw = await readers.readNativeBalance(address);
-  const min = parseEther(String(params.minCelo ?? DEFAULT_MIN_GAS_CELO));
-  return { low: raw < min, celo: Number(formatUnits(raw, 18)), address };
+  const min = parseEther(String(params.minNative ?? DEFAULT_MIN_GAS_NATIVE));
+  return { low: raw < min, native: Number(formatUnits(raw, 18)), address };
 }
 
 export async function checkSpendReadiness(params: {
   chainId: number;
   tokenSymbol: TokenSymbol;
-  minGasCelo?: number;
+  minGasNative?: number;
   readers?: ReadinessReaders;
 }): Promise<SpendReadiness> {
   const readers = params.readers ?? defaultReadinessReaders(params.chainId);
@@ -134,7 +136,7 @@ export async function checkSpendReadiness(params: {
 
   const gas = await checkOrchestratorGas({
     chainId: params.chainId,
-    minCelo: params.minGasCelo,
+    minNative: params.minGasNative,
     readers,
   });
   if (gas.low) return { ok: false, reason: 'gas' };

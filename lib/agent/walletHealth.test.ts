@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseEther, parseUnits, type Address } from 'viem';
 import { getTokens } from '../tokens';
 import {
@@ -88,23 +88,23 @@ function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders 
 }
 
 describe('checkOrchestratorGas', () => {
-  it('reports the on-chain owner and its balance in human CELO', async () => {
+  it('reports the on-chain owner and its balance in human native units', async () => {
     const health = await checkOrchestratorGas({
       chainId: CHAIN,
-      minCelo: 0.05,
+      minNative: 0.05,
       readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.25')) }),
     });
-    expect(health).toEqual({ low: false, celo: 0.25, address: OWNER });
+    expect(health).toEqual({ low: false, native: 0.25, address: OWNER });
   });
 
   it('flags a signer below the floor', async () => {
     const health = await checkOrchestratorGas({
       chainId: CHAIN,
-      minCelo: 0.05,
+      minNative: 0.05,
       readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.004')) }),
     });
     expect(health.low).toBe(true);
-    expect(health.celo).toBe(0.004);
+    expect(health.native).toBe(0.004);
   });
 });
 
@@ -152,7 +152,7 @@ describe('checkSpendReadiness', () => {
     const r = await checkSpendReadiness({
       chainId: CHAIN,
       tokenSymbol: 'cUSD',
-      minGasCelo: 0.05,
+      minGasNative: 0.05,
       readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.05')) }),
     });
     expect(r).toEqual({ ok: true });
@@ -212,4 +212,20 @@ describe('checkSpendReadiness', () => {
       await checkSpendReadiness({ chainId: CHAIN, tokenSymbol: 'cUSD', readers }),
     ).toEqual({ ok: true });
   });
+});
+
+// An ETH threshold is not a CELO threshold, and the parameter name was the only
+// thing saying otherwise.
+it('uses minNative for the gas floor', async () => {
+  const readOwner = vi.fn().mockResolvedValue(OWNER);
+  const readNativeBalance = vi.fn().mockResolvedValue(parseEther('0.001'));
+
+  const health = await checkOrchestratorGas({
+    chainId: 8453,
+    minNative: 0.002,
+    readers: { readOwner, readNativeBalance },
+  });
+
+  expect(health.low).toBe(true);
+  expect(health.native).toBeCloseTo(0.001);
 });

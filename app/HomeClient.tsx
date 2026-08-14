@@ -503,7 +503,7 @@ export default function HomeClient() {
     // whether the agent can settle at all BEFORE the wallet sheet opens — a run
     // that provably cannot finish must never take the user's $0.05. Fails open,
     // so an unreachable preflight leaves the existing flow untouched.
-    const readiness = await fetchSpendReadiness(token.symbol);
+    const readiness = await fetchSpendReadiness(token.symbol, chainId);
     if (!readiness.ok) {
       setSpendBlockReason(readiness.reason);
       setScreen('spend-unavailable');

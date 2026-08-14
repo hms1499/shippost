@@ -1,37 +1,46 @@
 import { NextResponse } from 'next/server';
 import { checkSpendReadiness, type SpendReadiness } from '@/lib/agent/walletHealth';
-import { TARGET_CHAIN_ID } from '@/lib/targetChain';
-import type { TokenSymbol } from '@/lib/tokens';
+import { isSupportedChain, DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
+import { getTokens, type TokenSymbol } from '@/lib/tokens';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const TOKENS: readonly TokenSymbol[] = ['cUSD', 'USDT', 'USDC'];
-
 // The underlying state (paused, gas, cap) moves slowly and this route is public
 // and hit on every preview, so serve a recent answer instead of an RPC round
-// trip per tap.
+// trip per tap. Keyed by chain as well as token: one chain's readiness is not
+// an answer about another, and serving it would gate the wrong wallet.
 const CACHE_TTL_MS = 30_000;
-const cache = new Map<TokenSymbol, { at: number; value: SpendReadiness }>();
+const cache = new Map<string, { at: number; value: SpendReadiness }>();
 
 // Asked before the user signs payForThread: can the agent actually settle an
 // x402 call in this token right now? A "no" here means the wallet sheet never
-// opens, so a run we cannot finish never takes the user's $0.05.
+// opens, so a run we cannot finish never takes the user's money.
 export async function GET(req: Request) {
-  const token = new URL(req.url).searchParams.get('token');
-  if (!token || !TOKENS.includes(token as TokenSymbol)) {
-    return NextResponse.json({ error: 'token must be cUSD, USDT, or USDC' }, { status: 400 });
+  const url = new URL(req.url);
+  const token = url.searchParams.get('token');
+  const chainIdParam = Number(url.searchParams.get('chainId'));
+  const chainId = isSupportedChain(chainIdParam) ? chainIdParam : DEFAULT_CHAIN_ID;
+
+  // The valid token set is per-chain now — Base has no cUSD.
+  const tokens = getTokens(chainId);
+  if (!token || !(token in tokens)) {
+    return NextResponse.json(
+      { error: `token must be one of ${Object.keys(tokens).join(', ')}` },
+      { status: 400 },
+    );
   }
   const tokenSymbol = token as TokenSymbol;
 
-  const hit = cache.get(tokenSymbol);
+  const cacheKey = `${chainId}:${tokenSymbol}`;
+  const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
     return NextResponse.json(hit.value);
   }
 
   let readiness: SpendReadiness;
   try {
-    readiness = await checkSpendReadiness({ chainId: TARGET_CHAIN_ID, tokenSymbol });
+    readiness = await checkSpendReadiness({ chainId, tokenSymbol });
   } catch (e) {
     // Fail OPEN. This is a guard, not a gate of record: the backstop is the
     // invariant that every post-payment failure is clean and refundable, and a
@@ -42,6 +51,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  cache.set(tokenSymbol, { at: Date.now(), value: readiness });
+  cache.set(cacheKey, { at: Date.now(), value: readiness });
   return NextResponse.json(readiness);
 }

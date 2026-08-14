@@ -23,6 +23,7 @@ vi.mock('@/lib/shareText', () => ({ shareAppUrl }));
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
 
 const { GET } = await import('./route');
+const { SUPPORTED_CHAIN_IDS } = await import('@/lib/chainPolicy');
 
 const ORIG = { ...process.env };
 
@@ -39,7 +40,7 @@ beforeEach(() => {
   // Healthy balances by default so the reconcile-focused tests stay isolated.
   checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
   checkReserveBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
-  checkOrchestratorGas.mockResolvedValue({ low: false, celo: 1, address: '0xEOA' });
+  checkOrchestratorGas.mockResolvedValue({ low: false, native: 1, address: '0xEOA' });
   checkPreviewAlive.mockResolvedValue({ ok: true });
   claimAlertOnce.mockResolvedValue(true);
 });
@@ -97,7 +98,8 @@ describe('GET /api/cron/reconcile', () => {
   it('alerts when the agent wallet is low and the throttle allows it', async () => {
     checkAgentWalletBalance.mockResolvedValue({ low: ['USDT'], balances: { cUSD: 5, USDT: 0.3, USDC: 5 } });
     await GET(req(auth));
-    expect(alertOps).toHaveBeenCalledOnce();
+    // Once per supported chain: each chain has its own wallet to top up.
+    expect(alertOps).toHaveBeenCalledTimes(SUPPORTED_CHAIN_IDS.length);
     expect(alertOps.mock.calls[0][0]).toMatch(/balance low/i);
   });
 
@@ -118,7 +120,7 @@ describe('GET /api/cron/reconcile', () => {
   it('alerts when the refund reserve is low', async () => {
     checkReserveBalance.mockResolvedValue({ low: ['cUSD'], balances: { cUSD: 0.1, USDT: 5, USDC: 5 } });
     await GET(req(auth));
-    expect(alertOps).toHaveBeenCalledOnce();
+    expect(alertOps).toHaveBeenCalledTimes(SUPPORTED_CHAIN_IDS.length);
     expect(alertOps.mock.calls[0][0]).toMatch(/reserve low/i);
   });
 
@@ -131,14 +133,14 @@ describe('GET /api/cron/reconcile', () => {
 });
 
 // A wallet full of stablecoins still settles nothing once the EOA that signs
-// executeX402Call is out of CELO — and the ERC-20 heartbeat cannot see that.
+// executeX402Call is out of native gas — and the ERC-20 heartbeat cannot see it.
 describe('orchestrator gas heartbeat', () => {
   it('alerts when the signer is low on gas', async () => {
-    checkOrchestratorGas.mockResolvedValue({ low: true, celo: 0.004, address: '0xEOA' });
+    checkOrchestratorGas.mockResolvedValue({ low: true, native: 0.004, address: '0xEOA' });
     await GET(req(auth));
     expect(alertOps).toHaveBeenCalledWith(
       expect.stringMatching(/low on gas/i),
-      expect.objectContaining({ address: '0xEOA', celo: 0.004 }),
+      expect.objectContaining({ address: '0xEOA', native: 0.004 }),
     );
   });
 
@@ -148,7 +150,7 @@ describe('orchestrator gas heartbeat', () => {
   });
 
   it('respects the throttle', async () => {
-    checkOrchestratorGas.mockResolvedValue({ low: true, celo: 0, address: '0xEOA' });
+    checkOrchestratorGas.mockResolvedValue({ low: true, native: 0, address: '0xEOA' });
     claimAlertOnce.mockResolvedValue(false);
     await GET(req(auth));
     expect(alertOps).not.toHaveBeenCalled();
@@ -199,5 +201,43 @@ describe('preview heartbeat', () => {
     const res = await GET(req(auth));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
+  });
+});
+
+// A chain nobody watches is a chain that quietly runs out of gas or reserve.
+describe('multi-chain monitoring', () => {
+  it('checks agent wallet, gas and reserve on every supported chain', async () => {
+    await GET(req(auth));
+
+    for (const spy of [checkAgentWalletBalance, checkOrchestratorGas, checkReserveBalance]) {
+      const seen = spy.mock.calls.map((c) => c[0].chainId).sort((a, b) => a - b);
+      expect(seen).toEqual([...SUPPORTED_CHAIN_IDS].sort((a, b) => a - b));
+    }
+  });
+
+  // The alert keys already carry :chainId, so two low chains must page twice
+  // rather than one silencing the other.
+  it('claims a separate alert key per chain', async () => {
+    checkAgentWalletBalance.mockResolvedValue({ low: ['USDC'], balances: { USDC: 0 } });
+
+    await GET(req(auth));
+
+    const keys = claimAlertOnce.mock.calls
+      .map((c) => c[0])
+      .filter((k: string) => k.startsWith('agent-wallet-low:'));
+    expect(new Set(keys).size).toBe(SUPPORTED_CHAIN_IDS.length);
+  });
+
+  // One chain's RPC failing must not stop the others being checked.
+  it('keeps checking the remaining chains when one chain throws', async () => {
+    checkAgentWalletBalance.mockImplementation(async ({ chainId }: { chainId: number }) => {
+      if (chainId === SUPPORTED_CHAIN_IDS[0]) throw new Error('rpc down');
+      return { low: [], balances: {} };
+    });
+
+    const res = await GET(req(auth));
+
+    expect(res.status).toBe(200);
+    expect(checkAgentWalletBalance).toHaveBeenCalledTimes(SUPPORTED_CHAIN_IDS.length);
   });
 });
