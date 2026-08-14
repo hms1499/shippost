@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getAddress, type Hex, type Address } from 'viem';
-import { getContracts } from '../contracts';
+import { getContracts, shipPostPaymentAbi } from '../contracts';
 import { celoSepolia } from '../chains';
 
 // verifyPayment is the single trustless gate between an attacker-controlled
@@ -26,7 +26,11 @@ vi.mock('viem', async (importOriginal) => {
   };
 });
 
-const { verifyPayment } = await import('./orchestrator');
+const { verifyPayment, getOnChainPaidAmount } = await import('./orchestrator');
+
+// The real viem, for the tests that want a genuine ABI round-trip rather than
+// the decodeEventLog stub above.
+const realViem = await vi.importActual<typeof import('viem')>('viem');
 
 const CHAIN_ID = celoSepolia.id;
 const PAYMENT_ADDR = getAddress(getContracts(CHAIN_ID).ShipPostPayment);
@@ -147,5 +151,128 @@ describe('verifyPayment', () => {
     await expect(verifyPayment(baseParams)).rejects.toThrow(
       'paid amount does not match required price',
     );
+  });
+
+  // The price is settable now, so requiredAmount() read at HEAD is the price
+  // *today*, not the price this payment was made at. Reading it at the
+  // payment's own block keeps the defence-in-depth check exact instead of
+  // rejecting a legitimately paid thread the moment setPrice lands.
+  it('reads requiredAmount at the payment block, not at head', async () => {
+    getTransactionReceipt.mockResolvedValue({
+      status: 'success',
+      logs: [log()],
+      blockNumber: 12345n,
+    });
+
+    await verifyPayment(baseParams);
+
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'requiredAmount', blockNumber: 12345n }),
+    );
+  });
+});
+
+// A thread bought at $0.05 must still refund $0.05 after the price moves to
+// $0.10. Reading the live requiredAmount() would refund the new price and
+// overdraw the reserve — the bug a settable price introduces.
+describe('getOnChainPaidAmount', () => {
+  const paymentAddr = PAYMENT_ADDR;
+  const OLD_PRICE = 50_000n; // $0.05 at 6 decimals
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Real decoding here: this function's whole job is to pick one event out of
+    // a receipt, so stubbing the decode would test nothing.
+    decodeImpl = (arg: unknown) =>
+      realViem.decodeEventLog(arg as Parameters<typeof realViem.decodeEventLog>[0]);
+  });
+
+  function threadRequestedLog(threadId: bigint, amount: bigint, emitter: Address = paymentAddr) {
+    return {
+      address: emitter,
+      topics: realViem.encodeEventTopics({
+        abi: shipPostPaymentAbi,
+        eventName: 'ThreadRequested',
+        args: { user: PAYER, threadId },
+      }),
+      data: realViem.encodeAbiParameters(
+        [{ type: 'uint8' }, { type: 'address' }, { type: 'uint256' }],
+        [0, TOKEN, amount],
+      ),
+    };
+  }
+
+  it('returns the amount from the thread ThreadRequested event, not the current price', async () => {
+    const getTxReceipt = vi.fn().mockResolvedValue({
+      status: 'success',
+      logs: [threadRequestedLog(100042n, OLD_PRICE)],
+    });
+
+    const amount = await getOnChainPaidAmount({
+      chainId: CHAIN_ID,
+      payTxHash: '0xabc' as Hex,
+      threadId: 100042n,
+      readers: { getTransactionReceipt: getTxReceipt },
+    });
+
+    expect(amount).toBe(OLD_PRICE);
+  });
+
+  it('ignores a ThreadRequested for a different threadId in the same tx', async () => {
+    const getTxReceipt = vi.fn().mockResolvedValue({
+      status: 'success',
+      logs: [threadRequestedLog(999n, 1n), threadRequestedLog(100042n, OLD_PRICE)],
+    });
+
+    await expect(
+      getOnChainPaidAmount({
+        chainId: CHAIN_ID,
+        payTxHash: '0xabc' as Hex,
+        threadId: 100042n,
+        readers: { getTransactionReceipt: getTxReceipt },
+      }),
+    ).resolves.toBe(OLD_PRICE);
+  });
+
+  it('ignores an event emitted by a contract that is not ours', async () => {
+    const getTxReceipt = vi.fn().mockResolvedValue({
+      status: 'success',
+      logs: [threadRequestedLog(100042n, OLD_PRICE, OTHER_CONTRACT)],
+    });
+
+    await expect(
+      getOnChainPaidAmount({
+        chainId: CHAIN_ID,
+        payTxHash: '0xabc' as Hex,
+        threadId: 100042n,
+        readers: { getTransactionReceipt: getTxReceipt },
+      }),
+    ).rejects.toThrow(/ThreadRequested/);
+  });
+
+  it('throws when the receipt holds no ThreadRequested for that threadId', async () => {
+    const getTxReceipt = vi.fn().mockResolvedValue({ status: 'success', logs: [] });
+
+    await expect(
+      getOnChainPaidAmount({
+        chainId: CHAIN_ID,
+        payTxHash: '0xabc' as Hex,
+        threadId: 100042n,
+        readers: { getTransactionReceipt: getTxReceipt },
+      }),
+    ).rejects.toThrow(/ThreadRequested/);
+  });
+
+  it('throws when the payment tx did not succeed', async () => {
+    const getTxReceipt = vi.fn().mockResolvedValue({ status: 'reverted', logs: [] });
+
+    await expect(
+      getOnChainPaidAmount({
+        chainId: CHAIN_ID,
+        payTxHash: '0xabc' as Hex,
+        threadId: 100042n,
+        readers: { getTransactionReceipt: getTxReceipt },
+      }),
+    ).rejects.toThrow(/did not succeed/);
   });
 });

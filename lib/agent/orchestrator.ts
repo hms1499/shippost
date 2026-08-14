@@ -41,26 +41,49 @@ export async function settleX402Call(params: {
   return hash;
 }
 
-// Canonical refundable base: payForThread always pulls exactly
-// requiredAmount(token), so the trustless paid amount is that on-chain value —
-// never the client-supplied amount_paid_raw stored in Supabase (which an
-// attacker controls via the /api/generate/stream body).
+// Canonical refundable base: the amount this specific thread actually
+// transferred, taken from its own ThreadRequested event.
+//
+// This deliberately does NOT read requiredAmount(token). That returns the
+// price *now*, and the price is settable (ShipPostPayment.setPrice) — a thread
+// bought at $0.05 would otherwise be refunded at the current price and
+// overdraw the reserve. The event amount is immune to later repricing.
+//
+// It also is not the client-supplied amount_paid_raw in Supabase, which an
+// attacker controls via the /api/generate/stream body.
 export async function getOnChainPaidAmount(params: {
   chainId: number;
-  tokenSymbol: TokenSymbol;
+  payTxHash: Hex;
+  threadId: bigint;
+  readers?: { getTransactionReceipt: (args: { hash: Hex }) => Promise<any> };
 }): Promise<bigint> {
-  const chain = getChain(params.chainId);
-  const publicClient = createPublicClient({ chain, transport: http() });
   const contracts = getContracts(params.chainId);
-  const token = getTokens(params.chainId)[params.tokenSymbol];
+  const paymentAddr = getAddress(contracts.ShipPostPayment);
 
-  const amount = await publicClient.readContract({
-    address: contracts.ShipPostPayment,
-    abi: shipPostPaymentAbi,
-    functionName: 'requiredAmount',
-    args: [token.address],
-  });
-  return amount as bigint;
+  const readers =
+    params.readers ??
+    createPublicClient({ chain: getChain(params.chainId), transport: http() });
+
+  const receipt = await readers.getTransactionReceipt({ hash: params.payTxHash });
+  if (receipt.status !== 'success') throw new Error('payment tx did not succeed');
+
+  for (const log of receipt.logs) {
+    if (getAddress(log.address) !== paymentAddr) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: shipPostPaymentAbi,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName !== 'ThreadRequested') continue;
+      const args = decoded.args as unknown as { threadId: bigint; amount: bigint };
+      if (args.threadId !== params.threadId) continue;
+      return args.amount;
+    } catch {
+      // not our event — continue
+    }
+  }
+  throw new Error(`no ThreadRequested for threadId ${params.threadId} in ${params.payTxHash}`);
 }
 
 // Verify a payForThread payment actually happened on-chain before doing any
@@ -138,11 +161,17 @@ export async function verifyPayment(params: {
 
   // Defense in depth: the amount pulled must equal the canonical price for
   // that token, so a forged event (wrong contract somehow) still can't pass.
+  //
+  // Pinned to the payment's own block. The price is settable now, so reading at
+  // head would compare this payment against the price *today* and reject a
+  // legitimately paid thread the moment setPrice lands mid-flight — user
+  // charged, no content. At the payment block the check stays exact.
   const required = (await publicClient.readContract({
     address: paymentAddr,
     abi: shipPostPaymentAbi,
     functionName: 'requiredAmount',
     args: [params.tokenAddress],
+    blockNumber: receipt.blockNumber,
   })) as bigint;
   if (evt.amount !== required) {
     throw new Error('paid amount does not match required price');

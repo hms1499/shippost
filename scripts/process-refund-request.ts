@@ -89,7 +89,7 @@ async function main() {
 
   const { data: thread, error: thrErr } = await supabase
     .from('threads')
-    .select('token_symbol, refund_tx_hash')
+    .select('token_symbol, refund_tx_hash, pay_tx_hash')
     .eq('chain_id', request.chain_id)
     .eq('onchain_thread_id', request.onchain_thread_id)
     .single();
@@ -122,11 +122,13 @@ async function main() {
     process.exit(1);
   }
 
-  // Trustless paid amount: read requiredAmount(token) from the contract
-  // rather than the client-supplied Supabase value.
+  // Trustless paid amount: the amount this thread's own ThreadRequested event
+  // recorded. NOT requiredAmount(token) — the price is settable, so that would
+  // refund today's price for a thread bought at yesterday's.
   const paidRaw = await getOnChainPaidAmount({
     chainId: request.chain_id,
-    tokenSymbol,
+    payTxHash: thread.pay_tx_hash as `0x${string}`,
+    threadId: BigInt(request.onchain_thread_id),
   });
   const amountHuman = computeAmount({
     kind: request.kind,
