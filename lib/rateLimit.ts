@@ -8,7 +8,8 @@ export type LimiterName =
   | 'free-preview'
   | 'free-preview-ip'
   | 'free-preview-global'
-  | 'funnel-ingest';
+  | 'funnel-ingest'
+  | 'paymaster';
 
 export interface RateLimitResult {
   success: boolean;
@@ -33,6 +34,10 @@ const LIMITS: Record<LimiterName, { tokens: number; window: `${number} s` }> = {
   'free-preview-ip': { tokens: 10, window: '600 s' },
   'free-preview-global': { tokens: PREVIEW_DAILY_CAP, window: '86400 s' },
   'funnel-ingest': { tokens: 60, window: '60 s' },
+  // A wallet asks twice per bundle (stub, then real data), so one thread is 2
+  // requests. 20/min leaves room for retries while bounding how much reverted
+  // -transaction gas one IP can make us sponsor.
+  paymaster: { tokens: 20, window: '60 s' },
 };
 
 // Fail-open result: returned whenever rate limiting is unavailable so a limiter
