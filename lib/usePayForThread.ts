@@ -1,7 +1,18 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
+import { useAccount, useChainId, useConfig, usePublicClient, useWalletClient } from 'wagmi';
+// From wagmi/actions, NOT @wagmi/core: this repo resolves two copies of
+// @wagmi/core (wagmi 2.19 pins 2.22, package.json depends on 3.4 directly), and
+// the Config that useConfig() returns is the 2.22 one. Importing the actions
+// from the other copy makes every call a type error, so they come through wagmi
+// itself — one Config type, one viem.
+import {
+  sendCalls,
+  waitForCallsStatus,
+  getCapabilities,
+  type WaitForCallsStatusReturnType,
+} from 'wagmi/actions';
 import {
   erc20Abi,
   decodeEventLog,
@@ -12,9 +23,11 @@ import {
   type EIP1193Provider,
 } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
-import { computeTokenAmount, type TokenConfig } from './tokens';
+import { type TokenConfig } from './tokens';
 import { getChain } from './chains';
 import { DEFAULT_CHAIN_ID, isSupportedChain, chainLabel } from './chainPolicy';
+import { readThreadPrice } from './threadPrice';
+import { buildPayCalls } from './payBundle';
 import { haptic } from './haptics';
 import { getAttributionSuffix } from './attributionTag';
 import { describePayError } from './payError';
@@ -69,9 +82,34 @@ function extractThreadId(logs: readonly { data: Hex; topics: readonly Hex[] }[])
   return null;
 }
 
+/**
+ * The real transaction hash behind a settled EIP-5792 bundle.
+ *
+ * sendCalls hands back a bundle id, but /api/generate/stream verifies
+ * payTxHash against an on-chain receipt — posting the bundle id would fail
+ * verification for every sponsored payment. The last receipt is payForThread,
+ * which is the call that emits ThreadRequested.
+ *
+ * The per-receipt status is checked as well as the bundle's: a bundle can
+ * report success while the call inside it reverted, and returning that hash
+ * would claim a payment landed when no money moved.
+ */
+export function resolveBundleTxHash(status: WaitForCallsStatusReturnType): Hex {
+  if (status.status !== 'success') {
+    throw new Error(`Payment bundle did not succeed (${status.status})`);
+  }
+  const last = status.receipts?.[status.receipts.length - 1];
+  if (!last?.transactionHash) throw new Error('Payment bundle produced no receipt');
+  if (last.status !== 'success') {
+    throw new Error('Payment bundle settled but the payment call reverted');
+  }
+  return last.transactionHash as Hex;
+}
+
 export function usePayForThread(): PayResult {
   const { address, connector } = useAccount();
   const chainId = useChainId();
+  const config = useConfig();
   const { data: walletClient, refetch: refetchWalletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const [status, setStatus] = useState<PayStatus>('idle');
@@ -148,7 +186,10 @@ export function usePayForThread(): PayResult {
       try {
         const contracts = getContracts(chainId);
         const paymentAddr = contracts.ShipPostPayment;
-        const amount = computeTokenAmount(token);
+        // Authoritative price: one read feeds the approve amount, the consent
+        // ceiling and the amount the user is shown. A locally computed price
+        // can be stale the moment setPrice lands.
+        const amount = await readThreadPrice({ publicClient, chainId, token });
         const chain = getChain(chainId);
 
         let walletChainId = await wc.getChainId();
@@ -178,8 +219,68 @@ export function usePayForThread(): PayResult {
           functionName: 'allowance',
           args: [address, paymentAddr],
         });
+        const needsApprove = allowance < amount;
 
-        if (allowance < amount) {
+        let sponsored = false;
+        try {
+          const caps = await getCapabilities(config, { account: address, chainId });
+          sponsored = caps?.paymasterService?.supported === true;
+        } catch {
+          // A wallet that cannot answer wallet_getCapabilities is simply an EOA
+          // wallet. Fall through to the unsponsored path rather than failing.
+          sponsored = false;
+        }
+
+        if (sponsored) {
+          phase = 'pay';
+          setStatus('paying');
+          haptic('tap');
+
+          const calls = buildPayCalls({
+            token,
+            paymentAddr,
+            price: amount,
+            mode,
+            needsApprove,
+            approveBatch: APPROVE_BATCH,
+          });
+
+          const { id } = await sendCalls(config, {
+            account: address,
+            chainId,
+            calls,
+            capabilities: {
+              paymasterService: {
+                url: '/api/paymaster',
+                // If the paymaster declines or is out of quota, the wallet
+                // still submits the bundle with the user paying gas, instead
+                // of failing the payment outright.
+                optional: true,
+              },
+            },
+          });
+
+          phase = 'confirm';
+          setStatus('waiting-confirmation');
+          const settled = await waitForCallsStatus(config, { id });
+          const bundlePayHash = resolveBundleTxHash(settled);
+          setTxHash(bundlePayHash);
+
+          const bundleReceipt = await publicClient.getTransactionReceipt({
+            hash: bundlePayHash,
+          });
+          const bundledId = extractThreadId(bundleReceipt.logs);
+          if (bundledId === null) {
+            throw new Error('Payment confirmed but ThreadRequested event not found in receipt');
+          }
+          setThreadId(bundledId);
+          setStatus('success');
+          haptic('success');
+          return;
+        }
+
+        // Unsponsored EOA path below — unchanged.
+        if (needsApprove) {
           phase = 'approve';
           setStatus('approving');
           const approveHash = await wc.writeContract({

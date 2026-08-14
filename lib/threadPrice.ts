@@ -1,6 +1,18 @@
-import type { PublicClient } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import type { TokenConfig } from './tokens';
+
+// Only the one call this needs, rather than viem's full PublicClient. The repo
+// resolves several viem copies, so a structural PublicClient from wagmi's copy
+// is not assignable to one imported here — and narrowing to the reader keeps
+// the function trivially testable besides.
+interface ContractReader {
+  readContract: (args: {
+    address: `0x${string}`;
+    abi: readonly unknown[];
+    functionName: string;
+    args: readonly unknown[];
+  }) => Promise<unknown>;
+}
 
 /**
  * The authoritative thread price, in this token's base units.
@@ -15,7 +27,7 @@ import type { TokenConfig } from './tokens';
  * caller should surface the error rather than sign something unverified.
  */
 export async function readThreadPrice(params: {
-  publicClient: PublicClient;
+  publicClient: ContractReader;
   chainId: number;
   token: TokenConfig;
 }): Promise<bigint> {
