@@ -1,4 +1,4 @@
-import { celo } from 'wagmi/chains';
+import { celo, base, baseSepolia } from 'wagmi/chains';
 import { defineChain } from 'viem';
 
 export const celoSepolia = defineChain({
@@ -14,22 +14,21 @@ export const celoSepolia = defineChain({
   testnet: true,
 });
 
+// Which chains exist. Which ones this deployment ACCEPTS is a separate
+// question, answered by lib/chainPolicy.ts — two sources of truth for
+// "supported" is how a chain gets accepted in one layer and rejected in
+// another.
 export function getChain(chainId: number) {
-  if (chainId === celoSepolia.id) return celoSepolia;
+  if (chainId === base.id) return base;
+  if (chainId === baseSepolia.id) return baseSepolia;
   if (chainId === celo.id) return celo;
+  if (chainId === celoSepolia.id) return celoSepolia;
   throw new Error(`Unsupported chain ${chainId}`);
 }
 
 export function explorerBase(chainId: number | undefined): string {
+  if (chainId === base.id) return 'https://basescan.org';
+  if (chainId === baseSepolia.id) return 'https://sepolia.basescan.org';
   if (chainId === celo.id) return 'https://celoscan.io';
-  if (chainId === 8453) return 'https://basescan.org'; // Base — x402 settle rail
-  if (chainId === 84532) return 'https://sepolia.basescan.org';
   return 'https://celo-sepolia.blockscout.com';
-}
-
-export const SUPPORTED_CHAIN_IDS = [celoSepolia.id, celo.id] as const;
-
-export function isSupportedChain(chainId: number | undefined): boolean {
-  if (chainId === undefined) return false;
-  return (SUPPORTED_CHAIN_IDS as readonly number[]).includes(chainId);
 }

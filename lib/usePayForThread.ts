@@ -13,7 +13,7 @@ import {
 } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
-import { isSupportedChain, getChain } from './chains';
+import { getChain } from './chains';
 import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
 import { haptic } from './haptics';
 import { getAttributionSuffix } from './attributionTag';
