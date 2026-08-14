@@ -7,6 +7,81 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Await a receipt and REFUSE to continue unless it actually succeeded.
+ *
+ * waitForTransactionReceipt resolves for a reverted transaction too, so a bare
+ * await reports failure as success. That is not hypothetical here: the first
+ * Base deploy logged "USDC whitelisted" while setAllowedToken had run out of
+ * gas (22,765 used) and reverted, leaving the contract live with no payable
+ * token. Same class as the USDT approve-receipt bug in usePayForThread.
+ */
+async function confirm(publicClient: any, hash: `0x${string}`, what: string) {
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== 'success') {
+    throw new Error(`${what} REVERTED (gas used ${receipt.gasUsed}) — tx ${hash}`);
+  }
+  return receipt;
+}
+
+/**
+ * Block until the RPC actually reports code at `address`.
+ *
+ * eth_estimateGas against a contract the node has not indexed yet estimates as
+ * if it were an EOA — ~21,000 gas — and the resulting transaction dies of
+ * out-of-gas on arrival. That is exactly how the first Base whitelist tx was
+ * lost, so configuration waits for the code to be visible rather than assuming
+ * a deploy receipt is enough.
+ */
+/**
+ * Poll a read until it satisfies `want`.
+ *
+ * A single read straight after a write is not evidence: these RPC endpoints are
+ * load-balanced, and the node answering the read can be a block behind the one
+ * that accepted the write. Observed live on Base — a confirmed setAllowedToken
+ * read back as false, then true eight seconds later.
+ */
+async function readUntil<T>(
+  read: () => Promise<T>,
+  want: (v: T) => boolean,
+  what: string,
+  attempts = 10,
+): Promise<T> {
+  let last: T | undefined;
+  for (let i = 0; i < attempts; i++) {
+    last = await read();
+    if (want(last)) return last;
+    await sleep(2000);
+  }
+  throw new Error(`${what}: still ${String(last)} after ${attempts} reads — the write did not take effect`);
+}
+
+async function waitForCode(publicClient: any, address: `0x${string}`, label: string) {
+  for (let i = 0; i < 30; i++) {
+    const code = await publicClient.getCode({ address });
+    if (code && code !== '0x') return;
+    await sleep(1000);
+  }
+  throw new Error(`${label} at ${address} still reports no code after 30s`);
+}
+
+// Inline rather than viem.getContractAt('IERC20Metadata', ...): the interface
+// comes from OpenZeppelin, so Hardhat has no artifact under that bare name.
+const ERC20_ALLOWED_ABI = [
+  {
+    inputs: [{ type: 'address' }],
+    name: 'allowedTokens',
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
+const ERC20_METADATA_ABI = [
+  { inputs: [], name: 'symbol', outputs: [{ type: 'string' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'decimals', outputs: [{ type: 'uint8' }], stateMutability: 'view', type: 'function' },
+] as const;
+
 // Per-target deploy config. deploy-mainnet.ts asserted chainId 42220 and wrote
 // deployments/celo.json; the guard was right and stays, only its hardcoded
 // constants move in here.
@@ -26,7 +101,12 @@ const TARGETS = {
     chainId: 8453,
     startThreadId: 1_000_000n,
     file: 'base.json',
-    minNativeWei: 2_000_000_000_000_000n, // 0.002 ETH — Base gas is cheap
+    // Measured 2026-08-14: the two deploys plus the config txs are 2,212,128
+    // gas, which at Base's typical 0.006 gwei is ~0.0000133 ETH. This floor is
+    // ~7x that, so it still refuses a deploy that could strand half-finished
+    // while not blocking one that comfortably fits. Far below Celo's floor
+    // because CELO gas costs orders of magnitude more per unit.
+    minNativeWei: 100_000_000_000_000n, // 0.0001 ETH
     nativeSymbol: 'ETH',
     tokens: {
       USDC: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
@@ -36,7 +116,7 @@ const TARGETS = {
     chainId: 84532,
     startThreadId: 1_000_000n,
     file: 'baseSepolia.json',
-    minNativeWei: 2_000_000_000_000_000n,
+    minNativeWei: 100_000_000_000_000n, // 0.0001 ETH, same measurement as base
     nativeSymbol: 'ETH',
     tokens: {
       USDC: { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', decimals: 6 },
@@ -134,10 +214,17 @@ async function main() {
   // whitelist a token users cannot pay with (or worse, one we do not control).
   console.log('Verifying token addresses on-chain...');
   for (const [symbol, t] of Object.entries(target.tokens)) {
-    const token = await viem.getContractAt('IERC20Metadata', t.address as `0x${string}`);
     const [onChainSymbol, onChainDecimals] = await Promise.all([
-      token.read.symbol(),
-      token.read.decimals(),
+      publicClient.readContract({
+        address: t.address as `0x${string}`,
+        abi: ERC20_METADATA_ABI,
+        functionName: 'symbol',
+      }),
+      publicClient.readContract({
+        address: t.address as `0x${string}`,
+        abi: ERC20_METADATA_ABI,
+        functionName: 'decimals',
+      }),
     ]);
     if (onChainDecimals !== t.decimals) {
       throw new Error(
@@ -178,12 +265,31 @@ async function main() {
   fs.writeFileSync(outPath, JSON.stringify(record, null, 2));
   console.log(`Partial deploy record saved to deployments/${target.file}`);
 
+  // Both contracts must be visible to the RPC before anything is estimated
+  // against them — see waitForCode.
+  await waitForCode(publicClient, payment.address, 'ShipPostPayment');
+  await waitForCode(publicClient, agentWallet.address, 'AgentWallet');
+
   // 3. Whitelist tokens on ShipPostPayment
   console.log('Whitelisting tokens...');
   for (const [symbol, t] of Object.entries(target.tokens)) {
     const hash = await payment.write.setAllowedToken([t.address as `0x${string}`, true]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`  ${symbol} whitelisted`);
+    await confirm(publicClient, hash, `setAllowedToken(${symbol})`);
+    // Read it back: the receipt says the call did not revert, this says it did
+    // what it was for. Retried, because a read straight after a write can hit a
+    // load-balanced node that is a block behind and answer with the old value.
+    await readUntil(
+      () =>
+        publicClient.readContract({
+          address: payment.address,
+          abi: ERC20_ALLOWED_ABI,
+          functionName: 'allowedTokens',
+          args: [t.address as `0x${string}`],
+        }),
+      (v: unknown) => v === true,
+      `allowedTokens(${symbol})`,
+    );
+    console.log(`  ${symbol} whitelisted — verified on-chain`);
     await sleep(2000);
   }
 
@@ -193,7 +299,7 @@ async function main() {
   for (const [symbol, t] of Object.entries(target.tokens)) {
     const cap = DAILY_CAP_USD * 10n ** BigInt(t.decimals);
     const hash = await agentWallet.write.setDailySpendCap([t.address as `0x${string}`, cap]);
-    await publicClient.waitForTransactionReceipt({ hash });
+    await confirm(publicClient, hash, `setDailySpendCap(${symbol})`);
     console.log(`  ${symbol} cap set to ${cap}`);
     await sleep(2000);
   }

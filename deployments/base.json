@@ -1,0 +1,16 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "deployer": "0x64ad61211c1b0b7f20b3e04b49661f30f152ae78",
+  "contracts": {
+    "ShipPostPayment": "0x6915a137314e0588b671bc62e619cc4c3109a0b7",
+    "AgentWallet": "0x1c88ee8a8d0133d80c15a3f69def4b258e2cc933"
+  },
+  "startThreadId": "1000000",
+  "status": "complete",
+  "deployedAt": "2026-08-14T08:57:05.319Z",
+  "tokens": {
+    "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+  },
+  "dailyCapsUSD": 10
+}
