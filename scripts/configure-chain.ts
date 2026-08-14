@@ -47,6 +47,37 @@ const TARGETS = {
 
 const DAILY_CAP_USD = 10n;
 
+const ENV_KEYS: Record<keyof typeof TARGETS, { payment: string; agent: string }> = {
+  base: { payment: 'NEXT_PUBLIC_PAYMENT_CONTRACT_BASE', agent: 'NEXT_PUBLIC_AGENT_WALLET_BASE' },
+  baseSepolia: {
+    payment: 'NEXT_PUBLIC_PAYMENT_CONTRACT_BASE_SEPOLIA',
+    agent: 'NEXT_PUBLIC_AGENT_WALLET_BASE_SEPOLIA',
+  },
+  celo: {
+    payment: 'NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET',
+    agent: 'NEXT_PUBLIC_AGENT_WALLET_MAINNET',
+  },
+};
+
+function patchEnvLocal(key: string, value: string) {
+  const envPath = path.join(__dirname, '..', '.env.local');
+  if (!fs.existsSync(envPath)) {
+    fs.writeFileSync(envPath, `${key}=${value}\n`);
+    return;
+  }
+  let content = fs.readFileSync(envPath, 'utf8');
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`^${escapedKey}=.*$`, 'm');
+  content = regex.test(content)
+    ? content.replace(regex, `${key}=${value}`)
+    // Normalise the trailing newline before appending. Without it a file whose
+    // last line has no newline gets the next key glued onto the end of it —
+    // observed live, which left NEXT_PUBLIC_AGENT_WALLET_BASE holding an
+    // address with a whole other assignment stuck to it.
+    : `${content.replace(/\n*$/, '')}\n${key}=${value}`;
+  fs.writeFileSync(envPath, `${content.replace(/\n*$/, '')}\n`);
+}
+
 const PAYMENT_ABI = [
   { inputs: [{ type: 'address' }], name: 'allowedTokens', outputs: [{ type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ type: 'address' }, { type: 'bool' }], name: 'setAllowedToken', outputs: [], stateMutability: 'nonpayable', type: 'function' },
@@ -173,6 +204,24 @@ async function main() {
     changed++;
     await sleep(2000);
   }
+
+  // Finish the bookkeeping deploy-chain.ts does at the end of a clean run. If it
+  // died partway — which is how this script comes to be needed — the record is
+  // still marked partial and .env.local never got the addresses, so a recovered
+  // deployment would look unfinished to everything downstream.
+  record.status = 'complete';
+  record.tokens = Object.fromEntries(
+    Object.entries(target.tokens).map(([s, t]) => [s, t.address]),
+  );
+  record.dailyCapsUSD = Number(DAILY_CAP_USD);
+  record.configuredAt = new Date().toISOString();
+  fs.writeFileSync(recordPath, JSON.stringify(record, null, 2));
+  console.log(`\nMarked deployments/${target.file} complete`);
+
+  const keys = ENV_KEYS[targetName!];
+  patchEnvLocal(keys.payment, payment);
+  patchEnvLocal(keys.agent, agentWallet);
+  console.log(`Patched .env.local: ${keys.payment}, ${keys.agent}`);
 
   console.log(`\n=== CONFIGURE COMPLETE — ${changed} change(s) applied ===`);
 }

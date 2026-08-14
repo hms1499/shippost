@@ -25,15 +25,6 @@ async function confirm(publicClient: any, hash: `0x${string}`, what: string) {
 }
 
 /**
- * Block until the RPC actually reports code at `address`.
- *
- * eth_estimateGas against a contract the node has not indexed yet estimates as
- * if it were an EOA — ~21,000 gas — and the resulting transaction dies of
- * out-of-gas on arrival. That is exactly how the first Base whitelist tx was
- * lost, so configuration waits for the code to be visible rather than assuming
- * a deploy receipt is enough.
- */
-/**
  * Poll a read until it satisfies `want`.
  *
  * A single read straight after a write is not evidence: these RPC endpoints are
@@ -56,6 +47,15 @@ async function readUntil<T>(
   throw new Error(`${what}: still ${String(last)} after ${attempts} reads — the write did not take effect`);
 }
 
+/**
+ * Block until the RPC actually reports code at `address`.
+ *
+ * eth_estimateGas against a contract the node has not indexed yet estimates as
+ * if it were an EOA — ~21,000 gas — and the resulting transaction dies of
+ * out-of-gas on arrival. That is exactly how the first Base whitelist tx was
+ * lost, so configuration waits for the code to be visible rather than assuming
+ * a deploy receipt is enough.
+ */
 async function waitForCode(publicClient: any, address: `0x${string}`, label: string) {
   for (let i = 0; i < 30; i++) {
     const code = await publicClient.getCode({ address });
@@ -171,9 +171,13 @@ function patchEnvLocal(key: string, value: string) {
   if (regex.test(content)) {
     content = content.replace(regex, `${key}=${value}`);
   } else {
-    content += `\n${key}=${value}`;
+    // Normalise the trailing newline before appending. Without it a file whose
+    // last line has no newline gets the next key glued onto the end of it —
+    // observed live, which left NEXT_PUBLIC_AGENT_WALLET_BASE holding an
+    // address with a whole other assignment stuck to it.
+    content = `${content.replace(/\n*$/, '')}\n${key}=${value}`;
   }
-  fs.writeFileSync(envPath, content);
+  fs.writeFileSync(envPath, `${content.replace(/\n*$/, '')}\n`);
 }
 
 async function main() {
