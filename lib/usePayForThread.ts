@@ -186,7 +186,7 @@ export function usePayForThread(): PayResult {
             args: [paymentAddr, amount * APPROVE_BATCH],
             account: address,
             chain,
-            dataSuffix: getAttributionSuffix(),
+            dataSuffix: getAttributionSuffix(chainId),
           });
           const approveReceipt = await publicClient.waitForTransactionReceipt({
             hash: approveHash,
@@ -227,7 +227,7 @@ export function usePayForThread(): PayResult {
           args: [token.address, mode, amount],
           account: address,
           chain,
-          dataSuffix: getAttributionSuffix(),
+          dataSuffix: getAttributionSuffix(chainId),
         });
         setTxHash(payHash);
 

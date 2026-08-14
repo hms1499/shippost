@@ -35,7 +35,7 @@ export async function settleX402Call(params: {
     abi: agentWalletAbi,
     functionName: 'executeX402Call',
     args: [params.serviceAddress, token.address, amount, params.threadId],
-    dataSuffix: getAttributionSuffix(),
+    dataSuffix: getAttributionSuffix(params.chainId),
   });
   // Bound the wait: a stuck tx or dead RPC must not hang the whole generation
   // until maxDuration (user paid, no content). A timeout throws cleanly ->
@@ -238,7 +238,7 @@ export async function refundThread(params: {
     abi: shipPostPaymentAbi,
     functionName: 'refund',
     args: [BigInt(params.onchainThreadId), token.address, params.to, amount],
-    dataSuffix: getAttributionSuffix(),
+    dataSuffix: getAttributionSuffix(params.chainId),
   });
   // Bound the wait so refund:process can't hang indefinitely on a dead RPC.
   // The tx is already broadcast here — a timeout is the "on-chain state

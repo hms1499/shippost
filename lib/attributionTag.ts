@@ -1,5 +1,6 @@
 import { toDataSuffix, codeFromHostname } from '@celo/attribution-tags';
 import type { Hex } from 'viem';
+import { isMiniPayChain } from './chainPolicy';
 
 // ERC-8021 attribution suffix, appended to the calldata of every transaction
 // this app sends on Celo. The EVM discards trailing calldata bytes, so the
@@ -73,13 +74,21 @@ function build(): Hex | null {
 let cached: Hex | null | undefined;
 
 /**
- * The ERC-8021 suffix to pass as `dataSuffix` on Celo transactions, or
- * `undefined` when no tag is configured.
+ * The ERC-8021 suffix to pass as `dataSuffix`, or `undefined` when this chain
+ * has no attribution program or no tag is configured.
+ *
+ * Celo-only by design: the codes are issued by Celo's reward programs, so on
+ * Base the suffix is calldata nothing reads. The EVM discards it either way,
+ * but emitting it there would misrepresent those transactions as tagged for a
+ * program they cannot enter.
  *
  * Never throws. Attribution is telemetry: if it cannot be built, the
  * transaction must still go out untagged rather than fail.
  */
-export function getAttributionSuffix(): Hex | undefined {
+export function getAttributionSuffix(chainId: number): Hex | undefined {
+  // Before the memo, not after: the cache holds the built suffix, which is
+  // chain-independent, so consulting it first would return a Celo tag on Base.
+  if (!isMiniPayChain(chainId)) return undefined;
   if (cached === undefined) cached = build();
   return cached ?? undefined;
 }
