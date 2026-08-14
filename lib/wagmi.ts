@@ -1,16 +1,16 @@
 import { http } from 'wagmi';
-import { celo } from 'wagmi/chains';
+import { celo, base, baseSepolia } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import {
   injectedWallet,
   safeWallet,
   rainbowWallet,
-  base,
+  base as baseWallet,
   metaMaskWallet,
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets';
-import { celoSepolia } from './chains';
-import { TARGET_CHAIN_ID, getTargetChain } from './targetChain';
+import { celoSepolia, getChain } from './chains';
+import { SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './chainPolicy';
 
 export { celoSepolia };
 
@@ -21,11 +21,23 @@ export { celoSepolia };
 const projectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'coinop-placeholder';
 
-const targetChain = getTargetChain();
-const rpcUrl =
-  TARGET_CHAIN_ID === celoSepolia.id
-    ? 'https://forno.celo-sepolia.celo-testnet.org'
-    : 'https://forno.celo.org';
+const RPC: Record<number, string> = {
+  [base.id]: 'https://mainnet.base.org',
+  [baseSepolia.id]: 'https://sepolia.base.org',
+  [celo.id]: 'https://forno.celo.org',
+  [celoSepolia.id]: 'https://forno.celo-sepolia.celo-testnet.org',
+};
+
+// Default chain first: wagmi treats chains[0] as the one to connect to when the
+// wallet offers no opinion.
+const orderedIds = [
+  DEFAULT_CHAIN_ID,
+  ...SUPPORTED_CHAIN_IDS.filter((id) => id !== DEFAULT_CHAIN_ID),
+];
+const chains = orderedIds.map(getChain) as [
+  ReturnType<typeof getChain>,
+  ...ReturnType<typeof getChain>[],
+];
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'CoinOp',
@@ -37,13 +49,18 @@ export const wagmiConfig = getDefaultConfig({
   wallets: [
     {
       groupName: 'Popular',
-      wallets: [injectedWallet, safeWallet, rainbowWallet, base, metaMaskWallet, walletConnectWallet],
+      wallets: [
+        injectedWallet,
+        safeWallet,
+        rainbowWallet,
+        baseWallet,
+        metaMaskWallet,
+        walletConnectWallet,
+      ],
     },
   ],
-  chains: [targetChain],
-  transports: {
-    [TARGET_CHAIN_ID]: http(rpcUrl),
-  },
+  chains,
+  transports: Object.fromEntries(orderedIds.map((id) => [id, http(RPC[id])])),
   ssr: true,
 });
 

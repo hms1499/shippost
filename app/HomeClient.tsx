@@ -41,7 +41,14 @@ import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount } from '@/lib/tokens';
-import { TARGET_CHAIN_ID, targetChainName, IS_TESTNET_TARGET } from '@/lib/targetChain';
+import {
+  SUPPORTED_CHAIN_IDS,
+  DEFAULT_CHAIN_ID,
+  isSupportedChain,
+  isMiniPayChain,
+  isTestnet,
+  chainLabel,
+} from '@/lib/chainPolicy';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { fetchSpendReadiness, type SpendBlockReason } from '@/lib/preflight';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
@@ -131,7 +138,10 @@ export default function HomeClient() {
   // scrolled up above the keyboard instead of being trapped under it.
   const keyboardInset = useKeyboardInset();
   const chainId = useChainId();
-  const onSupportedChain = chainId === TARGET_CHAIN_ID;
+  const onSupportedChain = isSupportedChain(chainId);
+  // MiniPay can only ever reach Celo, so the "Use Testnet" advice below must key
+  // on which Celo chain we accept — not on the default, which may be Base.
+  const minipayChain = SUPPORTED_CHAIN_IDS.find(isMiniPayChain);
 
   const [screen, setScreen] = useState<Screen>('mode');
   const [submitted, setSubmitted] = useState<EducationalSubmitPayload | null>(null);
@@ -951,23 +961,33 @@ export default function HomeClient() {
           // toggle, so guide the user there instead.
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
             <p className="text-sm font-sans text-destructive">
-              Wrong network (chainId {chainId}). CoinOp runs on {targetChainName()}.
+              Wrong network (chainId {chainId}). CoinOp runs on{' '}
+              {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' or ')}.
             </p>
-            <p className="text-xs font-sans text-muted-foreground leading-snug">
-              In MiniPay, open <span className="font-medium text-foreground">Settings → About</span>,
-              tap the <span className="font-medium text-foreground">Version</span> number a few times to
-              unlock <span className="font-medium text-foreground">Developer Settings</span>, then{' '}
-              {IS_TESTNET_TARGET ? (
-                <>turn <span className="font-medium text-foreground">Use Testnet on</span></>
-              ) : (
-                <>turn <span className="font-medium text-foreground">Use Testnet off</span></>
-              )}{' '}
-              and reopen CoinOp.
-            </p>
+            {minipayChain === undefined ? (
+              <p className="text-xs font-sans text-muted-foreground leading-snug">
+                MiniPay only reaches Celo, and CoinOp is not accepting Celo payments right
+                now. Open CoinOp in a wallet on{' '}
+                <span className="font-medium text-foreground">{chainLabel(DEFAULT_CHAIN_ID)}</span>.
+              </p>
+            ) : (
+              <p className="text-xs font-sans text-muted-foreground leading-snug">
+                In MiniPay, open <span className="font-medium text-foreground">Settings → About</span>,
+                tap the <span className="font-medium text-foreground">Version</span> number a few times to
+                unlock <span className="font-medium text-foreground">Developer Settings</span>, then{' '}
+                {isTestnet(minipayChain) ? (
+                  <>turn <span className="font-medium text-foreground">Use Testnet on</span></>
+                ) : (
+                  <>turn <span className="font-medium text-foreground">Use Testnet off</span></>
+                )}{' '}
+                and reopen CoinOp.
+              </p>
+            )}
           </div>
         ) : (
           <div className="text-sm text-destructive text-center max-w-sm">
-            Wrong network. Use the wallet button above to switch to {targetChainName()}.
+            Wrong network. Use the wallet button above to switch to{' '}
+            {chainLabel(DEFAULT_CHAIN_ID)}.
           </div>
         )
       ) : (

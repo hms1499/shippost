@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
-import { TARGET_CHAIN_ID, targetChainName } from '@/lib/targetChain';
+import { DEFAULT_CHAIN_ID, isSupportedChain, chainLabel } from '@/lib/chainPolicy';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 function shorten(addr: string): string {
@@ -95,11 +95,17 @@ export function WalletMenu() {
   const { connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
-  const switchToTarget = () => switchChain({ chainId: TARGET_CHAIN_ID });
+  // DEFAULT_CHAIN_ID is a plain number while switchChain wants one of the ids
+  // wagmi has registered. chainPolicy only ever yields ids that lib/wagmi
+  // registers, so deriving the narrow type from switchChain keeps the two in
+  // step without hardcoding a literal here.
+  const switchToDefault = () =>
+    switchChain({ chainId: DEFAULT_CHAIN_ID as Parameters<typeof switchChain>[0]['chainId'] });
   const connectorLabel = isMiniPay ? 'MiniPay' : connector?.name ?? null;
-  // Track current chain to hide the switch button when already on target chain
+  // Track current chain to hide the switch button when already on a chain we
+  // accept — with two chains live, "supported" is a set, not one id.
   const chainId = useChainId();
-  const isOnTargetChain = chainId === TARGET_CHAIN_ID;
+  const isOnSupportedChain = isSupportedChain(chainId);
 
   // useIsMiniPay returns false on first render (before its effect runs). If we
   // render "Sign in" immediately, MiniPay users see a flash of the web CTA
@@ -165,7 +171,7 @@ export function WalletMenu() {
           return (
             <button
               type="button"
-              onClick={switchToTarget}
+              onClick={switchToDefault}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px] hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
             >
               Wrong network
@@ -307,17 +313,17 @@ export function WalletMenu() {
 
                       {/* MiniPay can't switch chains from a dapp; the switch
                           action only makes sense on web wallets. */}
-                      {!isOnTargetChain && !isMiniPay && (
+                      {!isOnSupportedChain && !isMiniPay && (
                         <button
                           type="button"
                           onClick={() => {
                             setOpen(false);
-                            switchToTarget();
+                            switchToDefault();
                           }}
                           className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
                         >
                           <ArrowLeftRight size={11} aria-hidden />
-                          Switch to {targetChainName()}
+                          Switch to {chainLabel(DEFAULT_CHAIN_ID)}
                         </button>
                       )}
 

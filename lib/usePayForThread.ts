@@ -14,7 +14,7 @@ import {
 import { getContracts, shipPostPaymentAbi } from './contracts';
 import { computeTokenAmount, type TokenConfig } from './tokens';
 import { getChain } from './chains';
-import { TARGET_CHAIN_ID, targetChainName } from './targetChain';
+import { DEFAULT_CHAIN_ID, isSupportedChain, chainLabel } from './chainPolicy';
 import { haptic } from './haptics';
 import { getAttributionSuffix } from './attributionTag';
 import { describePayError } from './payError';
@@ -100,8 +100,11 @@ export function usePayForThread(): PayResult {
         fail('setup', 'Wallet not connected');
         return;
       }
-      if (chainId !== TARGET_CHAIN_ID) {
-        fail('setup', `Wrong network. Switch your wallet to ${targetChainName()} (${TARGET_CHAIN_ID}).`);
+      if (!isSupportedChain(chainId)) {
+        fail(
+          'setup',
+          `Wrong network. Switch your wallet to ${chainLabel(DEFAULT_CHAIN_ID)} (${DEFAULT_CHAIN_ID}).`,
+        );
         return;
       }
       if (!publicClient) {
@@ -155,7 +158,7 @@ export function usePayForThread(): PayResult {
           } catch (e) {
             fail(
               'setup',
-              `Wallet is on chainId ${walletChainId}; switch to ${targetChainName()} (${TARGET_CHAIN_ID}) in your wallet. ${describePayError(e)}`,
+              `Wallet is on chainId ${walletChainId}; switch to ${chainLabel(chainId)} (${chainId}) in your wallet. ${describePayError(e)}`,
             );
             return;
           }
@@ -164,7 +167,7 @@ export function usePayForThread(): PayResult {
             walletChainId = await wc.getChainId();
           }
           if (walletChainId !== chainId) {
-            fail('setup', `Wallet is still on chainId ${walletChainId}; please switch to ${targetChainName()} (${TARGET_CHAIN_ID}) manually and retry.`);
+            fail('setup', `Wallet is still on chainId ${walletChainId}; please switch to ${chainLabel(chainId)} (${chainId}) manually and retry.`);
             return;
           }
         }
