@@ -189,9 +189,39 @@ So the list has to be declared, and a declared list can drift from the code that
 actually runs. A pane claiming four steps while the pipeline runs three is
 precisely the "states something untrue" class this whole effort is clearing.
 
-**Add `steps: StepId[]` to `ModeDef`, and a test that runs each mode's pipeline
-against mocks and asserts the emitted `step_started` ids equal the declared
-list.** A wrong declaration then fails a test instead of misleading a user.
+**Steps are conditional, so the declaration cannot be a flat list.** Read at
+implementation-planning time:
+
+- `runModeA` (mode 0) runs a **soft-fail** Serper search inside a `try/catch`
+  that degrades to an ungrounded draft, then a **hard-fail** Groq draft.
+- `runModeB` (modes 1–5) runs soft Serper, then CoinGecko only when the mode
+  supplies a `marketStep` (and soft either way), then hard Groq, then soft
+  fact-check.
+
+A flat `steps: StepId[]` compared for equality would therefore fail on any run
+where a soft step legitimately degraded. Declare optionality instead:
+
+```ts
+export interface ModeStep {
+  id: StepId;
+  /** Soft steps degrade instead of failing the run, so they may not happen. */
+  optional?: boolean;
+}
+```
+
+**The drift test asserts both directions**, because each catches a different
+lie:
+
+- every emitted `step_started` id appears in the declared list — catches a step
+  running that the pane never mentioned;
+- on a happy-path mocked run, every **non-optional** declared step is emitted —
+  catches the pane promising a step the pipeline cannot run.
+
+It must mock at the **step** level (`serperStep`, `coingeckoStep`, `groqStep`,
+`factCheckStep`), not at `runModeB`. The existing mode tests mock `runModeB`
+wholesale, so they never exercise step emission and cannot be extended for this.
+
+The right pane renders optional steps as conditional rather than promised.
 
 ## A5. Surface-aware copy
 
