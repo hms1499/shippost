@@ -160,6 +160,7 @@ describe('buildChainOptions', () => {
       failedChainIds: [],
     });
     expect(opts.find((o) => o.chainId === celo.id)?.isLoading).toBe(true);
+    expect(opts.find((o) => o.chainId === celo.id)?.hasFailed).toBe(false);
     expect(opts.find((o) => o.chainId === base.id)?.isLoading).toBe(false);
   });
 
@@ -184,21 +185,17 @@ describe('buildChainOptions', () => {
     expect(celoOpt?.isLoading).toBe(false);
   });
 
-  it('still marks a chain that is neither loaded nor failed as loading', () => {
+  it('reports hasFunds false for a failed chain even when it carries stale funded token data', () => {
+    // Pins the invariant as a rule buildChainOptions enforces itself, not a
+    // side effect of a caller convention (useBalances zero-filling on error).
+    // A caller that keeps last-known tokens through a failed refetch must
+    // still see hasFunds: false — anything else states a fact we don't have.
     const opts = buildChainOptions({
       currentChainId: base.id,
-      balancesByChain: { [base.id]: balances[base.id] },
-      failedChainIds: [],
-    });
-    const celoOpt = opts.find((o) => o.chainId === celo.id);
-    expect(celoOpt?.isLoading).toBe(true);
-    expect(celoOpt?.hasFailed).toBe(false);
-  });
-
-  it('reports hasFunds false for a failed chain', () => {
-    const opts = buildChainOptions({
-      currentChainId: base.id,
-      balancesByChain: { [base.id]: balances[base.id] },
+      balancesByChain: {
+        [base.id]: balances[base.id],
+        [celo.id]: [{ symbol: 'cUSD' as const, decimals: 18, balance: 5_000_000_000_000_000_000n }],
+      },
       failedChainIds: [celo.id],
     });
     expect(opts.find((o) => o.chainId === celo.id)?.hasFunds).toBe(false);

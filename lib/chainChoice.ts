@@ -117,7 +117,12 @@ export function buildChainOptions(params: {
       isCurrent: chainId === params.currentChainId,
       isLoading: tokens === undefined && !hasFailed,
       hasFailed,
-      hasFunds: (tokens ?? []).some((t) => t.balance > 0n),
+      // Enforced here, not left to the caller: a chain whose balances could
+      // not be read has no known funds. Inferring funds from token data that
+      // happens to survive a failed refetch would state as fact something we
+      // do not actually know — the same fabricated-number class `isLoading`
+      // already guards against.
+      hasFunds: hasFailed ? false : (tokens ?? []).some((t) => t.balance > 0n),
       tokens: tokens ?? [],
     };
   });
