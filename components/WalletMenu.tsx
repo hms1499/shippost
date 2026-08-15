@@ -6,7 +6,6 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowLeftRight,
   Check,
   History,
   Loader2,
@@ -16,7 +15,12 @@ import {
 } from 'lucide-react';
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock';
 import { useIsMiniPay } from '@/lib/minipay';
-import { DEFAULT_CHAIN_ID, isSupportedChain, chainLabel } from '@/lib/chainPolicy';
+import { DEFAULT_CHAIN_ID, chainLabel, SUPPORTED_CHAIN_IDS } from '@/lib/chainPolicy';
+import { describeSwitchError } from '@/lib/payError';
+import { useBalances } from '@/lib/useBalances';
+import { buildChainOptions, type TokenBalanceLike } from '@/lib/chainChoice';
+import { useGasSponsorship, gasNote } from '@/lib/useGasSponsorship';
+import { ChainPicker } from '@/components/ChainPicker';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 function shorten(addr: string): string {
@@ -94,18 +98,25 @@ export function WalletMenu() {
   const isMiniPay = useIsMiniPay();
   const { connector } = useAccount();
   const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
-  // DEFAULT_CHAIN_ID is a plain number while switchChain wants one of the ids
-  // wagmi has registered. chainPolicy only ever yields ids that lib/wagmi
-  // registers, so deriving the narrow type from switchChain keeps the two in
-  // step without hardcoding a literal here.
-  const switchToDefault = () =>
-    switchChain({ chainId: DEFAULT_CHAIN_ID as Parameters<typeof switchChain>[0]['chainId'] });
+  const { switchChain, isPending: switching, variables: switchVars, error: switchError, reset: resetSwitch } =
+    useSwitchChain();
+
+  const pendingChainId = switching ? switchVars?.chainId ?? null : null;
+  const switchMessage = switchError ? describeSwitchError(switchError) : null;
+
+  // DEFAULT_CHAIN_ID and any picker chainId are plain numbers while switchChain
+  // wants one of the ids wagmi has registered. chainPolicy only ever yields ids
+  // that lib/wagmi registers, so casting here keeps the two in step without
+  // hardcoding a literal.
+  const selectChain = (id: number) => {
+    resetSwitch();
+    switchChain(
+      { chainId: id as Parameters<typeof switchChain>[0]['chainId'] },
+      { onSuccess: () => setOpen(false) },
+    );
+  };
   const connectorLabel = isMiniPay ? 'MiniPay' : connector?.name ?? null;
-  // Track current chain to hide the switch button when already on a chain we
-  // accept — with two chains live, "supported" is a set, not one id.
   const chainId = useChainId();
-  const isOnSupportedChain = isSupportedChain(chainId);
 
   // useIsMiniPay returns false on first render (before its effect runs). If we
   // render "Sign in" immediately, MiniPay users see a flash of the web CTA
@@ -115,6 +126,34 @@ export function WalletMenu() {
   useEffect(() => {
     setConfirmedNotMiniPay(true);
   }, []);
+
+  // Balances for the chain the wallet is NOT on are only worth an RPC call once
+  // the sheet is actually open — both public endpoints rate-limit (mainnet.base.org
+  // bursts, forno.celo.org drops transactions).
+  const otherChainId = SUPPORTED_CHAIN_IDS.find((id) => id !== chainId);
+  const otherReady = open && otherChainId !== undefined;
+  const current = useBalances();
+  const other = useBalances({ chainId: otherChainId, enabled: otherReady });
+
+  const failedChainIds: number[] = [];
+  if (current.isError) failedChainIds.push(chainId);
+  if (otherChainId !== undefined && other.isError) failedChainIds.push(otherChainId);
+
+  const balancesByChain: Record<number, readonly TokenBalanceLike[] | undefined> = {
+    [chainId]: current.isLoading || current.isError ? undefined : current.balances,
+  };
+  if (otherChainId !== undefined) {
+    // Not-yet-requested is not the same as loaded-and-empty: while the sheet is
+    // shut the query is disabled and the hook returns a zero-filled array nobody
+    // read. Showing that as fact is the false-zero bug one layer up.
+    balancesByChain[otherChainId] =
+      !otherReady || other.isLoading || other.isError ? undefined : other.balances;
+  }
+
+  const sponsorship = useGasSponsorship();
+  // Sponsorship was probed for the connected chain only; claiming anything about
+  // the other chain would be a guess.
+  const gasNoteFor = (id: number) => (id === chainId ? gasNote(sponsorship) : null);
 
   return (
     <ConnectButton.Custom>
@@ -171,7 +210,7 @@ export function WalletMenu() {
           return (
             <button
               type="button"
-              onClick={switchToDefault}
+              onClick={() => selectChain(DEFAULT_CHAIN_ID)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px] hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
             >
               Wrong network
@@ -199,6 +238,9 @@ export function WalletMenu() {
                   className="block w-1.5 h-1.5 rounded-full bg-primary"
                   aria-hidden
                 />
+                <span className="heading-sub text-[10px] text-muted-foreground">
+                  {chainLabel(chainId).toUpperCase()}
+                </span>
                 <span className="font-mono text-[11px] text-foreground">
                   {shorten(account.address)}
                 </span>
@@ -311,20 +353,26 @@ export function WalletMenu() {
                         My History
                       </Link>
 
-                      {/* MiniPay can't switch chains from a dapp; the switch
-                          action only makes sense on web wallets. */}
-                      {!isOnSupportedChain && !isMiniPay && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpen(false);
-                            switchToDefault();
-                          }}
-                          className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
-                        >
-                          <ArrowLeftRight size={11} aria-hidden />
-                          Switch to {chainLabel(DEFAULT_CHAIN_ID)}
-                        </button>
+                      {isMiniPay ? (
+                        <div className="flex flex-col gap-1.5">
+                          <p className="heading-sub text-[10px]">Pay on</p>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            <span className="text-foreground">{chainLabel(chainId).toUpperCase()}</span>
+                            {' · MiniPay runs on Celo only'}
+                          </p>
+                        </div>
+                      ) : (
+                        <ChainPicker
+                          options={buildChainOptions({
+                            currentChainId: chainId,
+                            balancesByChain,
+                            failedChainIds,
+                          })}
+                          pendingChainId={pendingChainId}
+                          error={switchMessage}
+                          gasNoteFor={gasNoteFor}
+                          onSelect={selectChain}
+                        />
                       )}
 
                       {/* In MiniPay the wallet is the host app — nothing to
