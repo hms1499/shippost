@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useAccount, useConnect, useChainId } from 'wagmi';
+import { useAccount, useConnect, useChainId, useSwitchChain } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -41,7 +41,10 @@ import { track, captureSource } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
-import { computeTokenAmount } from '@/lib/tokens';
+import { computeTokenAmount, type TokenSymbol } from '@/lib/tokens';
+import { useBalances } from '@/lib/useBalances';
+import { reselectTokenForChain } from '@/lib/chainChoice';
+import { describeSwitchError } from '@/lib/payError';
 import {
   SUPPORTED_CHAIN_IDS,
   DEFAULT_CHAIN_ID,
@@ -129,8 +132,15 @@ export default function HomeClient() {
   // of spinning forever. Covers cases where the injected provider is unresponsive.
   const [miniPayTimeout, setMiniPayTimeout] = useState(false);
 
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chainId: walletChainId } = useAccount();
   const { connect, connectors } = useConnect();
+  const {
+    switchChain,
+    isPending: switching,
+    variables: switchVars,
+    error: switchError,
+  } = useSwitchChain();
+  const pendingChainId = switching ? switchVars?.chainId ?? null : null;
   const isMiniPay = useIsMiniPay();
   const isDesktop = useIsDesktop();
   const spread = !isMiniPay && isDesktop;
@@ -139,7 +149,12 @@ export default function HomeClient() {
   // scrolled up above the keyboard instead of being trapped under it.
   const keyboardInset = useKeyboardInset();
   const chainId = useChainId();
-  const onSupportedChain = isSupportedChain(chainId);
+  // The wallet's real chain, not useChainId(): useChainId returns the config's
+  // selected chain, which is clamped to a CONFIGURED chain. A wallet sitting on
+  // Ethereum reports 8453 there, so the gate below could never fire and the app
+  // rendered its whole flow "on Base" while the wallet was somewhere else.
+  // useAccount().chainId is the connection's own chain, unclamped.
+  const onSupportedChain = isSupportedChain(walletChainId ?? chainId);
   // MiniPay can only ever reach Celo, so the "Use Testnet" advice below must key
   // on which Celo chain we accept — not on the default, which may be Base.
   const minipayChain = SUPPORTED_CHAIN_IDS.find(isMiniPayChain);
@@ -153,6 +168,12 @@ export default function HomeClient() {
   const [comparison, setComparison] = useState<ChainComparisonSubmitPayload | null>(null);
   const [draftTweets, setDraftTweets] = useState<string[] | null>(null);
   const [previewData, setPreviewData] = useState<{ firstTweet: string; totalTweets: number } | null>(null);
+  // Says what a chain change did to the payment token, or why nothing here can
+  // pay. Rendered above the form area.
+  const [tokenSwitchNotice, setTokenSwitchNotice] = useState<string | null>(null);
+  // The wallet sheet lives in WalletMenu but is also opened from the pay-moment
+  // line, so its open state is owned here — one sheet, two ways in.
+  const [walletOpen, setWalletOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [refundStatus, setRefundStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [refundError, setRefundError] = useState<string | null>(null);
@@ -205,6 +226,14 @@ export default function HomeClient() {
   }, [isConnected, reset, resetGen, chainId, address]);
 
   const autoConnectAttempted = useRef(false);
+  // autoConnectAttempted is a one-way latch, so a retry button would do nothing
+  // without both clearing it and giving the effect a reason to re-run.
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryMiniPayConnect = useCallback(() => {
+    autoConnectAttempted.current = false;
+    setMiniPayTimeout(false);
+    setRetryNonce((n) => n + 1);
+  }, []);
   useEffect(() => {
     if (!mounted) return;
     if (autoConnectAttempted.current) return;
@@ -229,7 +258,7 @@ export default function HomeClient() {
       if (!isConnected) setMiniPayTimeout(true);
     }, 5000);
     return () => clearTimeout(timeout);
-  }, [mounted, isMiniPay, isConnected, connect, connectors]);
+  }, [mounted, isMiniPay, isConnected, connect, connectors, retryNonce]);
 
   useEffect(() => {
     if (
@@ -493,10 +522,113 @@ export default function HomeClient() {
     [address, chainId],
   );
 
+  // The payment token is captured into the submitted payload, so a chain switch
+  // mid-flow can leave one chain's token address pointed at another chain's
+  // payment contract. Re-derive instead of discarding the user's work.
+  const { balances, isLoading: balancesLoading, isError: balancesError } = useBalances();
+
+  // Takes a symbol, not the TokenConfig reselectTokenForChain returns: the
+  // payload fields are typed TokenBalance (TokenConfig plus a balance), so a
+  // bare TokenConfig will not assign. The symbol came out of `balances`, so the
+  // lookup always resolves.
+  const applyToken = useCallback(
+    (symbol: TokenSymbol) => {
+      const token = balances.find((b) => b.symbol === symbol);
+      if (!token) return;
+      if (submitted) setSubmitted({ ...submitted, token });
+      else if (hotTake) setHotTake({ ...hotTake, token });
+      else if (tokenAnalysis) setTokenAnalysis({ ...tokenAnalysis, token });
+      else if (dailyRecap) setDailyRecap({ ...dailyRecap, token });
+      else if (comparison) setComparison({ ...comparison, token });
+      else if (newsBreakdown) setNewsBreakdown({ ...newsBreakdown, token });
+    },
+    [balances, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown],
+  );
+
+  const prevChainId = useRef<number | null>(null);
+  useEffect(() => {
+    const previous = prevChainId.current;
+    // First mount is not a change: the token the user just picked on this chain
+    // must not be "re-derived" out from under them.
+    if (previous === null) {
+      prevChainId.current = chainId;
+      return;
+    }
+    if (previous === chainId) return;
+
+    // `balances` still describes the old chain until the refetch lands. Judging
+    // the new chain by them would announce "no payable balance" for a chain we
+    // have not looked at yet — so hold the change open (prevChainId unmoved)
+    // and let this effect re-run once they settle.
+    if (balancesLoading) return;
+    prevChainId.current = chainId;
+
+    // A failed read is not an empty wallet. WalletStatus already says the read
+    // failed; inventing a token verdict on top of it would be a guess.
+    if (balancesError) {
+      setTokenSwitchNotice(null);
+      return;
+    }
+
+    const active =
+      submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ??
+      tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
+
+    // No payload means no captured payment token, so there is nothing to
+    // re-derive and nothing to announce — the forms pick their own default.
+    if (!active) {
+      setTokenSwitchNotice(null);
+      return;
+    }
+
+    const outcome = reselectTokenForChain({
+      previousSymbol: active.symbol,
+      chainId,
+      balances,
+    });
+
+    if (outcome.kind === 'keep') {
+      setTokenSwitchNotice(null);
+      return;
+    }
+    if (outcome.kind === 'switched') {
+      applyToken(outcome.symbol);
+      setTokenSwitchNotice(`Now paying with ${outcome.symbol} on ${chainLabel(chainId)}`);
+      return;
+    }
+    setTokenSwitchNotice(`No payable balance on ${chainLabel(chainId)}`);
+    // applyToken is intentionally omitted: it changes identity on every balance
+    // refetch, which would re-run this effect without the chain having changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    chainId,
+    balances,
+    balancesLoading,
+    balancesError,
+    submitted,
+    hotTake,
+    newsBreakdown,
+    tokenAnalysis,
+    dailyRecap,
+    comparison,
+  ]);
+
+  // A notice describes one chain change; the next screen is a different question.
+  useEffect(() => {
+    setTokenSwitchNotice(null);
+  }, [screen]);
+
   const unlock = useCallback(async () => {
     const token =
       submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token;
     if (!token) return;
+    // A zero balance would start a pay that reverts in the wallet. The `none`
+    // outcome above has to actually block, not just narrate.
+    const payable = balances.find((b) => b.symbol === token.symbol);
+    if (!payable || payable.balance === 0n) {
+      setTokenSwitchNotice(`No ${token.symbol} on ${chainLabel(chainId)}`);
+      return;
+    }
     const mode: 0 | 1 | 2 | 3 | 4 | 5 =
       submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
 
@@ -516,7 +648,7 @@ export default function HomeClient() {
     // chainId is a real dependency: a stale one would preflight the chain the
     // user was on when this callback was last built, not the one they are
     // paying from.
-  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId]);
+  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId, balances]);
 
   const formNode =
     screen === 'mode' ? (
@@ -647,6 +779,8 @@ export default function HomeClient() {
         }}
         regenerating={previewLoading}
         tokenSymbol={activeToken?.symbol ?? null}
+        // MiniPay gets no `change` link: there is nothing there to change.
+        onChangeChain={isMiniPay ? undefined : () => setWalletOpen(true)}
       />
     ) : screen === 'preview-unavailable' && activeToken ? (
       <section className="w-full max-w-md flex flex-col gap-4">
@@ -933,7 +1067,7 @@ export default function HomeClient() {
             </span>
           </div>
           <div className="flex flex-col items-end gap-2 pt-2 shrink-0">
-            {mounted && <WalletMenu />}
+            {mounted && <WalletMenu open={walletOpen} onOpenChange={setWalletOpen} />}
           </div>
         </div>
         <RuleDivider />
@@ -949,7 +1083,11 @@ export default function HomeClient() {
           miniPayTimeout ? (
             <div className="flex flex-col items-center gap-3 max-w-sm text-center">
               <p className="text-sm font-sans text-destructive">
-                Could not connect to MiniPay. Try closing and reopening the app.
+                Could not connect to MiniPay.
+              </p>
+              <Button onClick={retryMiniPayConnect}>Try again</Button>
+              <p className="text-xs font-sans text-muted-foreground">
+                Still stuck? Close and reopen CoinOp from the MiniPay app list.
               </p>
             </div>
           ) : (
@@ -968,7 +1106,7 @@ export default function HomeClient() {
           // toggle, so guide the user there instead.
           <div className="flex flex-col items-center gap-3 max-w-sm text-center">
             <p className="text-sm font-sans text-destructive">
-              Wrong network (chainId {chainId}). CoinOp runs on{' '}
+              Wrong network (chainId {walletChainId ?? chainId}). CoinOp runs on{' '}
               {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' or ')}.
             </p>
             {minipayChain === undefined ? (
@@ -992,14 +1130,46 @@ export default function HomeClient() {
             )}
           </div>
         ) : (
-          <div className="text-sm text-destructive text-center max-w-sm">
-            Wrong network. Use the wallet button above to switch to{' '}
-            {chainLabel(DEFAULT_CHAIN_ID)}.
+          <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+            <p className="text-sm font-sans text-destructive">Wrong network</p>
+            <p className="text-xs font-sans text-muted-foreground leading-snug">
+              CoinOp runs on {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' or ')}. Your
+              wallet is on chainId {walletChainId ?? chainId}.
+            </p>
+            {/* Both chains are offered: forcing everyone onto DEFAULT_CHAIN_ID
+                here would contradict the picker in the wallet sheet. The default
+                stays the visually primary button. */}
+            <div className="flex items-center gap-2">
+              {SUPPORTED_CHAIN_IDS.map((id) => (
+                <Button
+                  key={id}
+                  variant={id === DEFAULT_CHAIN_ID ? 'default' : 'outline'}
+                  onClick={() =>
+                    switchChain({
+                      chainId: id as Parameters<typeof switchChain>[0]['chainId'],
+                    })
+                  }
+                  disabled={switching}
+                >
+                  {pendingChainId === id ? 'Switching…' : `Switch to ${chainLabel(id)}`}
+                </Button>
+              ))}
+            </div>
+            {switchError && (
+              <p className="font-mono text-[11px] text-destructive">
+                {describeSwitchError(switchError)}
+              </p>
+            )}
           </div>
         )
       ) : (
         <>
           <WalletStatus />
+          {tokenSwitchNotice && (
+            <p className="font-mono text-[11px] text-muted-foreground text-center">
+              {tokenSwitchNotice}
+            </p>
+          )}
           {spread ? (
             <div className="w-full max-w-4xl grid grid-cols-2 gap-8">
               <div className="w-full flex flex-col items-center gap-6">

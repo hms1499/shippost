@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
@@ -36,8 +36,24 @@ function shorten(addr: string): string {
  *                                 sheet where copy / history / disconnect are
  *                                 each one tap (no RainbowKit account modal).
  */
-export function WalletMenu() {
-  const [open, setOpen] = useState(false);
+interface WalletMenuProps {
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
+}
+
+export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {}) {
+  const [openSelf, setOpenSelf] = useState(false);
+  // Controlled when a parent passes `open`, uncontrolled otherwise — so the
+  // existing `<WalletMenu />` call sites keep working untouched, and there is
+  // still exactly one sheet however it gets opened.
+  const open = openProp ?? openSelf;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setOpenSelf(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
   const [copied, setCopied] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
@@ -60,7 +76,7 @@ export function WalletMenu() {
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, setOpen]);
 
   // Reset the copy tick whenever the sheet closes so it never reopens stale.
   useEffect(() => {
