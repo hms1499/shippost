@@ -1,12 +1,13 @@
 'use client';
 
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Loader2, Wallet } from 'lucide-react';
 import { useBalances } from '@/lib/useBalances';
 import { useIsMiniPay } from '@/lib/minipay';
 import { Card } from '@/components/ui/card';
 import { highestValue } from '@/lib/chainChoice';
+import { SUPPORTED_CHAIN_IDS, chainLabel } from '@/lib/chainPolicy';
 
 function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -19,8 +20,30 @@ function shorten(addr: string): string {
  */
 export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
+  const chainId = useChainId();
   const { balances, isLoading, isError } = useBalances();
   const isMiniPay = useIsMiniPay();
+
+  // "Empty" is every balance at zero, not an absent token list: every supported
+  // chain configures at least one token, so balances.length is never 0 on a
+  // successful read and a zero-only wallet would otherwise read as "USDC 0.00"
+  // with no way forward.
+  const hasFunds = balances.some((b) => b.balance > 0n);
+  const otherChainId = SUPPORTED_CHAIN_IDS.find((id) => id !== chainId);
+  // The one moment a spare RPC call earns its keep — the user is stuck here.
+  // MiniPay is excluded because it cannot act on the answer (no dapp-side
+  // chain switching), so the call would buy advice nobody can take.
+  const other = useBalances({
+    chainId: otherChainId,
+    enabled:
+      isConnected &&
+      !isLoading &&
+      !isError &&
+      !hasFunds &&
+      otherChainId !== undefined &&
+      !isMiniPay,
+  });
+  const otherTop = highestValue(other.balances);
 
   if (!isConnected || !address) return null;
 
@@ -29,7 +52,9 @@ export function WalletStatus() {
   return (
     <Card className="w-full max-w-md p-5 flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="heading-sub text-[10px]">Wallet · balances</p>
+        <p className="heading-sub text-[10px]">
+          Wallet · {chainLabel(chainId).toLowerCase()}
+        </p>
         {isMiniPay && (
           <span className="font-mono text-[11px] text-muted-foreground">
             {shorten(address)}
@@ -47,10 +72,22 @@ export function WalletStatus() {
             <Loader2 size={12} className="animate-spin" aria-hidden />
             Loading balances…
           </span>
-        ) : balances.length === 0 ? (
-          <span className="text-xs font-sans text-muted-foreground">
-            No stable balances on this chain.
-          </span>
+        ) : !hasFunds ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-sans text-muted-foreground">
+              No balance on {chainLabel(chainId)}.
+            </span>
+            {otherTop && otherChainId !== undefined && (
+              <span className="text-xs font-sans text-muted-foreground">
+                You have{' '}
+                <span className="font-mono text-money text-foreground">
+                  {otherTop.symbol}{' '}
+                  {Number(formatUnits(otherTop.balance, otherTop.decimals)).toFixed(2)}
+                </span>{' '}
+                on {chainLabel(otherChainId)} — open the wallet menu to switch.
+              </span>
+            )}
+          </div>
         ) : (
           balances.map((b) => {
             const amount = Number(formatUnits(b.balance, b.decimals));
