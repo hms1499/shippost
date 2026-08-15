@@ -23,7 +23,7 @@ import {
   type EIP1193Provider,
 } from 'viem';
 import { getContracts, shipPostPaymentAbi } from './contracts';
-import { type TokenConfig } from './tokens';
+import { getTokens, type TokenConfig, type TokenSymbol } from './tokens';
 import { getChain } from './chains';
 import { DEFAULT_CHAIN_ID, isSupportedChain, chainLabel } from './chainPolicy';
 import { readThreadPrice } from './threadPrice';
@@ -106,6 +106,36 @@ export function resolveBundleTxHash(status: WaitForCallsStatusReturnType): Hex {
   return last.transactionHash as Hex;
 }
 
+/**
+ * Does this token actually exist, at this address, on this chain?
+ *
+ * The chain picker lets a user switch after the payment token was captured
+ * into the submitted payload, so a stale token can arrive here carrying one
+ * chain's address while `chainId` names another chain's payment contract. On
+ * the wrong chain that address usually has no code — the approve goes nowhere.
+ * If some unrelated contract happens to occupy it, behaviour is undefined.
+ *
+ * The UI re-derives the token on every chain change (lib/chainChoice.ts); this
+ * is the second gate, at the point where money actually moves.
+ */
+export function tokenChainMismatch(chainId: number, token: TokenConfig): string | null {
+  let available: Partial<Record<TokenSymbol, TokenConfig>>;
+  try {
+    available = getTokens(chainId);
+  } catch {
+    return `chainId ${chainId} is not a chain CoinOp accepts.`;
+  }
+
+  const expected = available[token.symbol];
+  if (!expected) {
+    return `${token.symbol} is not payable on ${chainLabel(chainId)}. Pick another token and retry.`;
+  }
+  if (expected.address.toLowerCase() !== token.address.toLowerCase()) {
+    return `${token.symbol} address does not match ${chainLabel(chainId)}. Reopen the form and pick a token again.`;
+  }
+  return null;
+}
+
 export function usePayForThread(): PayResult {
   const { address, connector } = useAccount();
   const chainId = useChainId();
@@ -186,6 +216,11 @@ export function usePayForThread(): PayResult {
       try {
         const contracts = getContracts(chainId);
         const paymentAddr = contracts.ShipPostPayment;
+        const mismatch = tokenChainMismatch(chainId, token);
+        if (mismatch) {
+          fail('setup', mismatch);
+          return;
+        }
         // Authoritative price: one read feeds the approve amount, the consent
         // ceiling and the amount the user is shown. A locally computed price
         // can be stale the moment setPrice lands.
