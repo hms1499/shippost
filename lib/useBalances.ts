@@ -40,7 +40,7 @@ export function useBalances(options?: { chainId?: number; enabled?: boolean }) {
   const enabled =
     (options?.enabled ?? true) && Boolean(address) && tokenList.length > 0;
 
-  const { data, isLoading, refetch } = useReadContracts({
+  const { data, isLoading, isError, refetch } = useReadContracts({
     contracts: tokenList.map((t) => ({
       address: t.address,
       abi: erc20Abi,
@@ -56,10 +56,12 @@ export function useBalances(options?: { chainId?: number; enabled?: boolean }) {
     balance: (data?.[i]?.result as bigint | undefined) ?? 0n,
   }));
 
-  // `isLoading` is false when the query is disabled, which would let a caller
-  // render 0.00 for balances that were never fetched. Report "still loading"
-  // until a fetch has actually resolved.
-  const pending = enabled && (isLoading || data === undefined);
+  // A disabled or in-flight query must not report loaded: data is undefined and
+  // consumers zero-fill balances, which reads as "you are broke" and triggers
+  // user action. A settled but failed query must not report loading: that creates
+  // an infinite spinner with no exit. Only report loading when actually fetching
+  // and not in an error state.
+  const pending = enabled && !isError && (isLoading || data === undefined);
 
-  return { balances, isLoading: pending, refetch };
+  return { balances, isLoading: pending, isError, refetch };
 }
