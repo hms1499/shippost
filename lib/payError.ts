@@ -31,14 +31,14 @@ function findCode(e: ErrorLike): number | string | undefined {
   return cause?.code;
 }
 
-export function describePayError(e: unknown): string {
+function describeError(e: unknown, fallback: string): string {
   if (typeof e === 'string' && e.trim()) return e.slice(0, MAX_LEN);
 
   const err = asErrorLike(e);
-  if (!err) return 'Payment failed (unknown error)';
+  if (!err) return fallback;
 
   const head = err.shortMessage ?? err.message;
-  if (!head) return 'Payment failed (unknown error)';
+  if (!head) return fallback;
 
   let out = head;
 
@@ -59,4 +59,29 @@ export function describePayError(e: unknown): string {
   }
 
   return out.length > MAX_LEN ? `${out.slice(0, MAX_LEN - 1)}…` : out;
+}
+
+export function describePayError(e: unknown): string {
+  return describeError(e, 'Payment failed (unknown error)');
+}
+
+/**
+ * A failed chain switch, in one line.
+ *
+ * Two failures deserve canned copy because the wallet's own words are useless
+ * to a user: a rejection (they know they rejected — what they need is the UI to
+ * admit it happened) and a wallet that has no wallet_switchEthereumChain at all
+ * (the action is impossible here, so the copy must point somewhere it is
+ * possible). Everything else keeps the wallet's message, which is the only
+ * evidence of what actually went wrong.
+ */
+export function describeSwitchError(e: unknown): string {
+  const err = asErrorLike(e);
+  if (err) {
+    if (findCode(err) === 4001) return 'Switch declined in wallet.';
+    if (err.name === 'SwitchChainNotSupportedError') {
+      return "This wallet can't switch chains. Change network in the wallet, then reopen.";
+    }
+  }
+  return describeError(e, 'Could not switch chain');
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describePayError } from './payError';
+import { describePayError, describeSwitchError } from './payError';
 
 describe('describePayError', () => {
   it('prefers viem shortMessage over the verbose message', () => {
@@ -56,5 +56,39 @@ describe('describePayError', () => {
   it('stays short enough to read on a phone', () => {
     const e = Object.assign(new Error('x'.repeat(2000)), { details: 'y'.repeat(2000) });
     expect(describePayError(e).length).toBeLessThanOrEqual(300);
+  });
+});
+
+describe('describeSwitchError', () => {
+  it('names a user rejection from the EIP-1193 code', () => {
+    const e = Object.assign(new Error('User rejected'), { code: 4001 });
+    expect(describeSwitchError(e)).toBe('Switch declined in wallet.');
+  });
+
+  it('finds the rejection code one level down on cause', () => {
+    const e = Object.assign(new Error('wrapped'), {
+      cause: { code: 4001 },
+    });
+    expect(describeSwitchError(e)).toBe('Switch declined in wallet.');
+  });
+
+  it('tells the user to change network manually when the wallet cannot switch', () => {
+    const e = Object.assign(new Error('unsupported'), {
+      name: 'SwitchChainNotSupportedError',
+    });
+    expect(describeSwitchError(e)).toBe(
+      "This wallet can't switch chains. Change network in the wallet, then reopen.",
+    );
+  });
+
+  it("keeps the wallet's own message for anything else", () => {
+    const e = Object.assign(new Error('RPC endpoint unreachable'), { code: -32603 });
+    const out = describeSwitchError(e);
+    expect(out).toContain('RPC endpoint unreachable');
+    expect(out).toContain('-32603');
+  });
+
+  it('falls back without throwing on a non-error', () => {
+    expect(describeSwitchError(undefined)).toBe('Could not switch chain');
   });
 });
