@@ -6,6 +6,7 @@ import { Loader2, Wallet } from 'lucide-react';
 import { useBalances } from '@/lib/useBalances';
 import { useIsMiniPay } from '@/lib/minipay';
 import { Card } from '@/components/ui/card';
+import { highestValue } from '@/lib/chainChoice';
 
 function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -23,8 +24,7 @@ export function WalletStatus() {
 
   if (!isConnected || !address) return null;
 
-  const sorted = [...balances].sort((a, b) => (a.balance > b.balance ? -1 : 1));
-  const topSymbol = sorted[0] && sorted[0].balance > 0n ? sorted[0].symbol : null;
+  const topSymbol = highestValue(balances)?.symbol ?? null;
 
   return (
     <Card className="w-full max-w-md p-5 flex flex-col gap-2">

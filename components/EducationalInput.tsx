@@ -9,6 +9,7 @@ import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TokenSelector } from './TokenSelector';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
+import { highestValue } from '@/lib/chainChoice';
 import { formatUnits } from 'viem';
 
 export interface EducationalSubmitPayload {
@@ -38,7 +39,7 @@ export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Pro
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
-    return [...balances].sort((a, b) => (a.balance > b.balance ? -1 : 1))[0];
+    return highestValue(balances) ?? balances[0];
   }, [balances]);
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);

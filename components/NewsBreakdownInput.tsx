@@ -10,6 +10,7 @@ import { TokenSelector } from './TokenSelector';
 import { UrlPreviewCard, type UrlPreview } from './UrlPreviewCard';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
+import { highestValue } from '@/lib/chainChoice';
 import { parseUrl } from '@/lib/urlParser';
 import type { EventContext } from '@/lib/eventContext';
 import { formatUnits } from 'viem';
@@ -48,7 +49,7 @@ export function NewsBreakdownInput({ onSubmit, onBack, disabled, submitting }: P
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
-    return [...balances].sort((a, b) => (a.balance > b.balance ? -1 : 1))[0];
+    return highestValue(balances) ?? balances[0];
   }, [balances]);
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);

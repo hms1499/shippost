@@ -10,6 +10,7 @@ import { TokenSelector } from './TokenSelector';
 import { useBalances } from '@/lib/useBalances';
 import type { TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
+import { highestValue } from '@/lib/chainChoice';
 import { normalizeTicker } from '@/lib/prompts/tokenAnalysis';
 import type { Angle } from './HotTakeInput';
 import { formatUnits } from 'viem';
@@ -48,7 +49,7 @@ export function TokenAnalysisInput({ onSubmit, onBack, disabled, submitting }: P
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
-    return [...balances].sort((a, b) => (a.balance > b.balance ? -1 : 1))[0];
+    return highestValue(balances) ?? balances[0];
   }, [balances]);
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
