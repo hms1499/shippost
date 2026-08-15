@@ -4,6 +4,7 @@ import { Lock, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
+import { PayContext } from '@/components/PayContext';
 
 interface Props {
   firstTweet: string;
@@ -11,9 +12,20 @@ interface Props {
   onUnlock: () => void;
   onRegenerate: () => void;
   regenerating: boolean;
+  /** null only if the payment token could not be resolved; the line is then omitted. */
+  tokenSymbol: string | null;
+  onChangeChain?: () => void;
 }
 
-export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate, regenerating }: Props) {
+export function PreviewLocked({
+  firstTweet,
+  lockedCount,
+  onUnlock,
+  onRegenerate,
+  regenerating,
+  tokenSymbol,
+  onChangeChain,
+}: Props) {
   // lockedCount is "the rest"; the full thread is that plus the opening tweet.
   const totalTweets = Math.max(lockedCount, 0) + 1;
   return (
@@ -48,6 +60,8 @@ export function PreviewLocked({ firstTweet, lockedCount, onUnlock, onRegenerate,
       <Button onClick={onUnlock}>
         Generate full thread · {THREAD_PRICE_LABEL}
       </Button>
+
+      {tokenSymbol && <PayContext symbol={tokenSymbol} onChange={onChangeChain} />}
 
       {/* Placed at the moment of hesitation: the refund promise the backend
           already keeps (ErrorSurface copy, refund queue) — the UI just says

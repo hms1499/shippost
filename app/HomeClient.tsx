@@ -26,6 +26,7 @@ const WalletMenu = dynamic(
   },
 );
 import { WalletStatus } from '@/components/WalletStatus';
+import { PayContext } from '@/components/PayContext';
 import { LandingHero } from '@/components/LandingHero';
 import { ModePicker } from '@/components/ModePicker';
 import { ErrorSurface } from '@/components/ErrorSurface';
@@ -645,6 +646,7 @@ export default function HomeClient() {
           }
         }}
         regenerating={previewLoading}
+        tokenSymbol={activeToken?.symbol ?? null}
       />
     ) : screen === 'preview-unavailable' && activeToken ? (
       <section className="w-full max-w-md flex flex-col gap-4">
@@ -662,6 +664,7 @@ export default function HomeClient() {
           ).toFixed(2)}{' '}
           {activeToken.symbol} →
         </Button>
+        <PayContext symbol={activeToken.symbol} />
         <button
           type="button"
           onClick={() => setScreen(inputScreenForActiveMode)}
@@ -688,6 +691,7 @@ export default function HomeClient() {
             void unlock();
           }}
         />
+        {activeToken && <PayContext symbol={activeToken.symbol} />}
         <button
           type="button"
           onClick={() => {
