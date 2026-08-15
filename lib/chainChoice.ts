@@ -1,4 +1,5 @@
 import { getTokens, type TokenConfig, type TokenSymbol } from './tokens';
+import { SUPPORTED_CHAIN_IDS, chainLabel } from './chainPolicy';
 
 export interface HasValue {
   balance: bigint;
@@ -80,4 +81,44 @@ export function reselectTokenForChain(params: {
   const token = available[top.symbol];
   if (!token) return { kind: 'none' };
   return { kind: 'switched', symbol: top.symbol, token };
+}
+
+export interface ChainOption {
+  chainId: number;
+  label: string;
+  isCurrent: boolean;
+  /** Balances not fetched yet — render `·····`, never `0.00`. */
+  isLoading: boolean;
+  /** The read for this chain settled but failed — distinct from still loading. */
+  hasFailed: boolean;
+  hasFunds: boolean;
+  tokens: readonly TokenBalanceLike[];
+}
+
+/**
+ * One row per supported chain, for the ChainPicker.
+ *
+ * balancesByChain[chainId] === undefined is ambiguous on its own — it means
+ * either "still loading" or "the read failed" (useBalances now distinguishes
+ * the two via isError). failedChainIds resolves that ambiguity so a failed
+ * chain renders an explicit failure state instead of spinning forever.
+ */
+export function buildChainOptions(params: {
+  currentChainId: number;
+  balancesByChain: Record<number, readonly TokenBalanceLike[] | undefined>;
+  failedChainIds: readonly number[];
+}): ChainOption[] {
+  return SUPPORTED_CHAIN_IDS.map((chainId) => {
+    const tokens = params.balancesByChain[chainId];
+    const hasFailed = params.failedChainIds.includes(chainId);
+    return {
+      chainId,
+      label: chainLabel(chainId),
+      isCurrent: chainId === params.currentChainId,
+      isLoading: tokens === undefined && !hasFailed,
+      hasFailed,
+      hasFunds: (tokens ?? []).some((t) => t.balance > 0n),
+      tokens: tokens ?? [],
+    };
+  });
 }

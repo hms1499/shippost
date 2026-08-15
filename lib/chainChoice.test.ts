@@ -4,7 +4,9 @@ import {
   normalizeTo18,
   highestValue,
   reselectTokenForChain,
+  buildChainOptions,
 } from './chainChoice';
+import { SUPPORTED_CHAIN_IDS, chainLabel } from './chainPolicy';
 
 const cUSD = { symbol: 'cUSD' as const, decimals: 18 };
 const USDC = { symbol: 'USDC' as const, decimals: 6 };
@@ -114,5 +116,91 @@ describe('reselectTokenForChain', () => {
       balances: [],
     });
     expect(out).toEqual({ kind: 'keep', symbol: 'USDC' });
+  });
+});
+
+describe('buildChainOptions', () => {
+  const balances = {
+    [base.id]: [{ symbol: 'USDC' as const, decimals: 6, balance: 2_400_000n }],
+    [celo.id]: [{ symbol: 'cUSD' as const, decimals: 18, balance: 0n }],
+  };
+
+  it('marks the connected chain as current', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: balances,
+      failedChainIds: [],
+    });
+    expect(opts.find((o) => o.chainId === base.id)?.isCurrent).toBe(true);
+    expect(opts.find((o) => o.chainId === celo.id)?.isCurrent).toBe(false);
+  });
+
+  it('lists one option per supported chain', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: balances,
+      failedChainIds: [],
+    });
+    expect(opts.map((o) => o.chainId).sort()).toEqual([...SUPPORTED_CHAIN_IDS].sort());
+  });
+
+  it('labels each chain from chainPolicy, never a hardcoded name', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: balances,
+      failedChainIds: [],
+    });
+    expect(opts.find((o) => o.chainId === base.id)?.label).toBe(chainLabel(base.id));
+  });
+
+  it('marks a chain whose balances have not arrived as loading', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: { [base.id]: balances[base.id] },
+      failedChainIds: [],
+    });
+    expect(opts.find((o) => o.chainId === celo.id)?.isLoading).toBe(true);
+    expect(opts.find((o) => o.chainId === base.id)?.isLoading).toBe(false);
+  });
+
+  it('reports whether a chain has anything funded', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: balances,
+      failedChainIds: [],
+    });
+    expect(opts.find((o) => o.chainId === base.id)?.hasFunds).toBe(true);
+    expect(opts.find((o) => o.chainId === celo.id)?.hasFunds).toBe(false);
+  });
+
+  it('marks a chain in failedChainIds as failed and not loading', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: { [base.id]: balances[base.id] },
+      failedChainIds: [celo.id],
+    });
+    const celoOpt = opts.find((o) => o.chainId === celo.id);
+    expect(celoOpt?.hasFailed).toBe(true);
+    expect(celoOpt?.isLoading).toBe(false);
+  });
+
+  it('still marks a chain that is neither loaded nor failed as loading', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: { [base.id]: balances[base.id] },
+      failedChainIds: [],
+    });
+    const celoOpt = opts.find((o) => o.chainId === celo.id);
+    expect(celoOpt?.isLoading).toBe(true);
+    expect(celoOpt?.hasFailed).toBe(false);
+  });
+
+  it('reports hasFunds false for a failed chain', () => {
+    const opts = buildChainOptions({
+      currentChainId: base.id,
+      balancesByChain: { [base.id]: balances[base.id] },
+      failedChainIds: [celo.id],
+    });
+    expect(opts.find((o) => o.chainId === celo.id)?.hasFunds).toBe(false);
   });
 });
