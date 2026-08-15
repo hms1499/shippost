@@ -4,11 +4,11 @@
 
 ```mermaid
 flowchart TD
-    User["👤 User in MiniPay"] -->|pays $0.05 cUSD| SP["ShipPostPayment.sol"]
+    User["👤 User<br/>(MiniPay hoặc ví thường)"] -->|"pays $0.10"| SP["ShipPostPayment.sol<br/>(Base hoặc Celo)"]
     SP -->|splits| Split["Payment Splitter"]
-    Split -->|50% $0.025| AW["💰 AgentWallet<br/>x402 budget"]
-    Split -->|40% $0.02| TR["📊 Treasury<br/>team revenue"]
-    Split -->|10% $0.005| RS["🔒 Reserve<br/>refund buffer"]
+    Split -->|50% $0.05| AW["💰 AgentWallet<br/>x402 budget"]
+    Split -->|40% $0.04| TR["📊 Treasury<br/>team revenue"]
+    Split -->|10% $0.01| RS["🔒 Reserve<br/>refund buffer"]
     
     AW -->|event: ThreadRequested| OR["🤖 Orchestrator"]
     
@@ -48,8 +48,8 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    User["👤 User"] -->|Pay $0.05| Pay["💳 ShipPostPayment"]
-    Pay -->|$0.025| AW["AgentWallet"]
+    User["👤 User"] -->|Pay $0.10| Pay["💳 ShipPostPayment"]
+    Pay -->|$0.05| AW["AgentWallet"]
     Pay -->|ThreadRequested event| OR["🤖 Orchestrator"]
     
     OR -->|Check mode| Mode{Mode?}
@@ -69,7 +69,7 @@ flowchart TD
     GB -->|4️⃣ Groq Fact-Check| FC["Verify & fact-check<br/>x402 cost: $0.002"]
     FC -->|SSE event| UI
     
-    UI -->|Total spent| Check["$0.025 spent<br/>from AgentWallet"]
+    UI -->|Total spent| Check["$0.05 spent<br/>from AgentWallet"]
     Check -->|Thread ready| Share["Share to X"]
     
     style AW fill:#4f46e5
@@ -100,7 +100,7 @@ flowchart LR
         UI2["📊 Fetching price  ✓  $0.000"]
         UI3["✍️  Writing thread  ⏳ ..."]
         UI4["✅ Fact-checking     —"]
-        UI5["Total: $0.004 / $0.025"]
+        UI5["Total: $0.004 / $0.05"]
     end
     
     E1 --> ES
@@ -153,9 +153,9 @@ sequenceDiagram
     participant Proxy as x402 Proxy
     participant Groq as Groq API
 
-    User->>SCP: payForThread($0.05 cUSD)
+    User->>SCP: payForThread(token, mode, maxAmount) — $0.10
     SCP->>SCP: Split 50/40/10
-    SCP->>AW: Transfer $0.025
+    SCP->>AW: Transfer $0.05
     SCP-->>Proxy: emit ThreadRequested
     
     Proxy->>Groq: POST /api/x402/groq<br/>(X-Payment: signed)

@@ -36,13 +36,13 @@ Proxy đóng vai trò "phiên dịch": nhận payment on-chain từ agent, rồi
 ### Bước 0 — User trả tiền
 
 ```
-User ──$0.05 cUSD──► ShipPostPayment.sol
-                          │
-                    split 50 / 40 / 10
-                          │
-              ┌───────────┴──────────┐
-          AgentWallet          Treasury + Reserve
-         (giữ $0.025)
+User ──$0.10──► ShipPostPayment.sol       (USDC trên Base;
+                     │                     cUSD/USDT/USDC trên Celo)
+               split 50 / 40 / 10
+                     │
+         ┌───────────┴──────────┐
+     AgentWallet          Treasury + Reserve
+     (giữ $0.05)
 ```
 
 `ShipPostPayment.sol` chia tiền ngay lúc nhận:
@@ -89,7 +89,8 @@ Orchestrator backend:
   4. Forward request tới Groq API (dùng GROQ_API_KEY của team)
   5. Nhận response từ Groq
   6. Settle: gọi AgentWallet.executeX402Call
-             → pull cUSD từ AgentWallet vào proxy treasury
+             → pull stablecoin (đúng token user đã trả) từ AgentWallet
+               vào proxy treasury
   7. Emit X402PaymentMade(service="groq", amount=$0.003, threadId=42)
   8. Trả Groq response về cho orchestrator
 ```
@@ -114,8 +115,8 @@ Mỗi bước emit một `PipelineEvent` → SSE stream đẩy xuống client �
 ✅ Fact-checking        —
 🎨 Creating thumbnail   —
 
-Agent wallet spent: $0.011 / $0.025 budget
-[View on Celoscan →]
+Agent wallet spent: $0.011 / $0.05 budget
+[View on explorer →]   (Basescan hay Celoscan, tuỳ chain)
 ```
 
 ---
@@ -123,9 +124,9 @@ Agent wallet spent: $0.011 / $0.025 budget
 ## Sơ đồ tổng thể
 
 ```
-MiniPay Browser
+MiniPay Browser / ví thường
   └─► ShipPost UI
-        └─► [User ký tx $0.05]
+        └─► [User ký tx $0.10]
                 │
                 ▼
         ShipPostPayment.sol
@@ -155,7 +156,7 @@ MiniPay Browser
 
 ## Tại sao cách này quan trọng
 
-Mỗi thread tạo ra **4–6 transaction on-chain** thay vì chỉ 1. Bất kỳ ai cũng có thể mở Celoscan và thấy `AgentWallet` đang tự trả tiền cho từng AI service — đây là proof thực sự của mô hình AI agent kinh tế tự chủ, không phải chỉ là wrapper gọi API thông thường.
+Mỗi thread tạo ra **4–6 transaction on-chain** thay vì chỉ 1. Bất kỳ ai cũng có thể mở explorer của chain đó (Basescan / Celoscan) và thấy `AgentWallet` đang tự trả tiền cho từng AI service — đây là proof thực sự của mô hình AI agent kinh tế tự chủ, không phải chỉ là wrapper gọi API thông thường.
 
 ---
 
@@ -164,7 +165,7 @@ Mỗi thread tạo ra **4–6 transaction on-chain** thay vì chỉ 1. Bất k�
 | File | Vai trò |
 |---|---|
 | `contracts/AgentWallet.sol` | Giữ budget, enforce daily cap, emit payment events |
-| `contracts/ShipPostPayment.sol` | Nhận $0.05, split 50/40/10, emit `ThreadRequested` |
+| `contracts/ShipPostPayment.sol` | Nhận đúng giá on-chain hiện hành ($0.10), split 50/40/10, emit `ThreadRequested` |
 | `app/api/x402/groq/route.ts` | Proxy: verify → Groq → settle |
 | `app/api/x402/flux/route.ts` | Proxy: verify → fal.ai → settle |
 | `app/api/x402/serper/route.ts` | Proxy: verify → Serper → settle |

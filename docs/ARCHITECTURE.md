@@ -18,20 +18,21 @@
 
 # Tầng 0 — TL;DR (30 giây)
 
-ShipPost là app **trả-tiền-theo-lượt** viết thread X bằng AI, chạy như MiniApp trong ví MiniPay
-của Opera. Người dùng trả **$0.05** (cUSD/USDT/USDC) → một **ví agent** (ERC-8004) tự bỏ tiền
+ShipPost là app **trả-tiền-theo-lượt** viết thread X bằng AI, chạy trên **Base** (USDC, gas được
+paymaster tài trợ qua EIP-5792) và trên **Celo** như MiniApp trong ví MiniPay của Opera
+(cUSD/USDT/USDC, user tự trả gas). Người dùng trả **$0.10** → một **ví agent** (ERC-8004) tự bỏ tiền
 gọi vài dịch vụ AI (Groq, Serper, CoinGecko) → trả về một thread sẵn-sàng-đăng.
 
 Bốn nhân vật, đọc theo số ①→⑥:
 
 ```mermaid
 flowchart TB
-    User["👤 Người dùng<br/>(MiniPay)"]
-    Chain["⛓️ Contracts trên Celo<br/>ShipPostPayment + AgentWallet"]
+    User["👤 Người dùng<br/>(MiniPay hoặc ví thường)"]
+    Chain["⛓️ Contracts trên chain user chọn<br/>(Base / Celo)<br/>ShipPostPayment + AgentWallet"]
     Backend["🖥️ Backend<br/>/api/generate/stream"]
     AI["🤖 Groq · Serper · CoinGecko"]
 
-    User -->|"① trả $0.05"| Chain
+    User -->|"① trả $0.10"| Chain
     User -->|"② xin viết thread"| Backend
     Backend -->|"③ verify: đã trả chưa?"| Chain
     Backend -->|"④ gọi AI viết thread"| AI
@@ -55,7 +56,7 @@ Toàn hệ thống chia làm **2 lớp**, nối nhau bằng đúng một thứ: 
 
 | Lớp | Gồm gì | Trách nhiệm |
 |---|---|---|
-| **Lớp 1 — On-chain (Celo)** | `ShipPostPayment` + `AgentWallet` | Thu tiền (`payForThread`) và chi tiền (`executeX402Call`), để lại event/tx bất biến |
+| **Lớp 1 — On-chain (Base / Celo)** | `ShipPostPayment` + `AgentWallet` | Thu tiền (`payForThread`) và chi tiền (`executeX402Call`), để lại event/tx bất biến |
 | **Lớp 2 — Backend (Next.js SSE)** | `/api/generate/stream` + pipeline | Verify thanh toán, gọi AI off-chain, settle x402, stream kết quả về client |
 
 Vì sao tách: contract đơn giản → rẻ và an toàn; backend không được tin → phải *chứng minh lại*
@@ -72,7 +73,7 @@ sequenceDiagram
     participant AI as Groq/Serper/CoinGecko
     participant DB as Supabase
 
-    U->>P: payForThread(token, mode) — $0.05
+    U->>P: payForThread(token, mode, maxAmount) — $0.10
     P->>P: chia 50/40/10 trong 1 tx
     P-->>U: emit ThreadRequested(threadId) + payTxHash
 
@@ -110,14 +111,33 @@ Mỗi mục theo công thức: **làm gì · gọi ai · invariant chính**.
 
 ## 2.1 On-chain — `contracts/`
 
-Hai contract, deploy trên Celo Sepolia testnet (11142220) và Celo mainnet (42220). Alfajores đã
-bị Celo khai tử — dùng Celo Sepolia cho testnet.
+Hai contract, deploy độc lập trên mỗi chain được hỗ trợ. Địa chỉ hiện hành nằm trong
+`deployments/<chain>.json` và bảng ở `.claude/docs/architecture.md`; Alfajores đã bị Celo khai tử —
+dùng Celo Sepolia cho testnet.
 
-**`ShipPostPayment`** — máy chia tiền. `payForThread` kéo $0.05 từ user, chia tức thì rồi emit:
+| Chain | ShipPostPayment | Token |
+|---|---|---|
+| Base 8453 | `0x6915a137314e0588b671bc62e619cc4c3109a0b7` | USDC |
+| Celo 42220 | `0x921146fab0a60d48e1991495fc8a899d7c989f74` | cUSD, USDT, USDC |
+| Celo Sepolia 11142220 | `0x277e140933d600cafcad38e2f1018e4fbd5476b2` | mock |
+
+Mỗi lần redeploy, `threadCounter` bắt đầu **trên** counter của contract cũ (Base 1000000, Celo
+200000) — DB vốn đã an toàn nhờ unique index `(chain_id, onchain_thread_id)`, nhưng một id trần
+trong log sẽ mơ hồ nếu trùng.
+
+**`ShipPostPayment`** — máy chia tiền. `payForThread(token, mode, maxAmount)` kéo đúng giá hiện
+hành từ user, chia tức thì rồi emit. Giá là **state có thể đổi** (`priceUsdCents`, `setPrice` chỉ
+owner) chứ không phải hằng số biên dịch cứng, nên đổi giá không còn là một cuộc redeploy. Đúng vì
+thế mà `maxAmount` tồn tại: nó là **trần đồng ý của người trả**, chặn kịch bản owner đổi giá đúng
+vào khoảng trống giữa lúc user đọc giá và lúc tx của họ lên chain (revert `PRICE_EXCEEDS_MAX`).
+
+Hệ quả lan ra ngoài contract: mọi thứ định giá một lần trả **trong quá khứ** phải đọc
+`ThreadRequested.amount` của chính thread đó, không được đọc `requiredAmount()` ở head — chi tiết
+trong §3.5 và `.claude/docs/refunds.md`.
 
 ```mermaid
 flowchart LR
-    U["👤 user"] -->|"transferFrom $0.05"| C["ShipPostPayment"]
+    U["👤 user"] -->|"transferFrom $0.10"| C["ShipPostPayment"]
     C -->|"agentBp 5000 = 50%"| A["AgentWallet"]
     C -->|"treasuryBp 4000 = 40%"| T[("treasury")]
     C -->|"reserveBp 1000 = 10% · giữ in-contract"| R[("reserve<br/>= balance của ShipPostPayment")]
@@ -280,16 +300,32 @@ gzipped trên `/`. Luồng client nối tiếp nhau:
 
 ```mermaid
 flowchart TB
-    m["lib/minipay.ts<br/>phát hiện isMiniPay, auto-connect"] --> b["lib/useBalances.ts<br/>đọc cUSD/USDT/USDC, chọn cao nhất"]
-    b --> p["lib/usePayForThread.ts<br/>gửi tx payForThread (wagmi)"]
+    m["lib/minipay.ts<br/>phát hiện isMiniPay, auto-connect"] --> b["lib/useBalances.ts<br/>đọc token của chain hiện tại, chọn cao nhất"]
+    b --> p["lib/usePayForThread.ts<br/>sponsored bundle hoặc 2 tx thường"]
     p --> h["hooks/useThreadGeneration.ts<br/>SSE consumer · state machine"]
-    h --> g["components/GeneratingStatus.tsx<br/>progress theatre + link Celoscan"]
+    h --> g["components/GeneratingStatus.tsx<br/>progress theatre + link explorer đúng chain"]
     g --> t["components/ThreadPreview.tsx<br/>card tweet · sửa inline"]
     t --> x["components/ShareToX.tsx<br/>deep link twitter://post"]
 ```
 
+Không có gì trong chuỗi này pin cứng một chain: `useBalances` đọc `getTokens(chainId)` (nên nó
+hiện đúng USDC trên Base, cUSD/USDT/USDC trên Celo), còn link explorer sinh từ `explorerBase()`.
+
+`usePayForThread` chọn **một trong hai đường** ngay tại thời điểm trả tiền:
+
+- **Sponsored (EIP-5792).** Hỏi ví bằng `getCapabilities`; nếu ví khai `paymasterService`, gộp
+  approve + `payForThread` thành **một** `sendCalls` kèm sponsorship → user không tốn gas, và
+  không còn khe hở giữa hai call để approve chết ở giữa (đúng lớp bug approve-receipt của USDT).
+  URL paymaster là secret server-side nên client đi qua `/api/paymaster` — proxy **deny-by-default**,
+  chỉ chuyển tiếp `pm_getPaymasterStubData` / `pm_getPaymasterData` và chỉ cho chain/contract/selector
+  đã biết, có rate limit.
+- **EOA thường.** Ví không trả lời được `wallet_getCapabilities` (MiniPay nằm ở đây) thì coi như
+  EOA và đi đường hai tx như cũ. Không fail, chỉ fallback.
+
 - **Invariant:** `useThreadGeneration` chỉ coi `fatal` là kết thúc lỗi; `step_failed` (soft) chỉ
   hiển thị degraded → khớp triết lý soft/hard ở 2.2.
+- **Invariant:** giá hiển thị, số tiền approve và trần `maxAmount` đều đến từ **một** lần
+  `readThreadPrice()`. Không tự tính giá ở client — xem §2.1.
 
 ## 2.5 Data — Supabase (`supabase/migrations/`)
 
@@ -361,10 +397,14 @@ chứ không tin:
    — không tin `receipt.to`, để chịu được đường router/multicall.
 3. Khớp `threadId`, `user`, `token`, `mode` với event `ThreadRequested`.
 4. **Defense in depth:** đọc lại `requiredAmount` on-chain, đòi `evt.amount === required` — event
-   giả mạo cũng không qua.
+   giả mạo cũng không qua. Lần đọc này **ghim vào `blockNumber` của chính tx thanh toán**
+   (`readContract({ blockNumber: receipt.blockNumber })`), không đọc ở head: giá đổi được, nên đọc
+   ở head thì một lần `setPrice` sẽ đánh trượt **mọi** thread đang bay — đã thu tiền mà không giao
+   hàng. Ghim theo block thì phép so vẫn chính xác tuyệt đối.
 
 Trả về **số tiền on-chain** để backend lưu cái đó; **không bao giờ** lưu `amountPaidRaw` từ client.
-Refund về sau tính theo `getOnChainPaidAmount`, không theo DB.
+Refund về sau tính theo `getOnChainPaidAmount` — đọc `ThreadRequested.amount` của chính thread đó,
+không theo DB và cũng không theo giá hiện hành.
 
 ## 3.2 Settle gates delivery — vì sao thứ tự emit là bất biến
 
@@ -456,10 +496,15 @@ flowchart TB
 
 ## Chain config (`lib/`)
 
-- `lib/chains.ts` — `getChain`, `explorerBase`, `isSupportedChain` (Celoscan/Blockscout).
-- `lib/wagmi.ts` — connectors Celo mainnet (42220) + Celo Sepolia (11142220).
-- `lib/tokens.ts` — địa chỉ + decimals token cho cả hai chain.
-- `lib/contracts.ts` — địa chỉ ShipPostPayment + AgentWallet cho cả hai chain.
+- `lib/chains.ts` — chain nào **tồn tại**: `getChain`, `explorerBase`, `celoSepolia`. Không giữ allowlist.
+- `lib/chainPolicy.ts` — chain nào deployment này **chấp nhận**: `SUPPORTED_CHAIN_IDS`,
+  `DEFAULT_CHAIN_ID`, `isSupportedChain`, `chainLabel`, `isTestnet`, `isMiniPayChain`. Thay cho
+  `lib/targetChain.ts` (đã xóa — nó giả định đúng một chain).
+- `lib/wagmi.ts` — đăng ký mọi chain được hỗ trợ, mỗi chain một transport, default đứng đầu.
+- `lib/threadPrice.ts` — `readThreadPrice()`, giá có thẩm quyền. Không fallback về hằng số local.
+- `lib/payBundle.ts` — `buildPayCalls()`, batch approve+pay theo EIP-5792.
+- `lib/tokens.ts` — map token theo chain. Trả `Partial<...>` vì Base không có cUSD.
+- `lib/contracts.ts` — địa chỉ ShipPostPayment + AgentWallet cho mọi chain.
 
 ## Lệnh hay dùng
 
@@ -471,6 +516,13 @@ pnpm compile             # compile Solidity
 pnpm deploy:testnet      # deploy Celo Sepolia (11142220)
 pnpm refund:list         # liệt kê refund_requests đang pending
 pnpm refund:process <id> # settle một refund đã queue
+
+# Deploy / cấu hình một chain. DEPLOY_TARGET = base | baseSepolia | celo, được
+# assert với chainId đang kết nối trước khi gửi bất cứ thứ gì.
+DEPLOY_TARGET=base npx hardhat run scripts/deploy-chain.ts --network base
+# Áp lại cấu hình post-deploy (idempotent) — dùng để cứu một deploy chết giữa
+# chừng. TUYỆT ĐỐI không redeploy để chữa: làm vậy là bỏ rơi contract đang sống.
+DEPLOY_TARGET=base npx hardhat run scripts/configure-chain.ts --network base
 ```
 
 ## Glossary
@@ -480,11 +532,14 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | Thuật ngữ | Nghĩa trong ShipPost |
 |---|---|
 | **AgentWallet** | Contract ví của agent, giữ stablecoin để chi x402; chỉ owner (orchestrator) gọi được, có daily cap. |
+| **Base** | Blockchain EVM của Coinbase (mainnet 8453, Sepolia testnet 84532) — chain thanh toán thứ hai, chỉ nhận USDC, có gas sponsorship. |
 | **basis points (bp)** | Phần vạn. `10000 bp = 100%`. Fee split 5000/4000/1000 = 50/40/10%. |
 | **boundThread** | Hàm validate output: thread rỗng/rác thì `throw` (xảy ra *trước* settle → không tiêu tiền). |
-| **Celo** | Blockchain EVM (mainnet 42220, Sepolia testnet 11142220) — nơi 2 contract chạy. |
-| **Celoscan / Blockscout** | Block explorer để tra cứu tx; link sinh từ `explorerBase()`. |
-| **cUSD / USDT / USDC** | Ba stablecoin được whitelist. cUSD có 18 decimals, USDT/USDC có 6 → không hardcode. |
+| **Celo** | Blockchain EVM (mainnet 42220, Sepolia testnet 11142220) — chain thanh toán gốc, nơi MiniPay sống. |
+| **Celoscan / Blockscout / Basescan** | Block explorer để tra cứu tx; link sinh từ `explorerBase(chainId)`, không hardcode. |
+| **chainPolicy** | `lib/chainPolicy.ts` — **allowlist duy nhất** cho câu hỏi "chain này có được chấp nhận không". Khác `lib/chains.ts`, vốn chỉ nói chain nào *tồn tại*. |
+| **cUSD / USDT / USDC** | Stablecoin được whitelist, **theo từng chain**: Base chỉ USDC; Celo có cả ba. cUSD 18 decimals, USDT/USDC 6 → không hardcode. |
+| **EIP-5792** | Chuẩn cho ví nhận **một batch call** (`wallet_sendCalls`) kèm capability. Ở đây: gộp approve + `payForThread` và xin sponsorship. Ví không hỗ trợ thì rơi về đường EOA. |
 | **daily spend cap** | Hạn mức chi mỗi token mỗi 24h (UTC) trong `AgentWallet`; mặc định $10 trên mainnet ($50 testnet). Giới hạn blast-radius nếu key lộ. |
 | **degraded mode** | Khi Supabase chết: vẫn phục vụ generate nhưng mất replay-guard (có chủ đích, không phải bug). |
 | **ERC-8004** | Chuẩn ví cho agent tự trị; `AgentWallet` thiết kế tương thích. |
@@ -493,7 +548,9 @@ Thuật ngữ junior hay vấp khi đọc codebase này (xếp theo bảng chữ
 | **free preview / preview-locked** | Xem tweet đầu miễn phí trước khi trả (`/api/preview` + màn `preview-locked`). Settle-free, không ghi DB; Unlock mới chạy luồng phí (sinh thread mới). Xem §2.7. |
 | **mode** | Một trong **6** kiểu thread, khai trong `lib/pipeline/modes/`. `id` = `uint8` on-chain trong `ThreadRequested`, **append-only**. Mode A/B là tên cũ của id 0 (`educational`, qua `runModeA`) và id 1 (`hotTake`, qua `runModeB`). Xem bảng §2.2. |
 | **MiniPay** | Ví stablecoin của Opera (webview di động). App chạy như **MiniApp** bên trong nó. |
+| **maxAmount** | Trần đồng ý của người trả, tham số thứ 3 của `payForThread`. Giá là state đổi được, nên không có trần thì một lần `setPrice` chen vào giữa lúc đọc giá và lúc tx lên chain sẽ âm thầm thu thêm. Vượt trần ⇒ revert `PRICE_EXCEEDS_MAX`. |
 | **orchestrator** | EOA backend, là **owner** của `AgentWallet` — chiếc "chìa khoá vương miện"; ký `executeX402Call`. |
+| **paymaster** | Dịch vụ trả gas hộ user (CDP, chỉ trên Base). URL là secret server-side; client đi qua proxy `/api/paymaster` deny-by-default. Không set ⇒ ví tự trả gas, app vẫn chạy. |
 | **payTxHash** | Hash của tx `payForThread`; **bằng chứng đã trả** mà backend verify lại on-chain. |
 | **pipeline step** | Một bước trong `lib/pipeline/`: gọi API thật + settle, phát ra một `PipelineEvent`. |
 | **PREVIEW_DAILY_CAP** | Trần global số lượt preview miễn phí mỗi ngày (mặc định 500) — bảo vệ Serper free tier. Env tunable, dùng ở `checkPreviewAllowed`. |
