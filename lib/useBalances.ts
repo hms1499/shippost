@@ -51,10 +51,18 @@ export function useBalances(options?: { chainId?: number; enabled?: boolean }) {
     query: { enabled },
   });
 
-  const balances: TokenBalance[] = tokenList.map((t, i) => ({
-    ...t,
-    balance: (data?.[i]?.result as bigint | undefined) ?? 0n,
-  }));
+  // Zero-fill is a rendering convenience for successful reads. On error, we have
+  // no balance data, so returning zero-filled balances would turn "we could not
+  // check" into "you have nothing" — a fabricated number worse than an honest
+  // error state. Return empty balances when isError is true so consumers can
+  // respond appropriately.
+  const balances: TokenBalance[] =
+    isError
+      ? []
+      : tokenList.map((t, i) => ({
+          ...t,
+          balance: (data?.[i]?.result as bigint | undefined) ?? 0n,
+        }));
 
   // A disabled or in-flight query must not report loaded: data is undefined and
   // consumers zero-fill balances, which reads as "you are broke" and triggers

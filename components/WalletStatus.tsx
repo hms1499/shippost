@@ -19,7 +19,7 @@ function shorten(addr: string): string {
  */
 export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
-  const { balances, isLoading } = useBalances();
+  const { balances, isLoading, isError } = useBalances();
   const isMiniPay = useIsMiniPay();
 
   if (!isConnected || !address) return null;
@@ -38,7 +38,11 @@ export function WalletStatus() {
       </div>
 
       <div className="flex items-center gap-4 text-sm">
-        {isLoading ? (
+        {isError ? (
+          <span className="text-xs font-sans text-muted-foreground">
+            Couldn&apos;t read balances on this chain.
+          </span>
+        ) : isLoading ? (
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 size={12} className="animate-spin" aria-hidden />
             Loading balances…
