@@ -297,6 +297,34 @@ export default function HomeClient() {
     }
   }, [resumeState, resumingRun]);
 
+  // While a paid run is on screen, the first back press should return into the
+  // app rather than close the webview, and a desktop reload should ask first.
+  // Neither is load-bearing: if both fail, the resume path still recovers the
+  // run. They exist so recovery is needed less often.
+  useEffect(() => {
+    if (screen !== 'generating') return;
+
+    const marker = { coinop: 'run' };
+    window.history.pushState(marker, '', window.location.href);
+
+    const onPopState = () => {
+      // Re-arm, so a second press is caught too. There is nowhere useful to go
+      // back to mid-run: every earlier screen is a form whose payload is spent.
+      window.history.pushState(marker, '', window.location.href);
+    };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [screen]);
+
   const autoConnectAttempted = useRef(false);
   // autoConnectAttempted is a one-way latch, so a retry button would do nothing
   // without both clearing it and giving the effect a reason to re-run.
