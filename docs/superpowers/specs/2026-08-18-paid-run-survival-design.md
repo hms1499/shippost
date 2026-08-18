@@ -65,10 +65,17 @@ A completed run leaves this in the row (`app/api/generate/stream/route.ts:233-24
 screen. Not stored: the coingecko step's tx hash and the per-step cost amounts,
 which reach the live UI only over SSE.
 
-**Accepted consequence:** a resumed run shows a slightly thinner receipt than one
-watched live — same tweets, same total spent, three of four step tx hashes. The
-alternative is persisting SSE events client-side, which buys detail on the
-receipt at the cost of a second source of truth for money. Not worth it.
+**Accepted consequence:** a resumed run shows a thinner receipt than one watched
+live — same tweets, same total spent, but no per-call breakdown. This is not a
+new branch to build: `settledCalls` skips any step without a `costAmount`
+(`lib/receiptText.ts:33`), and `PostShareScreen` already collapses an empty call
+list to a single `agent spend $X` line (`components/PostShareScreen.tsx:124-134`).
+The resume path passes `initialState.steps` and lets that existing fallback run.
+
+The rejected alternative is filling the gap with `X402_UNIT_COST_USD`. Every
+call does cost that constant today, so the number would usually be right — but
+printing a constant on a receipt beside real tx links is exactly the defect
+finding 7.1 documents. An honest omission beats a plausible fabrication.
 
 ## Decisions taken
 
@@ -154,10 +161,12 @@ export const dynamic = 'force-dynamic';   // never cached; a waiting user needs 
   CLAUDE.md the only allowlist. Reject → 400.
 - `threadId` must match `/^\d+$/`. Reject → 400.
 - Read-only, service-role Supabase, same as `app/api/public/threads/route.ts`.
-- 200 `{ status, tweets, topic, totalCostUsd, tokenSymbol, payTxHash, groqTxHash,
-  serperTxHash, factCheckTxHash, walletAddress }`; 404 when no row matches.
-  `topic` is included because `threadLabel({ mode, topic })`
-  (`lib/threadLabel.ts:48`) needs it to name the thread the way `/history` does.
+- 200 `{ status, tweets, topic, totalCostUsd, tokenSymbol, payTxHash,
+  walletAddress }`; 404 when no row matches. `topic` is included because
+  `threadLabel({ mode, topic })` (`lib/threadLabel.ts:48`) needs it to name the
+  thread the way `/history` does. The per-step tx hashes are deliberately **not**
+  returned: without their cost amounts the receipt cannot render them, so
+  shipping them would be dead payload.
 
 No new data is exposed: `/api/public/threads` already returns `tweets` with the
 wallet filter optional (`app/api/public/threads/route.ts:26`), so paid content is
@@ -196,7 +205,9 @@ Polling stops on unmount and never restarts a stream.
   Rebuild a `TokenConfig` from the stored `tokenSymbol` via `getTokens(chainId)`
   (`lib/tokens.ts:81`) for decimals, and take the **amount from the database
   row**, not from `computeTokenAmount()`. CLAUDE.md is explicit that a past
-  payment must never be derived from the head price.
+  payment must never be derived from the head price. `steps` is passed as
+  `initialState.steps` so the existing empty-calls fallback prints one honest
+  total line — `PostShareScreen` needs no change.
 
 The resumed screen states plainly that the run was already paid for, shows the
 thread id and pay tx, and says the agent kept working — the user's first question
