@@ -306,7 +306,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const maybeSingle = vi.fn();
 const eqChain = vi.fn(() => ({ eq: eqThread }));
 const eqThread = vi.fn(() => ({ maybeSingle }));
-const select = vi.fn(() => ({ eq: eqChain }));
+// Typed with its parameter: an untyped vi.fn() infers a zero-arg mock, so
+// `select.mock.calls[0][0]` is an empty tuple index and the column assertion
+// below fails `tsc --noEmit` (TS2352 + TS2493) while still passing at runtime.
+const select = vi.fn((_columns: string) => ({ eq: eqChain }));
 const from = vi.fn(() => ({ select }));
 
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer: () => ({ from }) }));
