@@ -21,6 +21,14 @@ export interface PaidRun {
   /** lowercased */
   wallet: string;
   startedAt: number;
+  /**
+   * What the user asked for, matching what the server stores as `topic`. Purely
+   * so the resume screen can say "your thread about X" instead of a mode name.
+   * Optional and NOT part of the shape check: records written before this field
+   * existed are still valid v1 records, and sweeping them would throw away a
+   * paid run over a cosmetic field.
+   */
+  topic?: string | null;
 }
 
 function isPaidRun(v: unknown): v is PaidRun {

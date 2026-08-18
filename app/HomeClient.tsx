@@ -493,6 +493,15 @@ export default function HomeClient() {
         const payToken =
           submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ??
           dailyRecap?.token ?? comparison?.token ?? newsBreakdown?.token ?? null;
+        // Same precedence the server uses when it writes `topic`
+        // (app/api/generate/stream/route.ts) — a resumed screen that named the
+        // thread differently from /history would read as a different thread.
+        const payTopic =
+          submitted?.topic ??
+          hotTake?.eventDescription ??
+          tokenAnalysis?.ticker ??
+          newsBreakdown?.eventDescription ??
+          (comparison ? `${comparison.aKey}|${comparison.bKey}` : null);
         if (txHash && address && payToken) {
           // Written before the SSE stream can finish, because the whole point is
           // surviving a client that does not live that long.
@@ -505,6 +514,7 @@ export default function HomeClient() {
             tokenSymbol: payToken.symbol,
             wallet: address.toLowerCase(),
             startedAt: Date.now(),
+            topic: payTopic,
           });
         }
       }

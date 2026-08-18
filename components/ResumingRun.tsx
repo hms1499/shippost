@@ -25,7 +25,7 @@ export function ResumingRun({
   state: ResumeState;
   onOpenHistory: () => void;
 }) {
-  const label = threadLabel({ mode: run.mode, topic: null });
+  const label = threadLabel({ mode: run.mode, topic: run.topic ?? null });
 
   return (
     <TerminalPanel title={`RESUMING RUN #${run.threadId}`} className="w-full max-w-md">

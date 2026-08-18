@@ -70,6 +70,19 @@ describe('paidRun storage', () => {
     expect(mem.has('coinop.paidRun.v1')).toBe(false);
   });
 
+  it('round-trips the topic when one was captured', () => {
+    savePaidRun({ ...RUN, topic: 'zk rollups' });
+    expect(loadPaidRun()?.topic).toBe('zk rollups');
+  });
+
+  it('still loads a record written before topic existed', () => {
+    // Records already sitting in real users' storage have no topic field, and
+    // the schema version did not change — they must not be swept as corrupt.
+    mem.set('coinop.paidRun.v1', JSON.stringify(RUN));
+    expect(loadPaidRun()).toEqual(RUN);
+    expect(mem.has('coinop.paidRun.v1')).toBe(true);
+  });
+
   it('leaves a valid record in place when it is read', () => {
     savePaidRun(RUN);
     expect(loadPaidRun()).toEqual(RUN);
