@@ -6,8 +6,8 @@ import { initialState, applyEvent } from '@/lib/threadGeneration';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 
-// Canned Mode-B run replayed through the REAL reducer — the landing demo is
-// the actual generating screen, not a mock. Loops forever; costs nothing.
+// Canned Mode-B run through the real reducer. Plays once and holds the
+// finished frame — a loop next to the free-taste form is noise.
 const SCRIPT: { at: number; e: PipelineEvent }[] = [
   { at: 400,  e: { type: 'started' } },
   { at: 900,  e: { type: 'step_started', step: 'serper' } },
@@ -20,35 +20,21 @@ const SCRIPT: { at: number; e: PipelineEvent }[] = [
   { at: 9200, e: { type: 'step_settled', step: 'factCheck', txHash: '0x0', costAmount: '0.001', tokenSymbol: 'cUSD' } },
   { at: 9700, e: { type: 'done', totalCostUsd: '0.017' } },
 ];
-const LOOP_MS = 12_000;
 
 export function AgentTraceReplay() {
   const [state, setState] = useState<ThreadGenerationState>(initialState);
-  const [cycle, setCycle] = useState(0);
 
   useEffect(() => {
     const timers = SCRIPT.map(({ at, e }) =>
       setTimeout(() => setState((s) => applyEvent(s, e)), at),
     );
-    const loop = setTimeout(() => {
-      setState(initialState);
-      setCycle((c) => c + 1);
-    }, LOOP_MS);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(loop);
-    };
-  }, [cycle]);
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   return (
     <div
-      key={cycle}
       aria-hidden
       className="pointer-events-none select-none"
-      // React 18's DOM types/reconciler don't know the `inert` IDL attribute,
-      // so setting it via JSX props is unreliable. Set it imperatively on
-      // mount instead — this is what actually strips the subtree from the
-      // tab order and the accessibility tree (aria-hidden alone does not).
       ref={(el) => {
         if (el) el.inert = true;
       }}
@@ -56,9 +42,10 @@ export function AgentTraceReplay() {
       <AgentTrace
         gen={state}
         payTxHash={null}
-        threadId={4821n}
-        chainExplorerBase="https://celoscan.io"
+        threadId={null}
+        chainExplorerBase="https://basescan.org"
         agentWalletAddress="0x0000000000000000000000000000000000000000"
+        demo
       />
     </div>
   );

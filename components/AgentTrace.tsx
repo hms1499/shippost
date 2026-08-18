@@ -35,6 +35,8 @@ interface Props {
   threadId: bigint | null;
   chainExplorerBase: string;
   agentWalletAddress: string;
+  /** Canned landing replay — no fake thread id, no explorer links. */
+  demo?: boolean;
 }
 
 function totalSpent(gen: ThreadGenerationState): string {
@@ -54,6 +56,7 @@ export function AgentTrace({
   threadId,
   chainExplorerBase,
   agentWalletAddress,
+  demo = false,
 }: Props) {
   const reduced = useReducedMotion();
   const [lines, setLines] = useState<TraceLine[]>([]);
@@ -74,18 +77,20 @@ export function AgentTrace({
 
   const activeSteps = ORDER.filter((id) => gen.steps[id].status !== 'pending');
   const groq = gen.steps.groq;
-  const payLabel = payTxHash
-    ? PAY_LABEL.success
-    : payStatus
-      ? PAY_LABEL[payStatus]
-      : 'payment pending';
+  const payLabel = demo
+    ? 'demo · no payment'
+    : payTxHash
+      ? PAY_LABEL.success
+      : payStatus
+        ? PAY_LABEL[payStatus]
+        : 'payment pending';
 
   return (
     <TerminalPanel className="w-full max-w-md" title={undefined}>
       {/* Header: thread id + running spend total (amber) */}
       <div className="flex items-center justify-between heading-sub text-[10px] mb-3">
         <span>
-          THREAD{threadId !== null ? ` #${threadId.toString()}` : ''}
+          {demo ? 'DEMO' : `THREAD${threadId !== null ? ` #${threadId.toString()}` : ''}`}
         </span>
         <span className="text-money normal-case tracking-normal font-mono">
           SPENT ${totalSpent(gen)}
@@ -161,16 +166,18 @@ export function AgentTrace({
         </p>
       )}
 
-      <div className="mt-3 flex flex-col gap-1 text-[11px] font-mono">
-        <a
-          className="text-muted-foreground"
-          href={`${chainExplorerBase}/address/${agentWalletAddress}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          agent wallet on explorer →
-        </a>
-      </div>
+      {!demo && (
+        <div className="mt-3 flex flex-col gap-1 text-[11px] font-mono">
+          <a
+            className="text-muted-foreground"
+            href={`${chainExplorerBase}/address/${agentWalletAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            agent wallet on explorer →
+          </a>
+        </div>
+      )}
     </TerminalPanel>
   );
 }
