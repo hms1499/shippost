@@ -50,12 +50,31 @@ Established by reading the code, and it bounds the fix:
 | Concern | Reality | Evidence |
 |---|---|---|
 | Money lost | No — on chain, permanent tx hash | on-chain |
-| Server dies too | No — the route runs to completion and writes the result | route is server-side |
+| Server dies too | Not any more — **but it did until `0f21…`**, see below | route is server-side |
 | Re-running double-charges | No — unique constraint on the payment returns `409 thread already generated` | `app/api/generate/stream/route.ts:127-160` |
 | Thread lost | No — recoverable in `/history` | `components/HistoryList.tsx` |
 
 The thread survives on the server; only the client's way back to it is missing.
-So the fix is **remember, then fetch** — never re-run. Re-running is not merely
+So the fix is **remember, then fetch** — never re-run.
+
+> **Correction, 2026-08-18, found by a real reload on Base thread `#1000003`.**
+> The row above was wrong when this spec was written. `controller.enqueue` in
+> the route's `emit` was unguarded, so the first event after the browser left
+> threw `Invalid state: Controller is already closed`, and that throw travelled
+> into the catch: a paid run with a settled Groq call was recorded `failed`
+> with no tweets. **The disconnect manufactured the failure it was supposed to
+> survive**, which made the resume path correct on paper and useless in
+> practice — it could only ever find a `failed` row.
+>
+> Fixed by making `emit` a no-op once the client is gone, and guarding the
+> `controller.close()` in `finally`. Locked by
+> `app/api/generate/stream/route.test.ts` → *"finishes a run whose client
+> disappeared mid-stream"*, which fails with `expected 'failed' to be
+> 'completed'` when the guard is removed.
+>
+> The lesson for the verification plan below: it was written to exercise resume
+> against a thread that was **already** `completed`. That proves the read, the
+> poll and the render, and never touches the one path the feature exists for. Re-running is not merely
 wasteful, it is rejected: the server answers 409.
 
 A completed run leaves this in the row (`app/api/generate/stream/route.ts:233-245`):

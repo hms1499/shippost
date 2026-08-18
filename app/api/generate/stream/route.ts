@@ -171,6 +171,14 @@ export async function POST(req: Request) {
       let capturedTweets: string[] | null = null;
       let groqSettleChainId: number | null = null;
 
+      // The browser can leave at any moment — reload, Android back gesture, or
+      // the webview being reclaimed. Once it does, `controller.enqueue` throws
+      // and, unguarded, that throw travelled up through the pipeline into the
+      // catch below: a run the user had already paid for, with a settled Groq
+      // call, written off as `failed` with no tweets. The disconnect itself
+      // manufactured the failure. Now it only ends the streaming, never the run.
+      let clientGone = false;
+
       const emit = (e: PipelineEvent) => {
         if (e.type === 'step_settled' && e.step !== 'coingecko' && e.txHash !== '0x0') {
           if (e.step === 'groq' || e.step === 'serper' || e.step === 'factCheck') {
@@ -187,7 +195,17 @@ export async function POST(req: Request) {
         ) {
           capturedTweets = e.output as string[];
         }
-        controller.enqueue(encoder.encode(sseLine(e)));
+        // Bookkeeping above always runs: it is what lets the DB write below
+        // record the settled tx hashes and the tweets even with nobody watching.
+        if (clientGone) return;
+        try {
+          controller.enqueue(encoder.encode(sseLine(e)));
+        } catch {
+          // Nobody is listening any more. Keep generating — the thread is paid
+          // for, and it still has to reach the database, where /history and the
+          // resume path both look for it.
+          clientGone = true;
+        }
       };
 
       // Flush an initial byte so Vercel's 25s first-byte timeout doesn't
@@ -276,7 +294,12 @@ export async function POST(req: Request) {
 
         emit({ type: 'fatal', error: msg });
       } finally {
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Already closed by the client going away. Closing twice throws, and
+          // this one would land in the middle of the failure path.
+        }
       }
     },
   });

@@ -198,6 +198,12 @@ diagnosed afterwards from the row.
 - **A client that died between the payment landing and the first
   `/api/generate/stream` request has no row to find.** It polls for three
   minutes, then points at history. That case is the refund path, not a resume.
+- **Test 10 is the only test that could have caught the biggest bug in this
+  feature.** Until 2026-08-18 a disconnect killed the run server-side: the
+  first event emitted after the browser left threw on a closed stream
+  controller and the run was recorded `failed`. Resume then had nothing to
+  recover. Tests 1-9 all pass against an already-completed thread and cannot
+  see this. **If you change anything in the resume path, run test 10.**
 - **The back-press and reload guards are not load-bearing.** Neither `popstate`
   nor `beforeunload` is reliable in an Android webview, and an OS-reclaimed
   process fires neither. They reduce how often recovery is needed; the resume

@@ -216,6 +216,57 @@ describe('POST /api/generate/stream', () => {
       expect(updates[0].tweets).toEqual(['tweet 1', 'tweet 2']);
       expect(updates[0].total_cost_usd).toBe(MODE_A_TOTAL_COST_USD);
     });
+
+    // The user reloads, swipes back, or the webview is reclaimed mid-run. The
+    // browser is gone but the money is not: the run must finish and land in the
+    // database, where /history and the resume path can both find it. Before
+    // this was guarded, the first emit after the disconnect threw
+    // "Invalid state: Controller is already closed" and a paid run with a
+    // settled Groq call was written off as failed with no tweets.
+    it('finishes a run whose client disappeared mid-stream', async () => {
+      const { client, updates } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+
+      let releaseClientGone!: () => void;
+      const clientGone = new Promise<void>((resolve) => {
+        releaseClientGone = resolve;
+      });
+
+      runModeA.mockImplementation(
+        async (
+          _ctx: unknown,
+          emit: (e: import('@/lib/pipeline/types').PipelineEvent) => void,
+        ) => {
+          await clientGone;
+          // Same order the real pipeline uses: settle, then hand over content.
+          emit({
+            type: 'step_settled',
+            step: 'groq',
+            txHash: '0xdead',
+            costAmount: '0.001',
+            tokenSymbol: 'cUSD',
+            chainId: CHAIN_ID,
+          });
+          emit({ type: 'step_output', step: 'groq', output: { final: true, tweets: ['tweet 1', 'tweet 2'] } });
+          return {
+            tweets: ['tweet 1', 'tweet 2'],
+            searchSummary: null,
+            totalCostUsd: MODE_A_TOTAL_COST_USD,
+          };
+        },
+      );
+
+      const res = await POST(postReq(bodyA));
+      // Exactly what a reload does to the response body.
+      await res.body!.cancel();
+      releaseClientGone();
+
+      await vi.waitFor(() => expect(updates).toHaveLength(1));
+      expect(updates[0].status).toBe('completed');
+      expect(updates[0].tweets).toEqual(['tweet 1', 'tweet 2']);
+      // Bookkeeping inside emit must survive too, or the receipt loses the tx.
+      expect(updates[0].groq_tx_hash).toBe('0xdead');
+    });
   });
 
   describe('happy path (Mode B)', () => {
