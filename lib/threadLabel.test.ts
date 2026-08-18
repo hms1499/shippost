@@ -9,14 +9,18 @@ describe('threadLabel', () => {
 
   it('trims and ignores whitespace-only topics', () => {
     expect(threadLabel({ mode: 0, topic: '  spaced  ' })).toBe('spaced');
-    expect(threadLabel({ mode: 0, topic: '   ' })).toBe('Untitled thread');
+    // Whitespace-only is the same as absent, so this takes the mode fallback.
+    expect(threadLabel({ mode: 0, topic: '   ' })).toBe('Educational Thread');
   });
 
   it('falls back to a per-mode label when the topic is null', () => {
     expect(threadLabel({ mode: 3, topic: null })).toBe('Daily Recap');
     expect(threadLabel({ mode: 1, topic: null })).toBe('Hot Take');
     expect(threadLabel({ mode: 2, topic: null })).toBe('Token Analysis');
-    expect(threadLabel({ mode: 0, topic: null })).toBe('Untitled thread');
+    // Mode 0 used to land on 'Untitled thread' — a real mode rendered as if it
+    // did not exist. Latent while every Educational row carried a topic; the
+    // resume screen, which has no topic to pass, surfaced it.
+    expect(threadLabel({ mode: 0, topic: null })).toBe('Educational Thread');
   });
 
   it('falls back to "Untitled thread" for an unknown mode with no topic', () => {

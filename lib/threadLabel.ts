@@ -6,6 +6,7 @@ import { CHAINS } from '@/lib/prompts/comparison';
 // row that reads as broken data. Prefer the topic when present; otherwise fall
 // back to the mode's name.
 const MODE_FALLBACK: Record<number, string> = {
+  0: 'Educational Thread',
   1: 'Hot Take',
   2: 'Token Analysis',
   3: 'Daily Recap',
