@@ -48,15 +48,28 @@ export function savePaidRun(run: PaidRun): void {
 }
 
 export function loadPaidRun(): PaidRun | null {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    return isPaidRun(parsed) ? parsed : null;
+    raw = localStorage.getItem(KEY);
   } catch {
-    // Unreadable or unparseable is the same as absent — never a crash.
+    // Storage unreadable is the same as absent — never a crash.
     return null;
   }
+  if (!raw) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (isPaidRun(parsed)) return parsed;
+  } catch {
+    // fall through and sweep
+  }
+
+  // Unparseable, or written by a shape we no longer understand. Sweep it here:
+  // the caller cannot tell this apart from "nothing saved", so if this function
+  // does not clean up after itself, nothing ever will and the junk outlives
+  // every other rejection path.
+  clearPaidRun();
+  return null;
 }
 
 export function clearPaidRun(): void {

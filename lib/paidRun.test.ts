@@ -56,14 +56,24 @@ describe('paidRun storage', () => {
     expect(loadPaidRun()).toBeNull();
   });
 
-  it('treats malformed JSON as absent', () => {
+  it('treats malformed JSON as absent and sweeps it', () => {
     mem.set('coinop.paidRun.v1', '{not json');
     expect(loadPaidRun()).toBeNull();
+    // Every other rejection path clears the key. A corrupt entry that lingers
+    // is the one kind of junk nothing else ever removes.
+    expect(mem.has('coinop.paidRun.v1')).toBe(false);
   });
 
-  it('treats a record missing required fields as absent', () => {
+  it('treats a record missing required fields as absent and sweeps it', () => {
     mem.set('coinop.paidRun.v1', JSON.stringify({ v: 1, chainId: 42220 }));
     expect(loadPaidRun()).toBeNull();
+    expect(mem.has('coinop.paidRun.v1')).toBe(false);
+  });
+
+  it('leaves a valid record in place when it is read', () => {
+    savePaidRun(RUN);
+    expect(loadPaidRun()).toEqual(RUN);
+    expect(mem.has('coinop.paidRun.v1')).toBe(true);
   });
 
   it('survives localStorage throwing on read and on write', () => {
