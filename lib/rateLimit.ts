@@ -227,19 +227,22 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
 
 // Guest landing: burst first so a cache hit never spends daily budget, then
 // daily-IP + guest-global (not the connected 500/day). Fail-closed.
+// Tagged rather than a bare union: `'allowed' in lims` cannot narrow away a
+// Record<string, Ratelimit>, because an index signature may carry that key too.
+// The tag makes the two outcomes actually distinguishable to the compiler.
 async function guestLimiters(
   names: Array<'guest-preview-ip' | 'guest-preview-ip-day' | 'guest-preview-global'>,
-): Promise<PreviewGate | Record<string, Ratelimit>> {
+): Promise<{ gate: PreviewGate } | { limiters: Record<string, Ratelimit> }> {
   const got: Partial<Record<(typeof names)[number], Ratelimit>> = {};
   for (const name of names) {
     const lim = getLimiter(name);
     if (!lim) {
       alertPreviewOutage('upstash-env-missing');
-      return { allowed: false, reason: 'unavailable' };
+      return { gate: { allowed: false, reason: 'unavailable' } };
     }
     got[name] = lim;
   }
-  return got as Record<string, Ratelimit>;
+  return { limiters: got as Record<string, Ratelimit> };
 }
 
 function guestGateError(e: unknown): PreviewGate {
@@ -253,9 +256,9 @@ function guestGateError(e: unknown): PreviewGate {
 
 export async function checkPreviewGuestBurst(ip: string): Promise<PreviewGate> {
   const lims = await guestLimiters(['guest-preview-ip']);
-  if ('allowed' in lims) return lims;
+  if ('gate' in lims) return lims.gate;
   try {
-    const i = await lims['guest-preview-ip'].limit(`ip:${ip}`);
+    const i = await lims.limiters['guest-preview-ip'].limit(`ip:${ip}`);
     if (!i.success) return { allowed: false, reason: 'ip' };
     return { allowed: true };
   } catch (e) {
@@ -265,11 +268,11 @@ export async function checkPreviewGuestBurst(ip: string): Promise<PreviewGate> {
 
 export async function checkPreviewGuestBudget(ip: string): Promise<PreviewGate> {
   const lims = await guestLimiters(['guest-preview-ip-day', 'guest-preview-global']);
-  if ('allowed' in lims) return lims;
+  if ('gate' in lims) return lims.gate;
   try {
-    const day = await lims['guest-preview-ip-day'].limit(`ip-day:${ip}`);
+    const day = await lims.limiters['guest-preview-ip-day'].limit(`ip-day:${ip}`);
     if (!day.success) return { allowed: false, reason: 'ip' };
-    const g = await lims['guest-preview-global'].limit('global');
+    const g = await lims.limiters['guest-preview-global'].limit('global');
     if (!g.success) return { allowed: false, reason: 'global' };
     return { allowed: true };
   } catch (e) {
