@@ -161,8 +161,11 @@ export const dynamic = 'force-dynamic';   // never cached; a waiting user needs 
   CLAUDE.md the only allowlist. Reject → 400.
 - `threadId` must match `/^\d+$/`. Reject → 400.
 - Read-only, service-role Supabase, same as `app/api/public/threads/route.ts`.
-- 200 `{ status, tweets, topic, totalCostUsd, tokenSymbol, payTxHash,
-  walletAddress }`; 404 when no row matches. `topic` is included because
+- 200 `{ status, tweets, topic, amountPaidRaw, totalCostUsd, tokenSymbol,
+  payTxHash, walletAddress }`; 404 when no row matches. `amountPaidRaw` is the
+  row's `amount_paid_raw`, written from the **on-chain verified** amount
+  (`app/api/generate/stream/route.ts:133`) — it is what makes a resumed receipt
+  able to state the price without reading the head price. `topic` is included because
   `threadLabel({ mode, topic })` (`lib/threadLabel.ts:48`) needs it to name the
   thread the way `/history` does. The per-step tx hashes are deliberately **not**
   returned: without their cost amounts the receipt cannot render them, so
@@ -205,9 +208,11 @@ Polling stops on unmount and never restarts a stream.
   Rebuild a `TokenConfig` from the stored `tokenSymbol` via `getTokens(chainId)`
   (`lib/tokens.ts:81`) for decimals, and take the **amount from the database
   row**, not from `computeTokenAmount()`. CLAUDE.md is explicit that a past
-  payment must never be derived from the head price. `steps` is passed as
-  `initialState.steps` so the existing empty-calls fallback prints one honest
-  total line — `PostShareScreen` needs no change.
+  payment must never be derived from the head price. Likewise `agentSpentUsd`
+  comes from the row's `total_cost_usd`, never from the `'0.001'` fallback the
+  live path uses. `steps` is passed as `initialState.steps` so the existing
+  empty-calls fallback prints one honest total line — `PostShareScreen` needs no
+  change.
 
 The resumed screen states plainly that the run was already paid for, shows the
 thread id and pay tx, and says the agent kept working — the user's first question
