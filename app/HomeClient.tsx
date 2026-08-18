@@ -41,7 +41,7 @@ import { track, captureSource } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
-import { computeTokenAmount, type TokenSymbol } from '@/lib/tokens';
+import { computeTokenAmount, getTokens, type TokenSymbol } from '@/lib/tokens';
 import { useBalances } from '@/lib/useBalances';
 import { reselectTokenForChain } from '@/lib/chainChoice';
 import { describeSwitchError } from '@/lib/payError';
@@ -55,6 +55,10 @@ import {
 } from '@/lib/chainPolicy';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
 import { peekGuestTopic } from '@/lib/guestSession';
+import { savePaidRun, loadPaidRun, clearPaidRun, isResumable, type PaidRun } from '@/lib/paidRun';
+import { useResumeRun } from '@/hooks/useResumeRun';
+import { ResumingRun } from '@/components/ResumingRun';
+import { initialState as initialGenState } from '@/lib/threadGeneration';
 import { fetchSpendReadiness, type SpendBlockReason } from '@/lib/preflight';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { CHAINS } from '@/lib/prompts/comparison';
@@ -181,9 +185,26 @@ export default function HomeClient() {
   // Why the preflight stopped this run before charging. Only set alongside the
   // 'spend-unavailable' screen.
   const [spendBlockReason, setSpendBlockReason] = useState<SpendBlockReason | null>(null);
+  // Held in state, not recomputed each render, because useResumeRun keys its
+  // effect on this object's identity — an inline value would restart the poll
+  // on every render.
+  const [resumingRun, setResumingRun] = useState<PaidRun | null>(null);
+  // The row's own numbers for a resumed receipt. Null during a live run, where
+  // the SSE stream supplies them instead.
+  const [resumedReceipt, setResumedReceipt] = useState<
+    { amountPaidRaw: string | null; totalCostUsd: string } | null
+  >(null);
+  const restoreAttempted = useRef(false);
+  const resumeApplied = useRef(false);
 
   const activeToken =
     submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
+  // A resumed run has no payload, so the token comes back from storage. Config
+  // supplies the DECIMALS only — the amount comes from the row, below.
+  const resumedToken = resumingRun
+    ? (getTokens(resumingRun.chainId)[resumingRun.tokenSymbol as TokenSymbol] ?? null)
+    : null;
+  const receiptToken = activeToken ?? resumedToken;
   // Which form to return to when a run is handed back to the user (currently
   // only 'preview-unavailable'). Same precedence as `unlock()`'s mode pick.
   const inputScreenForActiveMode: Screen = submitted
@@ -215,6 +236,11 @@ export default function HomeClient() {
       setDailyRecap(null);
       setComparison(null);
       setDraftTweets(null);
+      // A run belongs to a wallet, and the wallet just left.
+      clearPaidRun();
+      setResumingRun(null);
+      setResumedReceipt(null);
+      resumeApplied.current = false;
       setPreviewData(null);
       setPreviewLoading(false);
       reset();
@@ -226,6 +252,50 @@ export default function HomeClient() {
     }
     prevConnected.current = isConnected;
   }, [isConnected, reset, resetGen, chainId, address]);
+
+  // Reopening onto a paid run. One shot, latched by a ref: a user who moves on
+  // from the resume screen must not be dragged back into it on a later render.
+  useEffect(() => {
+    if (!mounted || !isConnected || !address) return;
+    if (restoreAttempted.current) return;
+    restoreAttempted.current = true;
+
+    const saved = loadPaidRun();
+    if (!saved) return;
+    if (!isResumable(saved, { now: Date.now(), wallet: address, chainId })) {
+      // Wrong wallet, wrong chain, or too old to be this session's problem.
+      clearPaidRun();
+      return;
+    }
+    setResumingRun(saved);
+    setScreen('resuming');
+  }, [mounted, isConnected, address, chainId]);
+
+  const resumeState = useResumeRun(resumingRun);
+
+  // A resumed run rejoins the ordinary flow rather than growing a parallel one:
+  // same preview screen, same downstream states.
+  useEffect(() => {
+    if (!resumingRun || resumeApplied.current) return;
+    if (resumeState.state === 'done') {
+      resumeApplied.current = true;
+      setDraftTweets(resumeState.tweets);
+      setResumedReceipt({
+        amountPaidRaw: resumeState.amountPaidRaw,
+        totalCostUsd: resumeState.totalCostUsd,
+      });
+      setScreen('preview');
+      // The thread has been handed back; storage has done its job. resumingRun
+      // itself is deliberately KEPT — post-share still reads the token symbol
+      // and thread id from it, and the poll has already stopped.
+      clearPaidRun();
+    } else if (resumeState.state === 'failed') {
+      resumeApplied.current = true;
+      setScreen('mode');
+      clearPaidRun();
+      setResumingRun(null);
+    }
+  }, [resumeState, resumingRun]);
 
   const autoConnectAttempted = useRef(false);
   // autoConnectAttempted is a one-way latch, so a retry button would do nothing
@@ -392,9 +462,26 @@ export default function HomeClient() {
         const mode: 0 | 1 | 2 | 3 | 4 | 5 =
           submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
         track('pay', { mode, chainId, wallet: address ?? undefined });
+        const payToken =
+          submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ??
+          dailyRecap?.token ?? comparison?.token ?? newsBreakdown?.token ?? null;
+        if (txHash && address && payToken) {
+          // Written before the SSE stream can finish, because the whole point is
+          // surviving a client that does not live that long.
+          savePaidRun({
+            v: 1,
+            chainId,
+            threadId: key,
+            payTxHash: txHash,
+            mode,
+            tokenSymbol: payToken.symbol,
+            wallet: address.toLowerCase(),
+            startedAt: Date.now(),
+          });
+        }
       }
     }
-  }, [status, threadId, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
+  }, [status, threadId, txHash, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
@@ -839,6 +926,14 @@ export default function HomeClient() {
           ← Back
         </button>
       </section>
+    ) : screen === 'resuming' && resumingRun ? (
+      <ResumingRun
+        run={resumingRun}
+        state={resumeState}
+        onOpenHistory={() => {
+          window.location.href = '/history';
+        }}
+      />
     ) : screen === 'generating' ? (
       <AgentTrace
         gen={gen}
@@ -892,20 +987,39 @@ export default function HomeClient() {
           <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
         </StaggerItem>
       </Stagger>
-    ) : screen === 'post-share' && activeToken ? (
+    ) : screen === 'post-share' && receiptToken ? (
       <PostShareScreen
-        threadId={threadId}
-        paidAmountUsd={Number(
-          formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
-        ).toFixed(3)}
-        agentSpentUsd={gen.totalCostUsd ?? '0.001'}
-        tokenSymbol={activeToken.symbol}
-        payTxHash={txHash}
-        steps={gen.steps}
+        threadId={threadId ?? (resumingRun ? BigInt(resumingRun.threadId) : null)}
+        paidAmountUsd={
+          // The row's amount is the on-chain VERIFIED one. Only when it is
+          // absent does this fall back to the head price — which is exactly what
+          // the live path already does today (audit finding 6.4/7.1, fixed in a
+          // separate pass). This never makes the live path worse and makes the
+          // resumed path right whenever the data exists.
+          resumedReceipt?.amountPaidRaw
+            ? Number(
+                formatUnits(BigInt(resumedReceipt.amountPaidRaw), receiptToken.decimals),
+              ).toFixed(3)
+            : Number(
+                formatUnits(computeTokenAmount(receiptToken), receiptToken.decimals),
+              ).toFixed(3)
+        }
+        agentSpentUsd={gen.totalCostUsd ?? resumedReceipt?.totalCostUsd ?? '0.001'}
+        tokenSymbol={receiptToken.symbol}
+        payTxHash={txHash ?? resumingRun?.payTxHash ?? null}
+        // No live run means no per-step costs were ever streamed, and the
+        // database never stored any. settledCalls drops cost-less steps, so
+        // PostShareScreen prints its single `agent spend` line instead of
+        // per-call rows invented from X402_UNIT_COST_USD.
+        steps={gen.hasStarted ? gen.steps : initialGenState.steps}
         agentWalletAddress={getContracts(chainId).AgentWallet}
         explorerBase={explorerBase(chainId)}
         onReceiptCopied={() => track('receipt_copied', { chainId, wallet: address ?? undefined })}
         onWriteAnother={() => {
+          clearPaidRun();
+          setResumingRun(null);
+          setResumedReceipt(null);
+          resumeApplied.current = false;
           reset();
           resetGen();
           setDraftTweets(null);
@@ -952,6 +1066,10 @@ export default function HomeClient() {
           detail={error}
           onRetry={() => {
             const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
+            clearPaidRun();
+            setResumingRun(null);
+            setResumedReceipt(null);
+            resumeApplied.current = false;
             reset();
             resetGen();
             setDraftTweets(null);
@@ -993,6 +1111,10 @@ export default function HomeClient() {
         <Button
           variant="outline"
           onClick={() => {
+            clearPaidRun();
+            setResumingRun(null);
+            setResumedReceipt(null);
+            resumeApplied.current = false;
             reset();
             resetGen();
             setDraftTweets(null);
