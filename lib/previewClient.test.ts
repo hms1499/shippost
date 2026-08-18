@@ -34,14 +34,23 @@ describe('fetchGuestPreview', () => {
       sentBody = String(init.body);
       return { ok: true, json: async () => ({ firstTweet: 'hi', totalTweets: 5 }) };
     }));
-    expect(await fetchGuestPreview('zk rollups')).toEqual({ firstTweet: 'hi', totalTweets: 5 });
+    expect(await fetchGuestPreview('zk rollups')).toEqual({
+      status: 'ok',
+      firstTweet: 'hi',
+      totalTweets: 5,
+    });
     const body = JSON.parse(sentBody);
     expect(body).toEqual({ mode: 0, topic: 'zk rollups', audience: 'beginner' });
     expect(body).not.toHaveProperty('walletAddress');
   });
 
-  it('returns null on any failure (fail-soft to connect)', async () => {
+  it('reports limited when the gate denies (available: false)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ available: false }) })));
-    expect(await fetchGuestPreview('t')).toBeNull();
+    expect(await fetchGuestPreview('t')).toEqual({ status: 'limited' });
+  });
+
+  it('reports error on a 502', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({ error: 'x' }) })));
+    expect(await fetchGuestPreview('t')).toEqual({ status: 'error' });
   });
 });

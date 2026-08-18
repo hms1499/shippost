@@ -54,6 +54,7 @@ import {
   chainLabel,
 } from '@/lib/chainPolicy';
 import { fetchPreview, type PreviewArgs } from '@/lib/previewClient';
+import { peekGuestTopic } from '@/lib/guestSession';
 import { fetchSpendReadiness, type SpendBlockReason } from '@/lib/preflight';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { CHAINS } from '@/lib/prompts/comparison';
@@ -221,6 +222,7 @@ export default function HomeClient() {
     }
     if (!prevConnected.current && isConnected) {
       track('connect', { chainId, wallet: address ?? undefined });
+      if (peekGuestTopic()) setScreen('educational');
     }
     prevConnected.current = isConnected;
   }, [isConnected, reset, resetGen, chainId, address]);

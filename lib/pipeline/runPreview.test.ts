@@ -51,6 +51,18 @@ describe('runPreview', () => {
     expect(generateTweets).toHaveBeenCalledOnce();
   });
 
+  it('Mode A guest: skipGrounding drafts without Serper', async () => {
+    const out = await runPreview({
+      mode: 0,
+      topic: 'EIP-712',
+      audience: 'beginner',
+      skipGrounding: true,
+    });
+    expect(out.tweets).toHaveLength(2);
+    expect(fetchSerper).not.toHaveBeenCalled();
+    expect(generateTweets).toHaveBeenCalledOnce();
+  });
+
   it('Mode B: runs grounding (serper + coingecko) then generates', async () => {
     fetchSerper.mockResolvedValue({ query: 'q', organic: [], newsSnippet: null });
     fetchCoinGecko.mockResolvedValue({ symbol: null, priceUsd: null, change24hPct: null, marketCapUsd: null });

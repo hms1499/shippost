@@ -10,6 +10,7 @@ import { TokenSelector } from './TokenSelector';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
 import { highestValue } from '@/lib/chainChoice';
+import { takeGuestTopic } from '@/lib/guestSession';
 import { formatUnits } from 'viem';
 
 export interface EducationalSubmitPayload {
@@ -34,7 +35,7 @@ const AUDIENCE_OPTIONS = [
 
 export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Props) {
   const { balances, isLoading } = useBalances();
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(() => takeGuestTopic() ?? '');
   const [audience, setAudience] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
 
   const defaultToken = useMemo(() => {

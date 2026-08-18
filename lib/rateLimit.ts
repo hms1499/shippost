@@ -8,6 +8,9 @@ export type LimiterName =
   | 'free-preview'
   | 'free-preview-ip'
   | 'free-preview-global'
+  | 'guest-preview-ip'
+  | 'guest-preview-ip-day'
+  | 'guest-preview-global'
   | 'funnel-ingest'
   | 'paymaster';
 
@@ -18,8 +21,10 @@ export interface RateLimitResult {
   reset: number; // unix ms when the window resets
 }
 
-// Global daily cap protects the Serper free tier (env-tunable).
+// Global daily cap for *connected* previews (env-tunable). Guest traffic has
+// its own, smaller budget so a botnet cannot starve the pay funnel.
 const PREVIEW_DAILY_CAP = Number(process.env.PREVIEW_DAILY_CAP) || 500;
+const GUEST_PREVIEW_DAILY_CAP = Number(process.env.GUEST_PREVIEW_DAILY_CAP) || 120;
 
 // Per-route sliding-window budgets. url-preview is stricter because it makes an
 // outbound server-side fetch.
@@ -33,6 +38,12 @@ const LIMITS: Record<LimiterName, { tokens: number; window: `${number} s` }> = {
   // NAT (a few real users behind one IP).
   'free-preview-ip': { tokens: 10, window: '600 s' },
   'free-preview-global': { tokens: PREVIEW_DAILY_CAP, window: '86400 s' },
+  // Guest landing: tighter than connected. Burst matches the per-wallet cap;
+  // daily-IP stops a single address rotating through the 10-minute window;
+  // guest-global is separate so bots cannot spend the connected 500/day.
+  'guest-preview-ip': { tokens: 3, window: '600 s' },
+  'guest-preview-ip-day': { tokens: 5, window: '86400 s' },
+  'guest-preview-global': { tokens: GUEST_PREVIEW_DAILY_CAP, window: '86400 s' },
   'funnel-ingest': { tokens: 60, window: '60 s' },
   // A wallet asks twice per bundle (stub, then real data), so one thread is 2
   // requests. 20/min leaves room for retries while bounding how much reverted
@@ -214,31 +225,60 @@ export async function checkPreviewAllowed(walletAddress: string, ip: string): Pr
   }
 }
 
-// Guest variant for the pre-connect landing taste: no wallet exists yet, so we
-// gate on per-IP + the global daily budget only. runPreview stays settle-free
-// (no x402, no agent spend, no persisted row), so relaxing identity adds no new
-// spend path — the per-IP + global caps are the whole abuse bound. Same
-// fail-CLOSED discipline as checkPreviewAllowed, and per-IP runs first so a
-// request we'd reject never depletes the shared global budget.
-export async function checkPreviewGuestAllowed(ip: string): Promise<PreviewGate> {
-  const perIp = getLimiter('free-preview-ip');
-  const global = getLimiter('free-preview-global');
-  if (!perIp || !global) {
-    alertPreviewOutage('upstash-env-missing');
-    return { allowed: false, reason: 'unavailable' };
+// Guest landing: burst first so a cache hit never spends daily budget, then
+// daily-IP + guest-global (not the connected 500/day). Fail-closed.
+async function guestLimiters(
+  names: Array<'guest-preview-ip' | 'guest-preview-ip-day' | 'guest-preview-global'>,
+): Promise<PreviewGate | Record<string, Ratelimit>> {
+  const got: Partial<Record<(typeof names)[number], Ratelimit>> = {};
+  for (const name of names) {
+    const lim = getLimiter(name);
+    if (!lim) {
+      alertPreviewOutage('upstash-env-missing');
+      return { allowed: false, reason: 'unavailable' };
+    }
+    got[name] = lim;
   }
+  return got as Record<string, Ratelimit>;
+}
+
+function guestGateError(e: unknown): PreviewGate {
+  console.error(
+    '[rateLimit] guest preview gate error — failing closed:',
+    e instanceof Error ? e.message : e,
+  );
+  alertPreviewOutage('limiter-error', e);
+  return { allowed: false, reason: 'unavailable' };
+}
+
+export async function checkPreviewGuestBurst(ip: string): Promise<PreviewGate> {
+  const lims = await guestLimiters(['guest-preview-ip']);
+  if ('allowed' in lims) return lims;
   try {
-    const i = await perIp.limit(`ip:${ip}`);
+    const i = await lims['guest-preview-ip'].limit(`ip:${ip}`);
     if (!i.success) return { allowed: false, reason: 'ip' };
-    const g = await global.limit('global');
+    return { allowed: true };
+  } catch (e) {
+    return guestGateError(e);
+  }
+}
+
+export async function checkPreviewGuestBudget(ip: string): Promise<PreviewGate> {
+  const lims = await guestLimiters(['guest-preview-ip-day', 'guest-preview-global']);
+  if ('allowed' in lims) return lims;
+  try {
+    const day = await lims['guest-preview-ip-day'].limit(`ip-day:${ip}`);
+    if (!day.success) return { allowed: false, reason: 'ip' };
+    const g = await lims['guest-preview-global'].limit('global');
     if (!g.success) return { allowed: false, reason: 'global' };
     return { allowed: true };
   } catch (e) {
-    console.error(
-      '[rateLimit] guest preview gate error — failing closed:',
-      e instanceof Error ? e.message : e,
-    );
-    alertPreviewOutage('limiter-error', e);
-    return { allowed: false, reason: 'unavailable' };
+    return guestGateError(e);
   }
+}
+
+export async function checkPreviewGuestAllowed(ip: string): Promise<PreviewGate> {
+  const burst = await checkPreviewGuestBurst(ip);
+  if (!burst.allowed) return burst;
+  return checkPreviewGuestBudget(ip);
 }

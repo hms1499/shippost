@@ -25,14 +25,17 @@ export const educationalMode: ModeDef = {
   },
   async preview(input) {
     // Grounding is soft: a failed Serper still yields a draft. Mirror the paid
-    // path so the free preview reflects what paying produces.
+    // path so the free preview reflects what paying produces. Guests skip
+    // Serper entirely — the landing taste must not drain the shared quota.
     const topic = input.topic ?? '';
     let searchSummary: string | null = null;
-    try {
-      const s = await fetchSerper(educationalQuery(topic));
-      searchSummary = summarizeSerper(s.organic, s.newsSnippet);
-    } catch (e) {
-      console.error('[educational.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+    if (!input.skipGrounding) {
+      try {
+        const s = await fetchSerper(educationalQuery(topic));
+        searchSummary = summarizeSerper(s.organic, s.newsSnippet);
+      } catch (e) {
+        console.error('[educational.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      }
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },

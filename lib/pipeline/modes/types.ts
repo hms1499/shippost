@@ -36,6 +36,9 @@ export interface PreviewInput {
   eventDescription?: string;
   angle?: Angle;
   eventContext?: EventContext | null;
+  // Guest landing only: skip Serper so anonymous traffic cannot drain the
+  // shared search quota. Connected previews keep grounding.
+  skipGrounding?: boolean;
 }
 
 export interface ModeDef {

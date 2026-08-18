@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { checkPreviewAllowed, checkPreviewGuestAllowed, getClientIp } from '@/lib/rateLimit';
+import {
+  checkPreviewAllowed,
+  checkPreviewGuestBurst,
+  checkPreviewGuestBudget,
+  getClientIp,
+} from '@/lib/rateLimit';
+import { getGuestPreviewCache, setGuestPreviewCache } from '@/lib/previewCache';
 import { runPreview, type PreviewInput } from '@/lib/pipeline/runPreview';
 import type { EventContext } from '@/lib/eventContext';
 
@@ -60,7 +66,7 @@ export async function POST(request: Request) {
     const audience = AUDIENCES.includes(body.audience as never)
       ? (body.audience as PreviewInput['audience'])
       : 'beginner';
-    input = { mode: 0, topic: body.topic, audience };
+    input = { mode: 0, topic: body.topic, audience, skipGrounding: isGuest };
   } else if (body.mode === 2) {
     // Token Analysis — the ticker rides in on `topic`.
     if (typeof body.topic !== 'string' || !body.topic.trim()) {
@@ -96,11 +102,24 @@ export async function POST(request: Request) {
   // Fail-closed gate: deny → fall back to pay-first on the client. Per-IP is
   // bounded too, so a forged walletAddress can't rotate past the limit.
   const ip = getClientIp(request);
-  const gate = isGuest
-    ? await checkPreviewGuestAllowed(ip)
-    : await checkPreviewAllowed(walletAddress, ip);
-  if (!gate.allowed) {
-    return NextResponse.json({ available: false }, { status: 200 });
+  if (!isGuest) {
+    const gate = await checkPreviewAllowed(walletAddress, ip);
+    if (!gate.allowed) {
+      return NextResponse.json({ available: false }, { status: 200 });
+    }
+  } else {
+    const burst = await checkPreviewGuestBurst(ip);
+    if (!burst.allowed) {
+      return NextResponse.json({ available: false }, { status: 200 });
+    }
+    const cached = await getGuestPreviewCache(input.topic ?? '');
+    if (cached) {
+      return NextResponse.json(cached, { status: 200 });
+    }
+    const budget = await checkPreviewGuestBudget(ip);
+    if (!budget.allowed) {
+      return NextResponse.json({ available: false }, { status: 200 });
+    }
   }
 
   try {
@@ -113,7 +132,11 @@ export async function POST(request: Request) {
     if (!tweets.length) {
       return NextResponse.json({ error: 'empty preview' }, { status: 502 });
     }
-    return NextResponse.json({ firstTweet: tweets[0], totalTweets: tweets.length }, { status: 200 });
+    const bodyOut = { firstTweet: tweets[0], totalTweets: tweets.length };
+    if (isGuest) {
+      void setGuestPreviewCache(input.topic ?? '', bodyOut);
+    }
+    return NextResponse.json(bodyOut, { status: 200 });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'preview failed' },

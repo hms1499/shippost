@@ -183,31 +183,53 @@ describe('checkPreviewGuestAllowed', () => {
     expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'unavailable' });
   });
 
-  it('allows when per-IP and global both pass (no per-wallet limiter)', async () => {
+  it('allows when burst, daily-IP and guest-global all pass (no per-wallet, no connected global)', async () => {
     setUpstashEnv();
-    limitMock.mockResolvedValue({ success: true, limit: 10, remaining: 9, reset: 0 });
+    limitMock.mockResolvedValue({ success: true, limit: 3, remaining: 2, reset: 0 });
     const { checkPreviewGuestAllowed } = await load();
     expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: true });
-    // ip + global only — the per-wallet limiter is never consulted for guests.
-    expect(limitMock).toHaveBeenCalledTimes(2);
+    expect(limitMock).toHaveBeenCalledTimes(3);
     expect(limitMock).toHaveBeenCalledWith('ip:1.2.3.4');
+    expect(limitMock).toHaveBeenCalledWith('ip-day:1.2.3.4');
+    expect(limitMock).toHaveBeenCalledWith('global');
     expect(limitMock).not.toHaveBeenCalledWith(expect.stringContaining('wallet:'));
+    const prefixes = ratelimitCtor.mock.calls.map((c) => (c[0] as { prefix: string }).prefix);
+    expect(prefixes).toContain('ratelimit:guest-preview-ip');
+    expect(prefixes).toContain('ratelimit:guest-preview-ip-day');
+    expect(prefixes).toContain('ratelimit:guest-preview-global');
+    expect(prefixes).not.toContain('ratelimit:free-preview-global');
   });
 
-  it('blocks with reason "ip" and does not consume the global budget', async () => {
+  it('builds the guest burst limiter at 3/10min and the guest daily cap at 120 by default', async () => {
     setUpstashEnv();
-    limitMock.mockResolvedValueOnce({ success: false, limit: 10, remaining: 0, reset: 0 }); // ip
+    limitMock.mockResolvedValue({ success: true, limit: 3, remaining: 2, reset: 0 });
+    const { checkPreviewGuestBurst } = await load();
+    await checkPreviewGuestBurst('1.2.3.4');
+    expect(slidingWindowMock).toHaveBeenCalledWith(3, '600 s');
+  });
+
+  it('blocks with reason "ip" and does not consume daily-IP or guest-global', async () => {
+    setUpstashEnv();
+    limitMock.mockResolvedValueOnce({ success: false, limit: 3, remaining: 0, reset: 0 }); // burst
     const { checkPreviewGuestAllowed } = await load();
     expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'ip' });
-    // ip only — global (the 2nd) is never called.
     expect(limitMock).toHaveBeenCalledTimes(1);
   });
 
-  it('blocks with reason "global" when the daily cap is hit (IP ok)', async () => {
+  it('blocks with reason "ip" on the daily-IP cap without consuming guest-global', async () => {
+    setUpstashEnv();
+    limitMock.mockResolvedValueOnce({ success: false, limit: 5, remaining: 0, reset: 0 }); // ip-day
+    const { checkPreviewGuestBudget } = await load();
+    expect(await checkPreviewGuestBudget('1.2.3.4')).toEqual({ allowed: false, reason: 'ip' });
+    expect(limitMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks with reason "global" when the guest daily cap is hit (IP ok)', async () => {
     setUpstashEnv();
     limitMock
-      .mockResolvedValueOnce({ success: true, limit: 10, remaining: 9, reset: 0 }) // ip
-      .mockResolvedValueOnce({ success: false, limit: 500, remaining: 0, reset: 0 }); // global
+      .mockResolvedValueOnce({ success: true, limit: 3, remaining: 2, reset: 0 }) // burst
+      .mockResolvedValueOnce({ success: true, limit: 5, remaining: 4, reset: 0 }) // ip-day
+      .mockResolvedValueOnce({ success: false, limit: 120, remaining: 0, reset: 0 }); // guest global
     const { checkPreviewGuestAllowed } = await load();
     expect(await checkPreviewGuestAllowed('1.2.3.4')).toEqual({ allowed: false, reason: 'global' });
   });

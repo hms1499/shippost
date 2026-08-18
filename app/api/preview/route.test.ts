@@ -1,15 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const checkPreviewAllowed = vi.fn();
-const checkPreviewGuestAllowed = vi.fn();
+const checkPreviewGuestBurst = vi.fn();
+const checkPreviewGuestBudget = vi.fn();
+const getGuestPreviewCache = vi.fn();
+const setGuestPreviewCache = vi.fn();
 const runPreview = vi.fn();
 
 // Override only the gates; keep the real getClientIp (pure header parsing) so the
 // IP-wiring test exercises the actual extraction.
 vi.mock('@/lib/rateLimit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rateLimit')>();
-  return { ...actual, checkPreviewAllowed, checkPreviewGuestAllowed };
+  return {
+    ...actual,
+    checkPreviewAllowed,
+    checkPreviewGuestBurst,
+    checkPreviewGuestBudget,
+  };
 });
+vi.mock('@/lib/previewCache', () => ({ getGuestPreviewCache, setGuestPreviewCache }));
 vi.mock('@/lib/pipeline/runPreview', () => ({ runPreview }));
 
 const { POST } = await import('./route');
@@ -25,7 +34,10 @@ function req(body: unknown, headers: Record<string, string> = {}): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   checkPreviewAllowed.mockResolvedValue({ allowed: true });
-  checkPreviewGuestAllowed.mockResolvedValue({ allowed: true });
+  checkPreviewGuestBurst.mockResolvedValue({ allowed: true });
+  checkPreviewGuestBudget.mockResolvedValue({ allowed: true });
+  getGuestPreviewCache.mockResolvedValue(null);
+  setGuestPreviewCache.mockResolvedValue(undefined);
 });
 
 describe('POST /api/preview', () => {
@@ -53,20 +65,34 @@ describe('POST /api/preview', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ firstTweet: '1/ hook', totalTweets: 2 });
-    // guest gate is used, keyed by IP; the per-wallet gate is never consulted.
-    expect(checkPreviewGuestAllowed).toHaveBeenCalledWith('203.0.113.7');
+    expect(checkPreviewGuestBurst).toHaveBeenCalledWith('203.0.113.7');
+    expect(checkPreviewGuestBudget).toHaveBeenCalledWith('203.0.113.7');
     expect(checkPreviewAllowed).not.toHaveBeenCalled();
+    expect(runPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 0, topic: 't', skipGrounding: true }),
+    );
+    expect(setGuestPreviewCache).toHaveBeenCalledWith('t', { firstTweet: '1/ hook', totalTweets: 2 });
+  });
+
+  it('returns a cached guest preview without generating or spending daily budget', async () => {
+    getGuestPreviewCache.mockResolvedValue({ firstTweet: '1/ cached', totalTweets: 5 });
+    const res = await POST(req({ mode: 0, topic: 'zk rollups' }, { 'x-forwarded-for': '203.0.113.7' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ firstTweet: '1/ cached', totalTweets: 5 });
+    expect(checkPreviewGuestBurst).toHaveBeenCalledOnce();
+    expect(checkPreviewGuestBudget).not.toHaveBeenCalled();
+    expect(runPreview).not.toHaveBeenCalled();
   });
 
   it('rejects a guest (no wallet) for any non-Educational mode', async () => {
     const res = await POST(req({ mode: 3 }));
     expect(res.status).toBe(400);
     expect(runPreview).not.toHaveBeenCalled();
-    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
+    expect(checkPreviewGuestBurst).not.toHaveBeenCalled();
   });
 
   it('falls back to pay-first when the guest gate denies', async () => {
-    checkPreviewGuestAllowed.mockResolvedValue({ allowed: false, reason: 'ip' });
+    checkPreviewGuestBurst.mockResolvedValue({ allowed: false, reason: 'ip' });
     const res = await POST(req({ mode: 0, topic: 't', audience: 'beginner' }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ available: false });
@@ -128,7 +154,7 @@ describe('POST /api/preview', () => {
     const res = await POST(req({ mode: 4, topic: 'solana|base' }));
     expect(res.status).toBe(400);
     expect(runPreview).not.toHaveBeenCalled();
-    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
+    expect(checkPreviewGuestBurst).not.toHaveBeenCalled();
   });
 
   it('forwards eventContext into the mode-1 preview input', async () => {
@@ -167,6 +193,6 @@ describe('POST /api/preview', () => {
     const res = await POST(req({ mode: 5, eventDescription: 'Celo upgrades to L2' }));
     expect(res.status).toBe(400);
     expect(runPreview).not.toHaveBeenCalled();
-    expect(checkPreviewGuestAllowed).not.toHaveBeenCalled();
+    expect(checkPreviewGuestBurst).not.toHaveBeenCalled();
   });
 });
