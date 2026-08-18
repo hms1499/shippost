@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   getX402ChainConfig, isX402Chain, getSettleMode, getSettleChainId, priceRawUSDC, dailyCapRawUSDC,
-  priceForChain,
+  priceForChain, GROQ_MODEL, groqCompletionExtras,
 } from './config';
 
 const BASE = 8453;
@@ -13,6 +13,17 @@ const UNSUPPORTED = 1; // Ethereum mainnet — no x402 config, and not meant to 
 afterEach(() => { vi.unstubAllEnvs(); });
 
 describe('x402 config', () => {
+  it('pins a Groq model id that is not a retired Llama 3.x slug', () => {
+    // Preview and paid generate share GROQ_MODEL. A retired id becomes
+    // POST /api/preview 502 (model_not_found) after ~5s of Serper + Groq.
+    expect(GROQ_MODEL).not.toMatch(/^llama-3\./);
+    expect(GROQ_MODEL).toBeTruthy();
+  });
+
+  it('asks gpt-oss for low reasoning so content is not eaten by thought tokens', () => {
+    expect(groqCompletionExtras()).toEqual({ reasoning_effort: 'low' });
+  });
+
   it('maps Base chains to CAIP-2 + canonical USDC (6 dec)', () => {
     expect(getX402ChainConfig(BASE).caip2).toBe('eip155:8453');
     expect(getX402ChainConfig(BASE).usdc.toLowerCase())

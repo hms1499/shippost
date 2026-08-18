@@ -6,6 +6,7 @@ import {
   checkReserveBalance,
   checkOrchestratorGas,
   checkSpendReadiness,
+  minGasNativeForChain,
   type ReadinessReaders,
 } from './walletHealth';
 
@@ -87,6 +88,15 @@ function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders 
   };
 }
 
+describe('minGasNativeForChain', () => {
+  it('is 0.0001 ETH on Base and 0.05 CELO elsewhere', () => {
+    expect(minGasNativeForChain(8453)).toBe(0.0001);
+    expect(minGasNativeForChain(84532)).toBe(0.0001);
+    expect(minGasNativeForChain(42220)).toBe(0.05);
+    expect(minGasNativeForChain(11142220)).toBe(0.05);
+  });
+});
+
 describe('checkOrchestratorGas', () => {
   it('reports the on-chain owner and its balance in human native units', async () => {
     const health = await checkOrchestratorGas({
@@ -131,6 +141,27 @@ describe('checkSpendReadiness', () => {
       readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.001')) }),
     });
     expect(r).toEqual({ ok: false, reason: 'gas' });
+  });
+
+  it('does not apply the Celo 0.05 floor to Base ETH', async () => {
+    // 0.00015 ETH is above Base's 0.0001 floor and far below Celo's 0.05.
+    // One number for both chains is what blocked Base while Celo was fine.
+    const tiny = parseEther('0.00015');
+    const onBase = await checkSpendReadiness({
+      chainId: 8453,
+      tokenSymbol: 'USDC',
+      readers: {
+        ...readiness({ readNativeBalance: () => Promise.resolve(tiny) }),
+        readDailyCap: () => Promise.resolve(parseUnits('10', 6)),
+      },
+    });
+    const onCelo = await checkSpendReadiness({
+      chainId: CHAIN,
+      tokenSymbol: 'cUSD',
+      readers: readiness({ readNativeBalance: () => Promise.resolve(tiny) }),
+    });
+    expect(onBase).toEqual({ ok: true });
+    expect(onCelo).toEqual({ ok: false, reason: 'gas' });
   });
 
   it('reads gas for the on-chain owner, never a configured address', async () => {

@@ -1,11 +1,10 @@
 import Groq from 'groq-sdk';
 import { getAddress } from 'viem';
-import { settleX402Call } from '@/lib/agent/orchestrator';
-import { X402_UNIT_COST_USD } from '@/lib/tokens';
 import { parseThread } from '@/lib/threadParser';
 import { retryOnce } from './retry';
-import { throwIfAborted } from './abort';
+import { settleSoftStep } from './settleSoftStep';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
+import { GROQ_MODEL, groqCompletionExtras } from '@/lib/x402/config';
 import type { PipelineContext, PipelineEvent } from './types';
 
 // Simulated micro-payment sink. Run through getAddress so an invalid vanity
@@ -35,13 +34,14 @@ export async function runFactCheckStep(
     // Retry only the LLM call (no side effect) — settle stays outside, below.
     raw = await retryOnce(async () => {
       const resp = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: GROQ_MODEL,
         messages: [
           { role: 'system', content: FACT_CHECK_SYSTEM },
           { role: 'user', content: buildFactCheckUserPrompt(input) },
         ],
         temperature: 0.1,
         max_tokens: 1400,
+        ...groqCompletionExtras(),
       });
       const out = resp.choices[0]?.message?.content ?? '';
       if (!out.trim()) throw new Error('fact-check returned empty');
@@ -56,28 +56,7 @@ export async function runFactCheckStep(
   const tweets = parseThread(raw);
   emit({ type: 'step_output', step: 'factCheck', output: tweets });
 
-  // Don't settle if the deadline fired while the model was responding.
-  throwIfAborted(ctx.signal);
-
-  try {
-    const txHash = await settleX402Call({
-      chainId: ctx.chainId,
-      serviceAddress: FC_SINK,
-      tokenSymbol: ctx.tokenSymbol,
-      threadId: ctx.threadId,
-    });
-    emit({
-      type: 'step_settled',
-      step: 'factCheck',
-      txHash,
-      costAmount: X402_UNIT_COST_USD,
-      tokenSymbol: ctx.tokenSymbol,
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'x402 settle failed';
-    emit({ type: 'step_failed', step: 'factCheck', error: `x402 settle: ${msg}` });
-    throw new Error(`x402 settle failed: ${msg}`);
-  }
+  await settleSoftStep({ ctx, step: 'factCheck', serviceAddress: FC_SINK, emit });
 
   return { tweets };
 }

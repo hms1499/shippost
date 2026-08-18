@@ -3,7 +3,7 @@ import Groq from 'groq-sdk';
 import { withX402 } from '@x402/next';
 import { parseThread, boundThread } from '@/lib/threadParser';
 import { getResourceServer } from '@/lib/x402/server';
-import { getX402ChainConfig, priceForChain, GROQ_MODEL } from '@/lib/x402/config';
+import { getX402ChainConfig, priceForChain, GROQ_MODEL, groqCompletionExtras } from '@/lib/x402/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +36,7 @@ const handler = async (req: NextRequest): Promise<NextResponse<unknown>> => {
       messages: body.messages as { role: 'system' | 'user'; content: string }[],
       temperature: body.temperature ?? 0.7,
       max_tokens: body.maxTokens ?? 1200,
+      ...groqCompletionExtras(),
     });
     raw = resp.choices[0]?.message?.content ?? '';
   } catch {

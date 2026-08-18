@@ -1,5 +1,7 @@
-import { createPublicClient, http, erc20Abi, formatUnits, parseEther, type Address } from 'viem';
+import { createPublicClient, erc20Abi, formatUnits, parseEther, type Address } from 'viem';
+import { base, baseSepolia } from 'viem/chains';
 import { getChain } from '../chains';
+import { rpcTransport } from '../rpc';
 import { agentWalletAbi, getContracts } from '../contracts';
 import { computeX402CostAmount, getTokens, type TokenSymbol } from '../tokens';
 
@@ -92,11 +94,14 @@ export interface ReadinessReaders {
 // factCheck), so a thread must have headroom for four to avoid dying mid-run.
 const MAX_X402_CALLS_PER_THREAD = 4n;
 
-// ~0.002 of the native token settles one executeX402Call, so this floor is
-// roughly 25 threads of runway — enough for the cron heartbeat to page a human
-// before users are ever blocked. Deliberately one number for both chains: it is
-// a floor, and ETH gas on Base is cheaper than CELO gas, so it errs safe.
-const DEFAULT_MIN_GAS_NATIVE = 0.05;
+// Per-chain floors: CELO gas is ~0.002/settle, so 0.05 CELO ≈ 25 threads.
+// Base L2 fee for the same settle is ~1e-6 ETH; 0.05 ETH would be hundreds of
+// dollars of idle float. 0.0001 ETH matches scripts/deploy-chain.ts and is
+// still many threads of Base runway. An ETH threshold is not a CELO threshold.
+export function minGasNativeForChain(chainId: number): number {
+  if (chainId === base.id || chainId === baseSepolia.id) return 0.0001;
+  return 0.05;
+}
 
 export interface GasHealth {
   low: boolean;
@@ -118,7 +123,7 @@ export async function checkOrchestratorGas(params: {
   // nothing here touches a private key.
   const address = await readers.readOwner();
   const raw = await readers.readNativeBalance(address);
-  const min = parseEther(String(params.minNative ?? DEFAULT_MIN_GAS_NATIVE));
+  const min = parseEther(String(params.minNative ?? minGasNativeForChain(params.chainId)));
   return { low: raw < min, native: Number(formatUnits(raw, 18)), address };
 }
 
@@ -161,7 +166,7 @@ export async function checkSpendReadiness(params: {
 // Real readers against the AgentWallet. Never constructed when readers are
 // injected (tests), so no RPC is touched there.
 function defaultReadinessReaders(chainId: number): ReadinessReaders {
-  const publicClient = createPublicClient({ chain: getChain(chainId), transport: http() });
+  const publicClient = createPublicClient({ chain: getChain(chainId), transport: rpcTransport(chainId) });
   const agentWallet = getContracts(chainId).AgentWallet;
   const read = <T>(functionName: string, args?: readonly unknown[]) =>
     publicClient.readContract({
@@ -184,7 +189,7 @@ function defaultReadinessReaders(chainId: number): ReadinessReaders {
 // Real reader: erc20 balanceOf(holder) via a viem public client. When a reader
 // is injected (tests) this is never constructed, so no RPC is touched.
 function defaultReader(chainId: number, holder: Address): BalanceReader {
-  const publicClient = createPublicClient({ chain: getChain(chainId), transport: http() });
+  const publicClient = createPublicClient({ chain: getChain(chainId), transport: rpcTransport(chainId) });
   return (tokenAddress) =>
     publicClient.readContract({
       address: tokenAddress,

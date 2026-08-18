@@ -36,6 +36,24 @@ describe('runSerperStep', () => {
     await expect(runSerperStep({ ...ctx, signal: ac.signal }, () => {})).rejects.toThrow(/abort/i);
     expect(settleX402Call).not.toHaveBeenCalled();
   });
+
+  it('skips executeX402Call on Base and records a zero-cost settle', async () => {
+    const events: { type: string; txHash?: string; costAmount?: string }[] = [];
+    const out = await runSerperStep({ ...ctx, chainId: 8453, tokenSymbol: 'USDC' }, (e) => events.push(e));
+    expect(out.organic).toEqual([]);
+    expect(settleX402Call).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'step_settled', step: 'serper', txHash: '0x0', costAmount: '0.000' }),
+    );
+  });
+
+  it('still settles on Celo', async () => {
+    await runSerperStep({ ...ctx, chainId: 42220, tokenSymbol: 'cUSD' }, () => {});
+    expect(settleX402Call).toHaveBeenCalledOnce();
+    expect(settleX402Call).toHaveBeenCalledWith(
+      expect.objectContaining({ chainId: 42220, tokenSymbol: 'cUSD' }),
+    );
+  });
 });
 
 describe('fetchSerper', () => {

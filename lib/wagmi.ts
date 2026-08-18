@@ -1,5 +1,3 @@
-import { http } from 'wagmi';
-import { celo, base, baseSepolia } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import {
   injectedWallet,
@@ -11,6 +9,7 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { celoSepolia, getChain } from './chains';
 import { SUPPORTED_CHAIN_IDS, DEFAULT_CHAIN_ID } from './chainPolicy';
+import { rpcTransport } from './rpc';
 
 export { celoSepolia };
 
@@ -20,13 +19,6 @@ export { celoSepolia };
 // wallets still work, which covers MiniPay (the priority surface).
 const projectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'coinop-placeholder';
-
-const RPC: Record<number, string> = {
-  [base.id]: 'https://mainnet.base.org',
-  [baseSepolia.id]: 'https://sepolia.base.org',
-  [celo.id]: 'https://forno.celo.org',
-  [celoSepolia.id]: 'https://forno.celo-sepolia.celo-testnet.org',
-};
 
 // Default chain first: wagmi treats chains[0] as the one to connect to when the
 // wallet offers no opinion.
@@ -60,7 +52,7 @@ export const wagmiConfig = getDefaultConfig({
     },
   ],
   chains,
-  transports: Object.fromEntries(orderedIds.map((id) => [id, http(RPC[id])])),
+  transports: Object.fromEntries(orderedIds.map((id) => [id, rpcTransport(id)])),
   ssr: true,
 });
 

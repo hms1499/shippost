@@ -98,4 +98,15 @@ describe('chainPolicy', () => {
     expect(p.isMiniPayChain(8453)).toBe(false);
     expect(p.isMiniPayChain(84532)).toBe(false);
   });
+
+  it('skips Model-1 soft settles on Base, keeps them on Celo', async () => {
+    const p = await loadPolicy({
+      NEXT_PUBLIC_SUPPORTED_CHAIN_IDS: undefined,
+      NEXT_PUBLIC_DEFAULT_CHAIN_ID: undefined,
+    });
+    expect(p.settlesSoftStepsOnChain(8453)).toBe(false);
+    expect(p.settlesSoftStepsOnChain(84532)).toBe(false);
+    expect(p.settlesSoftStepsOnChain(42220)).toBe(true);
+    expect(p.settlesSoftStepsOnChain(11142220)).toBe(true);
+  });
 });

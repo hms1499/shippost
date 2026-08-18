@@ -1,6 +1,7 @@
-import { createWalletClient, createPublicClient, http, parseUnits, formatUnits, erc20Abi, decodeEventLog, getAddress, type Address, type Hex } from 'viem';
+import { createWalletClient, createPublicClient, parseUnits, formatUnits, erc20Abi, decodeEventLog, getAddress, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getChain } from '../chains';
+import { rpcTransport } from '../rpc';
 import { agentWalletAbi, shipPostPaymentAbi, getContracts } from '../contracts';
 import { getTokens, computeX402CostAmount, type TokenSymbol } from '../tokens';
 import { getAttributionSuffix } from '../attributionTag';
@@ -17,8 +18,8 @@ export async function settleX402Call(params: {
   const account = privateKeyToAccount(pk);
   const chain = getChain(params.chainId);
 
-  const wallet = createWalletClient({ account, chain, transport: http() });
-  const publicClient = createPublicClient({ chain, transport: http() });
+  const wallet = createWalletClient({ account, chain, transport: rpcTransport(params.chainId) });
+  const publicClient = createPublicClient({ chain, transport: rpcTransport(params.chainId) });
 
   const contracts = getContracts(params.chainId);
   const token = getTokens(params.chainId)[params.tokenSymbol];
@@ -65,7 +66,7 @@ export async function getOnChainPaidAmount(params: {
 
   const readers =
     params.readers ??
-    createPublicClient({ chain: getChain(params.chainId), transport: http() });
+    createPublicClient({ chain: getChain(params.chainId), transport: rpcTransport(params.chainId) });
 
   const receipt = await readers.getTransactionReceipt({ hash: params.payTxHash });
   if (receipt.status !== 'success') throw new Error('payment tx did not succeed');
@@ -104,7 +105,7 @@ export async function verifyPayment(params: {
   mode: number;
 }): Promise<{ amountRaw: bigint }> {
   const chain = getChain(params.chainId);
-  const publicClient = createPublicClient({ chain, transport: http() });
+  const publicClient = createPublicClient({ chain, transport: rpcTransport(params.chainId) });
   const contracts = getContracts(params.chainId);
   const paymentAddr = getAddress(contracts.ShipPostPayment);
 
@@ -206,8 +207,8 @@ export async function refundThread(params: {
 
   const account = privateKeyToAccount(pk);
   const chain = getChain(params.chainId);
-  const wallet = createWalletClient({ account, chain, transport: http() });
-  const publicClient = createPublicClient({ chain, transport: http() });
+  const wallet = createWalletClient({ account, chain, transport: rpcTransport(params.chainId) });
+  const publicClient = createPublicClient({ chain, transport: rpcTransport(params.chainId) });
 
   const token = getTokens(params.chainId)[params.tokenSymbol];
   if (!token) {

@@ -34,4 +34,22 @@ describe('runFactCheckStep', () => {
     await expect(runFactCheckStep({ ...ctx, signal: ac.signal }, input, () => {})).rejects.toThrow(/abort/i);
     expect(settleX402Call).not.toHaveBeenCalled();
   });
+
+  it('skips executeX402Call on Base and records a zero-cost settle', async () => {
+    const events: { type: string; txHash?: string; costAmount?: string }[] = [];
+    const out = await runFactCheckStep({ ...ctx, chainId: 8453, tokenSymbol: 'USDC' }, input, (e) => events.push(e));
+    expect(out.tweets.length).toBeGreaterThan(0);
+    expect(settleX402Call).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'step_settled', step: 'factCheck', txHash: '0x0', costAmount: '0.000' }),
+    );
+  });
+
+  it('still settles on Celo', async () => {
+    await runFactCheckStep({ ...ctx, chainId: 42220, tokenSymbol: 'cUSD' }, input, () => {});
+    expect(settleX402Call).toHaveBeenCalledOnce();
+    expect(settleX402Call).toHaveBeenCalledWith(
+      expect.objectContaining({ chainId: 42220, tokenSymbol: 'cUSD' }),
+    );
+  });
 });

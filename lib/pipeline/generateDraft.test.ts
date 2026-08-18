@@ -7,7 +7,13 @@ const settleX402Call = vi.fn();
 const create = vi.fn();
 const alertOps = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@/lib/x402/config', () => ({ getSettleMode, getSettleChainId, X402_PRICE_USD: '0.001', GROQ_MODEL: 'llama-3.3-70b-versatile' }));
+vi.mock('@/lib/x402/config', () => ({
+  getSettleMode,
+  getSettleChainId,
+  X402_PRICE_USD: '0.001',
+  GROQ_MODEL: 'openai/gpt-oss-120b',
+  groqCompletionExtras: () => ({ reasoning_effort: 'low' as const }),
+}));
 vi.mock('@/lib/x402/client', () => ({ payGroqViaX402 }));
 vi.mock('@/lib/agent/orchestrator', () => ({ settleX402Call }));
 vi.mock('@/lib/alert', () => ({ alertOps }));
@@ -141,6 +147,7 @@ describe('generateTweets', () => {
     create.mockResolvedValue({ choices: [{ message: { content: '1/ hi\n\n2/ there' } }] });
     const tweets = await generateTweets(msgs);
     expect(create).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ reasoning_effort: 'low' }));
     expect(tweets.length).toBeGreaterThan(0);
     expect(settleX402Call).not.toHaveBeenCalled();
   });

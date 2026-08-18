@@ -48,6 +48,41 @@ still line one.
     const raw = `Some unnumbered text from the model.`;
     expect(parseThread(raw)).toEqual(['Some unnumbered text from the model.']);
   });
+
+  it('drops an unnumbered preamble so tweet 1 is the hook, not "Here is the thread:"', () => {
+    const raw = `Here is the thread:
+
+1/ The real hook.
+
+2/ Body.`;
+    expect(parseThread(raw)).toEqual(['1/ The real hook.', '2/ Body.']);
+  });
+
+  it('merges a number-only line with the following body (common Groq layout)', () => {
+    const raw = `1/
+
+This is the actual hook tweet.
+
+2/
+
+Second tweet body.`;
+    expect(parseThread(raw)).toEqual([
+      '1/\nThis is the actual hook tweet.',
+      '2/\nSecond tweet body.',
+    ]);
+  });
+
+  it('does not treat a lone "1/" as the preview tweet when a body follows', () => {
+    const tweets = parseThread(`1/
+
+The hook that should be free to preview.
+
+2/
+
+Locked follow-up.`);
+    expect(tweets[0]).toMatch(/hook that should be free/i);
+    expect(tweets[0]).not.toBe('1/');
+  });
 });
 
 describe('boundThread', () => {

@@ -35,3 +35,12 @@ describe('multi-chain config', () => {
     }
   });
 });
+
+describe('rpc fallbacks', () => {
+  it('does not pin Base to only mainnet.base.org', async () => {
+    const { rpcUrlsForChain } = await import('./rpc');
+    const urls = rpcUrlsForChain(base.id);
+    expect(urls.length).toBeGreaterThan(1);
+    expect(urls[0]).not.toBe('https://mainnet.base.org');
+  });
+});

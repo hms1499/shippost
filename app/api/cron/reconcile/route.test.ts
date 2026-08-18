@@ -15,6 +15,7 @@ vi.mock('@/lib/agent/walletHealth', () => ({
   checkAgentWalletBalance,
   checkOrchestratorGas,
   checkReserveBalance,
+  minGasNativeForChain: (chainId: number) => (chainId === 8453 || chainId === 84532 ? 0.0001 : 0.05),
 }));
 vi.mock('@/lib/agent/previewHealth', () => ({ checkPreviewAlive }));
 vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));

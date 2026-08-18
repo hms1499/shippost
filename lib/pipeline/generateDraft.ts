@@ -2,7 +2,7 @@ import Groq from 'groq-sdk';
 import type { Hex } from 'viem';
 import { parseThread, boundThread } from '@/lib/threadParser';
 import { settleX402Call } from '@/lib/agent/orchestrator';
-import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL } from '@/lib/x402/config';
+import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL, groqCompletionExtras } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
 import { alertOps } from '@/lib/alert';
 import { GROQ_COST_HUMAN, GROQ_SINK } from './groqCost';
@@ -38,6 +38,7 @@ export async function generateTweets(input: DraftInput): Promise<string[]> {
     messages: input.messages,
     temperature: input.temperature,
     max_tokens: input.maxTokens,
+    ...groqCompletionExtras(),
   });
   const raw = resp.choices[0]?.message?.content ?? '';
   if (!raw.trim()) throw new Error('Groq returned empty content');

@@ -1,8 +1,6 @@
 import { getAddress } from 'viem';
-import { settleX402Call } from '@/lib/agent/orchestrator';
-import { X402_UNIT_COST_USD } from '@/lib/tokens';
 import { retryOnce } from './retry';
-import { throwIfAborted } from './abort';
+import { settleSoftStep } from './settleSoftStep';
 import type { PipelineContext, PipelineEvent } from './types';
 
 // Simulated micro-payment sink. Run through getAddress so an invalid vanity
@@ -109,28 +107,7 @@ export async function runSerperStep(
 
   emit({ type: 'step_output', step: 'serper', output: { organic, newsSnippet } });
 
-  // Don't settle if the deadline fired while fetching — the run is already failed.
-  throwIfAborted(ctx.signal);
-
-  try {
-    const txHash = await settleX402Call({
-      chainId: ctx.chainId,
-      serviceAddress: SERPER_SINK,
-      tokenSymbol: ctx.tokenSymbol,
-      threadId: ctx.threadId,
-    });
-    emit({
-      type: 'step_settled',
-      step: 'serper',
-      txHash,
-      costAmount: X402_UNIT_COST_USD,
-      tokenSymbol: ctx.tokenSymbol,
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'x402 settle failed';
-    emit({ type: 'step_failed', step: 'serper', error: `x402 settle: ${msg}` });
-    throw new Error(`x402 settle failed: ${msg}`);
-  }
+  await settleSoftStep({ ctx, step: 'serper', serviceAddress: SERPER_SINK, emit });
 
   return { query: ctx.query, organic, newsSnippet };
 }

@@ -57,3 +57,11 @@ export function chainLabel(chainId: number): string {
 export function isMiniPayChain(chainId: number): boolean {
   return chainId === celo.id || chainId === celoSepolia.id;
 }
+
+// Soft Model-1 settles (Serper, FactCheck) call AgentWallet.executeX402Call on
+// the payment chain. That is the Celo MiniApp demo; on Base it is just ETH
+// burned for a simulated sink. Groq already settles via Model 2 (x402). Skip
+// the soft on-chain hop on Base so the orchestrator EOA can run near-zero ETH.
+export function settlesSoftStepsOnChain(chainId: number): boolean {
+  return chainId !== base.id && chainId !== baseSepolia.id;
+}

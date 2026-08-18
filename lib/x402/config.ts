@@ -27,7 +27,16 @@ export const X402_PRICE_USD = '0.001';
 
 // Groq model used by both the x402 proxy and the legacy pipeline. One source so
 // a model rotation can't leave the two settlement paths on different models.
-export const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// llama-3.3-70b-versatile shut down 2026-08-16 (free/dev tier); Groq's
+// replacement for that class is openai/gpt-oss-120b.
+export const GROQ_MODEL = 'openai/gpt-oss-120b';
+
+// gpt-oss defaults to medium reasoning, which can spend the entire max_tokens
+// budget on hidden thought and return empty `content` → preview 502.
+export function groqCompletionExtras(): { reasoning_effort?: 'low' } {
+  if (GROQ_MODEL.startsWith('openai/gpt-oss-')) return { reasoning_effort: 'low' };
+  return {};
+}
 
 const BASE_MAINNET = 8453;
 const BASE_SEPOLIA = 84532;

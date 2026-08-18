@@ -5,6 +5,7 @@ import {
   checkAgentWalletBalance,
   checkOrchestratorGas,
   checkReserveBalance,
+  minGasNativeForChain,
 } from '@/lib/agent/walletHealth';
 import { checkPreviewAlive } from '@/lib/agent/previewHealth';
 import { claimAlertOnce } from '@/lib/rateLimit';
@@ -19,8 +20,6 @@ export const dynamic = 'force-dynamic';
 const LOW_BALANCE_TTL_SEC = 6 * 60 * 60;
 const DEFAULT_AGENT_MIN_USD = 2;
 const DEFAULT_RESERVE_MIN_USD = 0.5;
-// ~0.002 native per executeX402Call, so this is roughly 25 threads of runway.
-const DEFAULT_MIN_GAS_NATIVE = 0.05;
 // Preview being down is a revenue-path outage, not a balance warning — page on
 // every cron run it stays broken, so it cannot be slept through.
 const PREVIEW_DOWN_TTL_SEC = 60;
@@ -83,7 +82,7 @@ export async function GET(req: Request) {
       // are blocked before paying, so page while there is still time to top up.
       try {
         const minNative =
-          Number(process.env.ORCHESTRATOR_MIN_GAS_NATIVE) || DEFAULT_MIN_GAS_NATIVE;
+          Number(process.env.ORCHESTRATOR_MIN_GAS_NATIVE) || minGasNativeForChain(chainId);
         const gas = await checkOrchestratorGas({ chainId, minNative });
         if (
           gas.low &&
