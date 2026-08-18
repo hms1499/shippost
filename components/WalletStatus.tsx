@@ -4,6 +4,8 @@ import { useAccount, useChainId } from 'wagmi';
 import { formatUnits } from 'viem';
 import { Loader2, Wallet } from 'lucide-react';
 import { useBalances } from '@/lib/useBalances';
+import { useNativeBalance } from '@/lib/useNativeBalance';
+import { formatNativeAmount } from '@/lib/formatNative';
 import { useIsMiniPay } from '@/lib/minipay';
 import { Card } from '@/components/ui/card';
 import { highestValue } from '@/lib/chainChoice';
@@ -13,15 +15,43 @@ function shorten(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+function NativeChip({
+  symbol,
+  value,
+  decimals,
+  loading,
+}: {
+  symbol: string;
+  value: bigint;
+  decimals: number;
+  loading: boolean;
+}) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="text-xs text-muted-foreground">{symbol}</span>
+      {loading ? (
+        <Loader2 size={10} className="animate-spin text-muted-foreground" aria-hidden />
+      ) : (
+        <span className="font-mono tabular-nums text-muted-foreground">
+          {formatNativeAmount(value, decimals)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
- * Wallet balance panel: a heading-sub label, one inline row of stables,
- * the wallet's shortened address in monospace, and emphasis on the token
+ * Wallet balance panel: a heading-sub label, one inline row of stables
+ * plus the native gas token (ETH on Base, CELO on Celo), the wallet's
+ * shortened address in monospace, and emphasis on the payable token
  * with the highest balance — the default the input forms will pre-select.
+ * Native is display-only and never enters the pay token list.
  */
 export function WalletStatus() {
   const { address, isConnected, connector } = useAccount();
   const chainId = useChainId();
   const { balances, isLoading, isError } = useBalances();
+  const { native, isLoading: nativeLoading } = useNativeBalance();
   const isMiniPay = useIsMiniPay();
 
   // "Empty" is every balance at zero, not an absent token list: every supported
@@ -74,8 +104,14 @@ export function WalletStatus() {
           </span>
         ) : !hasFunds ? (
           <div className="flex flex-col gap-1.5">
+            <NativeChip
+              symbol={native.symbol}
+              value={native.value}
+              decimals={native.decimals}
+              loading={nativeLoading}
+            />
             <span className="text-xs font-sans text-muted-foreground">
-              No balance on {chainLabel(chainId)}.
+              No payable balance on {chainLabel(chainId)}.
             </span>
             {otherTop && otherChainId !== undefined && (
               <span className="text-xs font-sans text-muted-foreground">
@@ -89,24 +125,32 @@ export function WalletStatus() {
             )}
           </div>
         ) : (
-          balances.map((b) => {
-            const amount = Number(formatUnits(b.balance, b.decimals));
-            const isTop = b.symbol === topSymbol;
-            return (
-              <span key={b.symbol} className="flex items-baseline gap-1.5">
-                <span
-                  className={
-                    'text-xs ' + (isTop ? 'text-foreground font-medium' : 'text-muted-foreground')
-                  }
-                >
-                  {b.symbol}
+          <>
+            {balances.map((b) => {
+              const amount = Number(formatUnits(b.balance, b.decimals));
+              const isTop = b.symbol === topSymbol;
+              return (
+                <span key={b.symbol} className="flex items-baseline gap-1.5">
+                  <span
+                    className={
+                      'text-xs ' + (isTop ? 'text-foreground font-medium' : 'text-muted-foreground')
+                    }
+                  >
+                    {b.symbol}
+                  </span>
+                  <span className={'font-mono tabular-nums text-money ' + (isTop ? 'font-bold' : '')}>
+                    {amount.toFixed(2)}
+                  </span>
                 </span>
-                <span className={'font-mono tabular-nums text-money ' + (isTop ? 'font-bold' : '')}>
-                  {amount.toFixed(2)}
-                </span>
-              </span>
-            );
-          })
+              );
+            })}
+            <NativeChip
+              symbol={native.symbol}
+              value={native.value}
+              decimals={native.decimals}
+              loading={nativeLoading}
+            />
+          </>
         )}
       </div>
 
