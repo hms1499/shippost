@@ -12,9 +12,9 @@ Method: **[code]** throughout. Nothing here was reproduced on a device this
 session; every finding is established by reading the code, and each carries the
 `file:line` that establishes it. Findings that need a device to confirm say so.
 
-**Status 2026-08-19:** G1, G2, G4, G5, G6 fixed in `dd27f2f`..`1902d9d`
+**Status 2026-08-19:** G1, G2, G3, G4, G5, G6 fixed in `dd27f2f`..`6335c91`
 (unpushed). Each carries a Fixed note below. Fixes are verified by `tsc`,
-`vitest` (788 pass) and `next build` — **not** on a device; the failure paths
+`vitest` (791 pass) and `next build` — **not** on a device; the failure paths
 they change need a real failing paid run to exercise.
 
 Severity, unchanged from the first audit:
@@ -31,7 +31,7 @@ Severity, unchanged from the first audit:
 |---|---|---|
 | G1 | "Refund sent automatically" is not automatic — and a `failed` thread queues nothing at all | **P0** ✅ |
 | G2 | A 402 leaves the user paid, told "refundable", and the refund button answers `thread not found` | **P0** ✅ |
-| G3 | A failure that produced tweets promises "the working part of the thread" and never shows it | **P1** |
+| G3 | A failure that produced tweets promises "the working part of the thread" and never shows it | **P1** ✅ |
 | G4 | The trace says "nothing was delivered" next to a card saying the opposite | **P1** ✅ |
 | G5 | Returning to a run that failed dumps the user on the mode picker, silently | **P1** ✅ |
 | G6 | "All steps failed" is usually false | P2 ✅ |
@@ -43,8 +43,9 @@ Severity, unchanged from the first audit:
 
 The three to act on first are **G1**, **G2** and **G5** — all three are the same
 shape: a user who paid, whose run did not deliver, and whose only remaining
-in-app action does not work. All three are now fixed; G3 is the largest thing
-left.
+in-app action does not work. All three are fixed, along with G3, G4 and G6.
+What remains is the orphan payment (the open half of G2) and the truth-in-numbers
+group.
 
 ---
 
@@ -185,10 +186,17 @@ database, and the only way for the user to read them is `/history`.
 above the thread, instead of holding it on `generating`. The refund request
 stays exactly where it is — `partial` is already the right kind.
 
-**Still open** — the largest remaining item. Partly mitigated: the resume path
-(G5) now routes a delivered-but-failed run to history, where the tweets do
-render, and `interpretThreadRow` distinguishes the two failures so neither one
-is offered the wrong refund. The live screen still withholds the tweets.
+**Fixed `6335c91`.** Delivery is now decided by tweets arriving, not by how the
+run ended, and the notice above the thread covers both reasons a thread can be
+short — with the fatal outranking a degraded soft step.
+
+Two things fell out of it. The receipt's `'0.001'` agent-spend fallback became
+reachable (the stream reports a total only on `done`), so it now sums what
+actually settled — `settledCostTotal`, the same costs the trace shows with their
+tx hashes — and falls back to `'0.000'`, which reads as unknown. And a **resumed**
+partial deliberately still points at history rather than re-rendering the thread:
+history does render tweets, and carrying them through the resume state would add
+a second partial-delivery path that cannot be exercised without a device.
 
 ---
 
@@ -383,11 +391,11 @@ it exists to inform.
 ## Suggested order
 
 1. ~~**G1 + G2 + G5**~~ — done 2026-08-19.
-2. **G3** — deliver the tweets that exist on the live screen. G4 is already done,
-   so this is the last half of that pair, and it converts the most annoying
-   failure into a mostly-fine outcome.
+2. ~~**G3 + G4**~~ — done 2026-08-19.
 3. **G8 + 6.4 + 7.1** — truth in numbers: carry the verified amount to the
-   client, derive the receipt split from it.
+   client, derive the receipt split from it. `settledCostTotal` (G3) took the
+   agent-spend half of this; the *paid* amount is still a display constant, and
+   on prod Celo it is wrong today.
 4. **G7, G9, G10, G11** — emphasis, the post-payment gap, the duplicate-start
    latch, and the two instrumentation corrections.
 5. **The orphan payment** (the half of G2 left open) — still needs the schema
