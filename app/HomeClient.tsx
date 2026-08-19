@@ -43,6 +43,8 @@ import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
 import { computeTokenAmount, getTokens, type TokenSymbol } from '@/lib/tokens';
 import { useBalances } from '@/lib/useBalances';
+import { useThreadPrice } from '@/lib/useThreadPrice';
+import { payability } from '@/lib/payability';
 import { reselectTokenForChain } from '@/lib/chainChoice';
 import { describeSwitchError } from '@/lib/payError';
 import {
@@ -653,6 +655,21 @@ export default function HomeClient() {
   // mid-flow can leave one chain's token address pointed at another chain's
   // payment contract. Re-derive instead of discarding the user's work.
   const { balances, isLoading: balancesLoading, isError: balancesError } = useBalances();
+  // The token carried on the payload snapshots a balance from submit time, so
+  // re-read the live one before gating anything on it.
+  const payableToken = activeToken
+    ? (balances.find((b) => b.symbol === activeToken.symbol) ?? null)
+    : null;
+  // The authoritative price, not THREAD_PRICE_USD: the on-chain price is
+  // settable, so gating on the local constant would refuse wallets that can
+  // afford the real one.
+  const threadPrice = useThreadPrice(payableToken);
+  const payGate = payability({
+    token: payableToken,
+    price: threadPrice,
+    balancesLoading,
+    balancesError,
+  });
 
   // Takes a symbol, not the TokenConfig reselectTokenForChain returns: the
   // payload fields are typed TokenBalance (TokenConfig plus a balance), so a
@@ -749,11 +766,22 @@ export default function HomeClient() {
     const token =
       submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token;
     if (!token) return;
-    // A zero balance would start a pay that reverts in the wallet. The `none`
-    // outcome above has to actually block, not just narrate.
-    const payable = balances.find((b) => b.symbol === token.symbol);
-    if (!payable || payable.balance === 0n) {
-      setTokenSwitchNotice(`No ${token.symbol} on ${chainLabel(chainId)}`);
+    // A balance that cannot cover the price would start a pay that reverts in
+    // the wallet. Checking only for zero let 0.05 USDC through against a $0.10
+    // thread — non-zero, so it passed, then failed in front of the user.
+    const payable = balances.find((b) => b.symbol === token.symbol) ?? null;
+    const gate = payability({
+      token: payable,
+      price: threadPrice,
+      balancesLoading,
+      balancesError,
+    });
+    if (!gate.canPay) {
+      setTokenSwitchNotice(
+        gate.reason === 'short' && threadPrice !== null
+          ? `Not enough ${token.symbol} — the thread costs ${formatUnits(threadPrice, token.decimals)}`
+          : `No ${token.symbol} on ${chainLabel(chainId)}`,
+      );
       return;
     }
     const mode: 0 | 1 | 2 | 3 | 4 | 5 =
@@ -775,7 +803,10 @@ export default function HomeClient() {
     // chainId is a real dependency: a stale one would preflight the chain the
     // user was on when this callback was last built, not the one they are
     // paying from.
-  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId, balances]);
+    // threadPrice and the two balance flags are real dependencies too: a stale
+    // price or a stale "still loading" would gate the payment on last render's
+    // answer.
+  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId, balances, threadPrice, balancesLoading, balancesError]);
 
   const formNode =
     screen === 'mode' ? (
@@ -906,6 +937,7 @@ export default function HomeClient() {
         }}
         regenerating={previewLoading}
         tokenSymbol={activeToken?.symbol ?? null}
+        canPay={payGate.canPay}
         // MiniPay gets no `change` link: there is nothing there to change.
         onChangeChain={isMiniPay ? undefined : () => setWalletOpen(true)}
       />
@@ -918,13 +950,19 @@ export default function HomeClient() {
             full thread now, or go back and try the preview again.
           </p>
         </div>
-        <Button onClick={unlock}>
+        <Button onClick={unlock} disabled={!payGate.canPay}>
           Generate for{' '}
           {Number(
             formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
           ).toFixed(2)}{' '}
           {activeToken.symbol} →
         </Button>
+        {!payGate.canPay && (
+          <p className="text-xs font-sans text-muted-foreground leading-snug">
+            Not enough {activeToken.symbol} to generate. Top up your wallet, then
+            try again — nothing has been charged.
+          </p>
+        )}
         <PayContext symbol={activeToken.symbol} />
         <button
           type="button"

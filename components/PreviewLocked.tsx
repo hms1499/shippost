@@ -14,6 +14,12 @@ interface Props {
   regenerating: boolean;
   /** null only if the payment token could not be resolved; the line is then omitted. */
   tokenSymbol: string | null;
+  /**
+   * False when the connected wallet cannot cover the on-chain price. Optional
+   * so the default stays "let them try" — a missing answer must never disable
+   * the only button that earns money.
+   */
+  canPay?: boolean;
   onChangeChain?: () => void;
 }
 
@@ -24,6 +30,7 @@ export function PreviewLocked({
   onRegenerate,
   regenerating,
   tokenSymbol,
+  canPay,
   onChangeChain,
 }: Props) {
   // lockedCount is "the rest"; the full thread is that plus the opening tweet.
@@ -57,9 +64,16 @@ export function PreviewLocked({
         </div>
       </div>
 
-      <Button onClick={onUnlock}>
+      <Button onClick={onUnlock} disabled={canPay === false}>
         Generate full thread · {THREAD_PRICE_LABEL}
       </Button>
+
+      {canPay === false && tokenSymbol && (
+        <p className="text-xs font-sans text-muted-foreground leading-snug">
+          Not enough {tokenSymbol} to unlock. Top up your wallet, then try again
+          — nothing has been charged.
+        </p>
+      )}
 
       {tokenSymbol && <PayContext symbol={tokenSymbol} onChange={onChangeChain} />}
 
