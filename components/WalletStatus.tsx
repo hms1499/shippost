@@ -92,7 +92,11 @@ export function WalletStatus() {
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-sm">
+      {/* Wraps because the row grew: Celo carries three payable stables and the
+          native chip beside them, and four chips do not fit 360px. Unwrapped
+          they pushed the whole document 33px wide in the MiniPay webview,
+          which reads as a broken screen you can drag sideways. */}
+      <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 text-sm">
         {isError ? (
           <span className="text-xs font-sans text-muted-foreground">
             Couldn&apos;t read balances on this chain.
