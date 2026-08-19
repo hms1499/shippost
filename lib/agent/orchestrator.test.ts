@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getAddress, type Hex, type Address } from 'viem';
 import { getContracts, shipPostPaymentAbi } from '../contracts';
 import { celoSepolia } from '../chains';
@@ -88,14 +88,63 @@ describe('verifyPayment', () => {
     decodesTo({}); // default: a fully matching ThreadRequested event
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('returns the on-chain amount when the ThreadRequested event matches', async () => {
     mockReceipt([log()]);
     await expect(verifyPayment(baseParams)).resolves.toEqual({ amountRaw: AMOUNT });
   });
 
-  it('throws when the tx receipt cannot be fetched', async () => {
+  // A node that has not caught up yet answers exactly like one that never will:
+  // viem throws TransactionReceiptNotFoundError, and because the transport
+  // itself succeeded (a null result is a valid answer), the fallback() in
+  // lib/rpc.ts never rotates to another RPC. The 402 that produced landed
+  // BEFORE the pending row is inserted, so the thread was paid for on chain
+  // with no record anywhere to refund from — Base threads 1000007 and 1000008
+  // were lost that way on 2026-08-19.
+  it('retries a receipt the node has not caught up to yet', async () => {
+    getTransactionReceipt
+      .mockRejectedValueOnce(new Error('TransactionReceiptNotFoundError'))
+      .mockRejectedValueOnce(new Error('TransactionReceiptNotFoundError'))
+      .mockResolvedValue({ status: 'success', logs: [log()] });
+
+    vi.useFakeTimers();
+    const p = verifyPayment(baseParams);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    await expect(p).resolves.toEqual({ amountRaw: AMOUNT });
+    expect(getTransactionReceipt).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up after a bounded number of attempts', async () => {
     getTransactionReceipt.mockRejectedValue(new Error('not found'));
-    await expect(verifyPayment(baseParams)).rejects.toThrow('payment tx not found on chain');
+
+    vi.useFakeTimers();
+    const p = verifyPayment(baseParams);
+    const settled = expect(p).rejects.toThrow('payment tx not found on chain');
+    await vi.advanceTimersByTimeAsync(120_000);
+    await settled;
+
+    // Bounded: a permanently missing tx must not hold the request open.
+    expect(getTransactionReceipt.mock.calls.length).toBeGreaterThan(1);
+    expect(getTransactionReceipt.mock.calls.length).toBeLessThanOrEqual(6);
+  });
+
+  // Retrying is only correct for "I have not seen it yet". Everything below is
+  // a decided answer, and re-asking cannot change it.
+  it('does not retry a receipt that came back reverted', async () => {
+    mockReceipt([log()], 'reverted');
+    await expect(verifyPayment(baseParams)).rejects.toThrow('payment tx did not succeed');
+    expect(getTransactionReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry an event that fails a field check', async () => {
+    decodesTo({ threadId: 999n });
+    mockReceipt([log()]);
+    await expect(verifyPayment(baseParams)).rejects.toThrow('threadId does not match');
+    expect(getTransactionReceipt).toHaveBeenCalledTimes(1);
   });
 
   it('throws when the payment tx reverted', async () => {

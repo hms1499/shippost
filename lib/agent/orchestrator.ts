@@ -92,6 +92,35 @@ export async function getOnChainPaidAmount(params: {
 
 // Verify a payForThread payment actually happened on-chain before doing any
 // paid work. The /api/generate/stream body is fully attacker-controlled, so
+// A node that has not caught up yet answers exactly like one that never will.
+// viem throws TransactionReceiptNotFoundError for a null result — thrown by the
+// action, *after* the transport returned successfully — so the fallback() in
+// lib/rpc.ts never rotates to another RPC. One lagging node was therefore
+// final, and the 402 it produced is returned BEFORE the pending row is inserted
+// (app/api/generate/stream/route.ts), which leaves a thread paid for on chain
+// with no record at all: no refund request, no reconcile sweep, nothing to
+// recover from. Base threads 1000007 and 1000008 were lost that way.
+//
+// So retry the lookup, and ONLY the lookup. Every check below it is a decided
+// answer that re-asking cannot change.
+const RECEIPT_ATTEMPTS = 4;
+const RECEIPT_RETRY_MS = 1_500;
+
+// Generic over the caller's own read so the receipt keeps viem's real type —
+// a hand-written structural one silently widened logs to unknown[].
+async function fetchReceiptWithRetry<T>(read: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await read();
+    } catch {
+      // Bounded: a payment tx that genuinely does not exist must not hold the
+      // request open, and the caller is a user watching a stream.
+      if (attempt >= RECEIPT_ATTEMPTS) throw new Error('payment tx not found on chain');
+      await new Promise((r) => setTimeout(r, RECEIPT_RETRY_MS));
+    }
+  }
+}
+
 // every field a caller claims (threadId, payer, token, mode, amount) must be
 // proven against the ThreadRequested event emitted by our payment contract —
 // not trusted. Returns the on-chain amount so callers store the real value
@@ -109,12 +138,9 @@ export async function verifyPayment(params: {
   const contracts = getContracts(params.chainId);
   const paymentAddr = getAddress(contracts.ShipPostPayment);
 
-  let receipt;
-  try {
-    receipt = await publicClient.getTransactionReceipt({ hash: params.payTxHash });
-  } catch {
-    throw new Error('payment tx not found on chain');
-  }
+  const receipt = await fetchReceiptWithRetry(() =>
+    publicClient.getTransactionReceipt({ hash: params.payTxHash }),
+  );
   if (receipt.status !== 'success') {
     throw new Error('payment tx did not succeed');
   }
