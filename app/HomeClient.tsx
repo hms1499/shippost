@@ -1120,7 +1120,8 @@ export default function HomeClient() {
         <div className="w-full max-w-md rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3">
           <p className="text-sm font-sans text-muted-foreground leading-snug">
             Taking longer than usual — the agent is still working. Your payment
-            is safe; if it can&apos;t finish, a refund is sent automatically.
+            is safe; if it can&apos;t finish, a refund is queued for you and an
+            operator sends it.
           </p>
         </div>
       )}

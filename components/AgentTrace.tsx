@@ -160,9 +160,15 @@ export function AgentTrace({
         </div>
       )}
 
+      {/* A fatal AFTER groq settled still has tweets — the deadline firing
+          during fact-check is the usual shape. Claiming "nothing was delivered"
+          there contradicted the partial card rendered right below this panel. */}
       {gen.fatal && (
         <p className="mt-3 text-xs font-mono text-destructive">
-          ✗ pipeline fatal — {gen.fatal}. This run is refundable; nothing was delivered.
+          ✗ pipeline fatal — {gen.fatal}.{' '}
+          {gen.tweets
+            ? 'Part of the thread was produced — a partial refund can be requested.'
+            : 'Nothing was delivered; a refund is queued.'}
         </p>
       )}
 

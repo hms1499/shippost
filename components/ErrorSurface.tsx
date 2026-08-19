@@ -67,19 +67,25 @@ const COPY: Record<
     body: "We couldn't confirm your payment. Don't pay again yet — check your wallet history first, and use Recover thread if the payment did land.",
     primary: 'Try again',
   },
+  // Deliberately NOT auto-queued: the nightly sweep only refunds runs that
+  // delivered nothing (tweets IS NULL, lib/agent/reconcile.ts). A degraded
+  // thread is still a delivery, so whether it was worth the price is the user's
+  // call — which means the copy must not imply someone else is handling it.
   partial: {
-    title: 'Partial output — partial refund queued',
-    body: 'One of the AI steps failed. You get the working part of the thread. We will refund the failed step within 24h.',
-    primary: 'Request refund now',
+    title: 'Partial output',
+    body: 'One of the AI steps failed, so you paid full price for a thread built without it. Tap below to request a partial refund — this one is not queued for you.',
+    primary: 'Request a partial refund',
   },
+  // "All steps failed" was the old copy and was usually false: the common shape
+  // is the soft steps settling and the hard Groq step throwing.
   'full-fail': {
     title: 'Generation failed',
-    body: 'All steps failed. A full refund will be sent automatically within 24h.',
+    body: "The thread couldn't be generated and nothing was delivered, so this run is fully refundable.",
     primary: 'Request refund now',
   },
   'cap-hit': {
     title: 'Agent paused — back tomorrow',
-    body: "Today's agent budget is spent, so this thread couldn't be generated. New generations resume at midnight UTC — and since you paid for nothing, a full refund will be sent within 24h.",
+    body: "Today's agent budget is spent, so this thread couldn't be generated. New generations resume at midnight UTC — and since you paid for nothing, this run is fully refundable.",
     primary: 'Request refund now',
   },
   'spend-paused': {
@@ -113,9 +119,10 @@ export function ErrorSurface({
     kind === 'partial' ||
     kind === 'full-fail' ||
     kind === 'cap-hit';
-  // full-fail / cap-hit are total failures — the pipeline produced nothing,
-  // so the refund is automatic. partial still delivers the working part of
-  // the thread, so it doesn't get the "nothing was delivered" line.
+  // full-fail / cap-hit are total failures — the pipeline produced nothing, so
+  // the nightly sweep queues these without the user doing anything. partial
+  // still delivers the working part of the thread and is user-initiated only,
+  // so it must not carry the same line.
   const isAutoRefundNoDelivery = kind === 'full-fail' || kind === 'cap-hit';
   const primary = isRefundKind ? onRefundRequest : onRetry;
 
@@ -132,7 +139,8 @@ export function ErrorSurface({
       <p className="text-sm font-sans text-muted-foreground">{c.body}</p>
       {isAutoRefundNoDelivery && (
         <p className="text-xs font-sans text-muted-foreground">
-          auto refund queued — nothing was delivered
+          Queued for you by the nightly sweep — or tap below to queue it now. An
+          operator sends every refund from the queue.
         </p>
       )}
       {detail && (
