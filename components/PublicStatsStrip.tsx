@@ -22,6 +22,12 @@ async function fetchAllChains(): Promise<ChainStats> {
       }
     }),
   );
+  // Every chain failed. Returning a zero total here would be a *successful*
+  // answer of "this machine has done nothing" — indistinguishable from a brand
+  // new deployment — and SWR would write it over the numbers already on
+  // screen, so one dropped request emptied the counter. Throwing keeps the
+  // last good data and marks the refresh failed, which is what happened.
+  if (perChain.every((c) => c === null)) throw new Error('public stats unavailable');
   return sumChainStats(perChain);
 }
 
