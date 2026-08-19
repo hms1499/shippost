@@ -24,10 +24,23 @@ the failure paths they change need a real failing paid run to exercise.
    every `deliver` event would be dropped by the CHECK constraint, and
    `recordOrphanPayment` swallows its own write errors by design, so a missing
    table would quietly restore the exact hole 0013 exists to close.
-2. **Decide the prod Celo price.** G8 makes the UI show what the contract
-   charges. If $0.10 is the intended price, the fix is `setPrice` on
-   `0x0dea3241…`, not more UI work — the display now follows the chain either
-   way.
+2. **Point prod Celo at `0x921146fab0a60d48e1991495fc8a899d7c989f74`.** Read on
+   chain 2026-08-19: that contract is already at $0.10 (`priceUsdCents = 10`),
+   so the owner's "Celo should be $0.10 too" needs no transaction. Production
+   has no `NEXT_PUBLIC_PAYMENT_CONTRACT_MAINNET` at all and therefore falls back
+   to `0x0dea3241…` (`lib/contracts.ts:103`), which is at $0.05 — and where
+   `setPrice` is not merely unset but ABSENT: `priceUsdCents` reverts, so that
+   contract predates the settable-price version. There is no transaction that
+   makes it $0.10.
+3. **Deploy that env var WITH the code, never the code alone.** The ABI this
+   code calls is `payForThread(address,uint8,uint256)`, selector `0x550a03ca` —
+   verified absent from `0x0dea3241…`'s deployed bytecode, which carries only
+   the 2-arg `0x32bcd157`. Shipping current `main` while prod still resolves to
+   the old contract makes every Celo payment revert on an unknown selector.
+4. **Seed the reserve first, or know that refunds cannot pay.** `0x921146fa…`
+   holds 0 in all three tokens (Base holds 0.12 USDC). Everything this pass
+   built queues refunds; `refund()` reverts `RESERVE_INSUFFICIENT` until the
+   contract is funded (`scripts/seed-reserve.ts`).
 
 Severity, unchanged from the first audit:
 
