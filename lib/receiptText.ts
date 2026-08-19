@@ -61,17 +61,27 @@ export function settledCostTotal(steps: Record<StepId, StepState>): string {
   return sum.toFixed(3);
 }
 
-export function agentProfitUsd(paidAmountUsd: string, agentSpentUsd: string): string {
-  const paid = Number(paidAmountUsd);
+/**
+ * What the agent kept, minus what it spent.
+ *
+ * Takes the agent's SHARE, not the price: it used to recompute the share as
+ * `paid * 0.5`, which is the same floating-point split the receipt body had and
+ * disagrees with the contract's integer division on any amount that does not
+ * divide evenly. Callers pass the share from `splitPaidAmount`.
+ */
+export function agentProfitUsd(agentShareUsd: string, agentSpentUsd: string): string {
+  const share = Number(agentShareUsd);
   const spent = Number(agentSpentUsd);
-  if (!Number.isFinite(paid) || !Number.isFinite(spent)) return '0.000';
-  const profit = paid * 0.5 - spent;
+  if (!Number.isFinite(share) || !Number.isFinite(spent)) return '0.000';
+  const profit = share - spent;
   return `${profit >= 0 ? '+' : '-'}$${Math.abs(profit).toFixed(3)}`;
 }
 
 export interface ReceiptInput {
   threadId: bigint | null;
   paidAmountUsd: string;
+  /** The agent's exact share, from splitPaidAmount — never paid * 0.5. */
+  agentShareUsd: string;
   tokenSymbol: string;
   agentSpentUsd: string;
   steps: Record<StepId, StepState>;
@@ -93,7 +103,7 @@ export function buildReceiptText(input: ReceiptInput): string {
   for (const call of settledCalls(input.steps)) {
     lines.push(row(call.label, `$${call.costAmount}`));
   }
-  lines.push(row('agent p/l', agentProfitUsd(input.paidAmountUsd, input.agentSpentUsd)));
+  lines.push(row('agent p/l', agentProfitUsd(input.agentShareUsd, input.agentSpentUsd)));
   if (input.payTxHash) {
     lines.push(row('payment tx', `${input.explorerBase}/tx/${input.payTxHash}`));
   }

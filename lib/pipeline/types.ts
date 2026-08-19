@@ -10,7 +10,11 @@ export interface StepMeta {
 }
 
 export type PipelineEvent =
-  | { type: 'started' }
+  // `paidAmountRaw` is the amount verifyPayment read back off the chain, in the
+  // paid token's base units. The client had no way to know it and printed the
+  // local THREAD_PRICE_USD constant instead — which on prod Celo names a price
+  // nobody is charged. Optional so a stream can still start without it.
+  | { type: 'started'; paidAmountRaw?: string }
   | { type: 'step_started'; step: StepId }
   | { type: 'step_settled'; step: StepId; txHash: Hex; costAmount: string; tokenSymbol: 'cUSD' | 'USDT' | 'USDC'; chainId?: number }
   | { type: 'step_output'; step: StepId; output: unknown }

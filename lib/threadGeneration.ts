@@ -42,6 +42,12 @@ export interface ThreadGenerationState {
   tweets: string[] | null;
   fatal: string | null;
   fatalKind: FatalKind | null;
+  /**
+   * What the user actually paid, in the token's base units, as verified on
+   * chain by the server. Null until `started` carries it — and null forever for
+   * a resumed run, which reads the same figure off its thread row instead.
+   */
+  paidAmountRaw: string | null;
   hasStarted: boolean;
   isDone: boolean;
   isSlow: boolean;
@@ -58,6 +64,7 @@ export const initialState: ThreadGenerationState = {
   tweets: null,
   fatal: null,
   fatalKind: null,
+  paidAmountRaw: null,
   hasStarted: false,
   isDone: false,
   isSlow: false,
@@ -67,7 +74,14 @@ export const initialState: ThreadGenerationState = {
 export function applyEvent(prev: ThreadGenerationState, e: PipelineEvent): ThreadGenerationState {
   switch (e.type) {
     case 'started':
-      return { ...prev, hasStarted: true, isSlow: false };
+      return {
+        ...prev,
+        hasStarted: true,
+        isSlow: false,
+        // Never overwrite a known amount with nothing: an older server that
+        // does not send it must not blank out what a newer one did.
+        paidAmountRaw: e.paidAmountRaw ?? prev.paidAmountRaw,
+      };
     case 'step_started': {
       const steps = { ...prev.steps };
       steps[e.step] = { ...steps[e.step], status: 'running' };

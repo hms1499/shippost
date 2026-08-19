@@ -210,7 +210,7 @@ export async function POST(req: Request) {
 
       // Flush an initial byte so Vercel's 25s first-byte timeout doesn't
       // kill the connection while the first AI call is still running.
-      emit({ type: 'started' });
+      emit({ type: 'started', paidAmountRaw: verifiedAmountRaw });
 
       try {
         const contracts = getContracts(body.chainId);

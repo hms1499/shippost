@@ -41,7 +41,7 @@ import { track, captureSource } from '@/lib/funnel';
 import { useThreadGeneration } from '@/hooks/useThreadGeneration';
 import { explorerBase } from '@/lib/chains';
 import { getContracts } from '@/lib/contracts';
-import { computeTokenAmount, getTokens, type TokenSymbol } from '@/lib/tokens';
+import { computeTokenAmount, formatPriceLabel, getTokens, type TokenSymbol } from '@/lib/tokens';
 import { useBalances } from '@/lib/useBalances';
 import { useThreadPrice } from '@/lib/useThreadPrice';
 import { payability } from '@/lib/payability';
@@ -613,6 +613,23 @@ export default function HomeClient() {
             ? 'partial'
             : 'full-fail';
 
+  // One reading of what this thread cost, in base units, for every surface that
+  // shows it. The chain's answer wins: the live run gets it from `started`
+  // (verifyPayment's own reading), a resumed run from its thread row. Only when
+  // neither exists does this fall back to the local constant — which CLAUDE.md
+  // permits for display, and which on prod Celo names $0.10 while the contract
+  // charges $0.05.
+  const paidAmountRaw: bigint | null = gen.paidAmountRaw
+    ? BigInt(gen.paidAmountRaw)
+    : resumedReceipt?.amountPaidRaw
+      ? BigInt(resumedReceipt.amountPaidRaw)
+      : null;
+
+  const paidAmountLabel =
+    paidAmountRaw !== null && receiptToken
+      ? formatPriceLabel(paidAmountRaw, receiptToken.decimals)
+      : undefined;
+
   const openHistory = useCallback(() => {
     window.location.href = '/history';
   }, []);
@@ -737,6 +754,16 @@ export default function HomeClient() {
   // settable, so gating on the local constant would refuse wallets that can
   // afford the real one.
   const threadPrice = useThreadPrice(payableToken);
+  // The price BEFORE paying, as read from the contract — separate from
+  // paidAmountRaw, which is what a specific thread already cost. This one is the
+  // live price the user is about to agree to, and the screens that show it were
+  // printing THREAD_PRICE_USD: on prod Celo, $0.10 against a contract charging
+  // $0.05. The gate below already reads the chain; the label now does too.
+  const priceLabel =
+    threadPrice !== null && payableToken
+      ? formatPriceLabel(threadPrice, payableToken.decimals)
+      : undefined;
+
   const payGate = payability({
     token: payableToken,
     price: threadPrice,
@@ -1011,6 +1038,7 @@ export default function HomeClient() {
         regenerating={previewLoading}
         tokenSymbol={activeToken?.symbol ?? null}
         canPay={payGate.canPay}
+        priceLabel={priceLabel}
         // MiniPay gets no `change` link: there is nothing there to change.
         onChangeChain={isMiniPay ? undefined : () => setWalletOpen(true)}
       />
@@ -1026,7 +1054,10 @@ export default function HomeClient() {
         <Button onClick={unlock} disabled={!payGate.canPay}>
           Generate for{' '}
           {Number(
-            formatUnits(computeTokenAmount(activeToken), activeToken.decimals),
+            formatUnits(
+              threadPrice ?? computeTokenAmount(activeToken),
+              activeToken.decimals,
+            ),
           ).toFixed(2)}{' '}
           {activeToken.symbol} →
         </Button>
@@ -1091,6 +1122,7 @@ export default function HomeClient() {
         threadId={threadId}
         chainExplorerBase={explorerBase(chainId)}
         agentWalletAddress={getContracts(chainId).AgentWallet}
+        paidAmountLabel={paidAmountLabel}
       />
     ) : screen === 'preview' && draftTweets ? (
       <Stagger className="w-full max-w-md flex flex-col gap-4">
@@ -1136,20 +1168,8 @@ export default function HomeClient() {
     ) : screen === 'post-share' && receiptToken ? (
       <PostShareScreen
         threadId={threadId ?? (resumingRun ? BigInt(resumingRun.threadId) : null)}
-        paidAmountUsd={
-          // The row's amount is the on-chain VERIFIED one. Only when it is
-          // absent does this fall back to the head price — which is exactly what
-          // the live path already does today (audit finding 6.4/7.1, fixed in a
-          // separate pass). This never makes the live path worse and makes the
-          // resumed path right whenever the data exists.
-          resumedReceipt?.amountPaidRaw
-            ? Number(
-                formatUnits(BigInt(resumedReceipt.amountPaidRaw), receiptToken.decimals),
-              ).toFixed(3)
-            : Number(
-                formatUnits(computeTokenAmount(receiptToken), receiptToken.decimals),
-              ).toFixed(3)
-        }
+        paidAmountRaw={(paidAmountRaw ?? computeTokenAmount(receiptToken)).toString()}
+        tokenDecimals={receiptToken.decimals}
         // The stream reports a total only on `done`. Routing a partial run here
         // made the old '0.001' fallback reachable — a figure nothing measured,
         // printed on a document that looks like a record. Sum what actually

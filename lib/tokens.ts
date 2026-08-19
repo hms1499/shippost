@@ -1,5 +1,5 @@
 import { celo, base, baseSepolia } from 'wagmi/chains';
-import { parseUnits, type Address } from 'viem';
+import { parseUnits, formatUnits, type Address } from 'viem';
 import { celoSepolia } from './chains';
 
 export type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
@@ -99,6 +99,21 @@ export const THREAD_PRICE_LABEL = `$${THREAD_PRICE_USD.toFixed(2)}`;
 
 export function computeTokenAmount(token: TokenConfig): bigint {
   return parseUnits(String(THREAD_PRICE_USD), token.decimals);
+}
+
+/**
+ * Label a raw token amount the way THREAD_PRICE_LABEL labels the constant, so a
+ * price read off the chain can replace it without the surrounding copy changing
+ * shape.
+ *
+ * Two decimals for anything a cent or more; below that the raw formatting is
+ * kept, because rounding a sub-cent amount up to "$0.01" would be the same
+ * class of lie this exists to remove.
+ */
+export function formatPriceLabel(raw: bigint, decimals: number): string {
+  const exact = formatUnits(raw, decimals);
+  const n = Number(exact);
+  return `$${Number.isFinite(n) && n >= 0.01 ? n.toFixed(2) : exact}`;
 }
 
 // Every simulated x402 micro-charge (Serper grounding, FactCheck, the Groq

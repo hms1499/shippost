@@ -40,6 +40,23 @@ describe('applyEvent — slow is advisory, never an outcome', () => {
     expect(s.fatal).toBeNull();
   });
 
+  // The paid amount is the server's on-chain reading. Everything that displays
+  // a price otherwise falls back to THREAD_PRICE_USD, which on prod Celo names
+  // a price nobody is charged.
+  it('records the verified paid amount from started', () => {
+    const s = applyEvent(initialState, { type: 'started', paidAmountRaw: '50000' });
+    expect(s.paidAmountRaw).toBe('50000');
+  });
+
+  it('leaves the paid amount null when started does not carry one', () => {
+    expect(applyEvent(initialState, { type: 'started' }).paidAmountRaw).toBeNull();
+  });
+
+  it('never blanks a known paid amount with a later started', () => {
+    const withAmount = applyEvent(initialState, { type: 'started', paidAmountRaw: '50000' });
+    expect(applyEvent(withAmount, { type: 'started' }).paidAmountRaw).toBe('50000');
+  });
+
   it('fatal clears isSlow and sets fatal + isDone', () => {
     const s = applyEvent(slowed, { type: 'fatal', error: 'boom' });
     expect(s.isSlow).toBe(false);

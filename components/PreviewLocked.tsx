@@ -20,6 +20,13 @@ interface Props {
    * the only button that earns money.
    */
   canPay?: boolean;
+  /**
+   * The price read off the chain, already formatted. THREAD_PRICE_LABEL is the
+   * fallback for the frames before that read lands — it is a local constant,
+   * and on prod Celo it names $0.10 while the contract charges $0.05. This is
+   * the screen where the user agrees to pay, so it must not be the one guessing.
+   */
+  priceLabel?: string;
   onChangeChain?: () => void;
 }
 
@@ -31,8 +38,10 @@ export function PreviewLocked({
   regenerating,
   tokenSymbol,
   canPay,
+  priceLabel,
   onChangeChain,
 }: Props) {
+  const price = priceLabel ?? THREAD_PRICE_LABEL;
   // lockedCount is "the rest"; the full thread is that plus the opening tweet.
   const totalTweets = Math.max(lockedCount, 0) + 1;
   return (
@@ -40,7 +49,7 @@ export function PreviewLocked({
       <div className="flex flex-col gap-1">
         <p className="heading-sub text-[10px]">Sample · First tweet free</p>
         <p className="text-sm font-sans text-muted-foreground leading-snug">
-          A free taste of the opening. Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> to
+          A free taste of the opening. Pay <span className="font-mono text-money">{price}</span> to
           generate your full thread — freshly written and fact-checked.
         </p>
       </div>
@@ -65,7 +74,7 @@ export function PreviewLocked({
       </div>
 
       <Button onClick={onUnlock} disabled={canPay === false}>
-        Generate full thread · {THREAD_PRICE_LABEL}
+        Generate full thread · {price}
       </Button>
 
       {canPay === false && tokenSymbol && (

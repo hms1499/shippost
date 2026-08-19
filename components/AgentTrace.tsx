@@ -35,6 +35,13 @@ interface Props {
   threadId: bigint | null;
   chainExplorerBase: string;
   agentWalletAddress: string;
+  /**
+   * What this thread actually cost, read off the chain and formatted. Falls
+   * back to THREAD_PRICE_LABEL, which is a local constant — on prod Celo it
+   * names $0.10 while the contract charges $0.05, so the fallback is for the
+   * frames before `started` lands and for the canned demo, nothing else.
+   */
+  paidAmountLabel?: string;
   /** Canned landing replay — no fake thread id, no explorer links. */
   demo?: boolean;
 }
@@ -56,6 +63,7 @@ export function AgentTrace({
   threadId,
   chainExplorerBase,
   agentWalletAddress,
+  paidAmountLabel,
   demo = false,
 }: Props) {
   const reduced = useReducedMotion();
@@ -135,7 +143,7 @@ export function AgentTrace({
         className="rounded-md border border-border bg-background/60 p-2.5 max-h-44 overflow-y-auto text-[11px] font-mono leading-relaxed"
         aria-live="polite"
       >
-        <LogRow glyph={payTxHash ? 'ok' : payStatus === 'error' ? 'fail' : 'run'} text={payLabel} txHash={payTxHash ?? undefined} explorer={chainExplorerBase} amount={payTxHash ? THREAD_PRICE_LABEL : undefined} />
+        <LogRow glyph={payTxHash ? 'ok' : payStatus === 'error' ? 'fail' : 'run'} text={payLabel} txHash={payTxHash ?? undefined} explorer={chainExplorerBase} amount={payTxHash ? paidAmountLabel ?? THREAD_PRICE_LABEL : undefined} />
         {lines.map((l) => (
           <motion.div
             key={l.key}

@@ -6,13 +6,21 @@ import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { haptic } from '@/lib/haptics';
 import { buildReceiptText, settledCalls, agentProfitUsd } from '@/lib/receiptText';
+import { splitPaidAmount } from '@/lib/paymentSplit';
+import { formatUnits } from 'viem';
 import { explorerBase as explorerBaseFor } from '@/lib/chains';
 import type { StepState } from '@/lib/threadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 
 interface Props {
   threadId: bigint | null;
-  paidAmountUsd: string;
+  /**
+   * What the user paid, in the token's base units — not a display string. The
+   * split below has to be integer arithmetic on this exact number to match what
+   * the contract did, and a formatted string has already lost the precision.
+   */
+  paidAmountRaw: string;
+  tokenDecimals: number;
   agentSpentUsd: string;
   tokenSymbol: string;
   payTxHash: string | null;
@@ -31,7 +39,8 @@ interface Props {
  */
 export function PostShareScreen({
   threadId,
-  paidAmountUsd,
+  paidAmountRaw,
+  tokenDecimals,
   agentSpentUsd,
   tokenSymbol,
   payTxHash,
@@ -51,10 +60,17 @@ export function PostShareScreen({
     return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)} utc`;
   });
 
-  const paid = Number(paidAmountUsd);
-  const agentShare = (paid * 0.5).toFixed(3);
-  const treasuryShare = (paid * 0.4).toFixed(3);
-  const reserveShare = (paid * 0.1).toFixed(3);
+  // The contract splits in integer token units and keeps the rounding dust in
+  // the reserve. This receipt is presented as a record of that, with tx links
+  // beside it, so it does the same arithmetic — recomputing it as
+  // `Number(paid) * 0.5` agreed at $0.10 and diverged everywhere else.
+  const paidRaw = BigInt(paidAmountRaw);
+  const amount = (raw: bigint) => Number(formatUnits(raw, tokenDecimals)).toFixed(3);
+  const split = splitPaidAmount(paidRaw);
+  const paidAmountUsd = amount(paidRaw);
+  const agentShare = amount(split.agent);
+  const treasuryShare = amount(split.treasury);
+  const reserveShare = amount(split.reserve);
   const calls = settledCalls(steps);
 
   async function copyReceipt() {
@@ -64,6 +80,7 @@ export function PostShareScreen({
         buildReceiptText({
           threadId,
           paidAmountUsd,
+          agentShareUsd: agentShare,
           tokenSymbol,
           agentSpentUsd,
           steps,
@@ -135,7 +152,7 @@ export function PostShareScreen({
             )}
             <LedgerLine
               left="agent p/l"
-              right={agentProfitUsd(paidAmountUsd, agentSpentUsd)}
+              right={agentProfitUsd(agentShare, agentSpentUsd)}
               accent
             />
           </ul>

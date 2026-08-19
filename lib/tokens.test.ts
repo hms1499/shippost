@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { celo, base } from 'wagmi/chains';
+import { parseUnits } from 'viem';
 import {
   computeTokenAmount,
   computeX402CostAmount,
+  formatPriceLabel,
   getTokens,
   THREAD_PRICE_USD,
   X402_UNIT_COST_USD,
@@ -69,5 +71,22 @@ describe('thread price', () => {
 
   it('scales to 18 decimals (0.10 = 1e17)', () => {
     expect(computeTokenAmount(getTokens(42220).cUSD!)).toBe(100_000_000_000_000_000n);
+  });
+});
+
+describe('formatPriceLabel', () => {
+  it('labels a chain-read price the same shape as the constant', () => {
+    // prod Celo charges $0.05 while THREAD_PRICE_LABEL says $0.10 — this is the
+    // function that lets the real figure take its place.
+    expect(formatPriceLabel(parseUnits('0.05', 18), 18)).toBe('$0.05');
+    expect(formatPriceLabel(parseUnits('0.1', 6), 6)).toBe('$0.10');
+  });
+
+  it('does not round a sub-cent amount up to a cent', () => {
+    expect(formatPriceLabel(parseUnits('0.001', 6), 6)).toBe('$0.001');
+  });
+
+  it('handles zero', () => {
+    expect(formatPriceLabel(0n, 18)).toBe('$0');
   });
 });

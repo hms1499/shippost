@@ -70,6 +70,8 @@ describe('buildReceiptText', () => {
   const text = buildReceiptText({
     threadId: 4821n,
     paidAmountUsd: '0.050',
+    // The agent's exact share, as splitPaidAmount computes it — not paid * 0.5.
+    agentShareUsd: '0.025',
     tokenSymbol: 'cUSD',
     agentSpentUsd: '0.014',
     steps,
@@ -88,7 +90,7 @@ describe('buildReceiptText', () => {
     expect(text).toContain('coingecko    $0.003');
     expect(text).toContain('groq         $0.001');
     expect(text).not.toContain('factCheck');
-    // p/l = 50% of 0.050 minus 0.014 spent
+    // p/l = the agent's share (0.025) minus 0.014 spent
     expect(text).toContain('agent p/l    +$0.011');
   });
 
@@ -100,6 +102,7 @@ describe('buildReceiptText', () => {
     const noTx = buildReceiptText({
       threadId: null,
       paidAmountUsd: '0.050',
+      agentShareUsd: '0.025',
       tokenSymbol: 'cUSD',
       agentSpentUsd: '0.014',
       steps,
