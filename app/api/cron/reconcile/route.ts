@@ -8,6 +8,7 @@ import {
   minGasOverrideForChain,
 } from '@/lib/agent/walletHealth';
 import { checkPreviewAlive } from '@/lib/agent/previewHealth';
+import { countOpenOrphanPayments } from '@/lib/agent/orphanPayments';
 import { claimAlertOnce } from '@/lib/rateLimit';
 import { alertOps } from '@/lib/alert';
 import { shareAppUrl } from '@/lib/shareText';
@@ -51,6 +52,25 @@ export async function GET(req: Request) {
           `, ${result.enqueuedFailed} refund(s) for failed run(s)` +
           (result.errors.length ? `, ${result.errors.length} error(s)` : ''),
         result,
+      );
+    }
+
+    // Payments rejected before a thread row could exist. Nothing sweeps these
+    // and nothing can: there is no thread to refund against, only a tx hash to
+    // check on the explorer. Unpaged, the table would silently fill with users
+    // owed money — the exact failure it was built to end.
+    try {
+      const open = await countOpenOrphanPayments(getSupabaseServer());
+      if (open !== null && open > 0 && (await claimAlertOnce('orphan-payments', LOW_BALANCE_TTL_SEC))) {
+        await alertOps(`${open} rejected payment(s) awaiting triage`, {
+          table: 'orphan_payments',
+          status: 'open',
+        });
+      }
+    } catch (e) {
+      console.error(
+        '[cron/reconcile] orphan payment check failed:',
+        e instanceof Error ? e.message : e,
       );
     }
 

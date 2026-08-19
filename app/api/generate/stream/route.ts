@@ -1,7 +1,8 @@
 import { getMode } from '@/lib/pipeline/modes';
 import { getContracts } from '@/lib/contracts';
 import { isSupportedChain } from '@/lib/chainPolicy';
-import { verifyPayment } from '@/lib/agent/orchestrator';
+import { PaymentNotVerifiedError, verifyPayment } from '@/lib/agent/orchestrator';
+import { recordOrphanPayment } from '@/lib/agent/orphanPayments';
 import { getSupabaseServer } from '@/lib/supabase';
 import { claimGenerationOnce } from '@/lib/rateLimit';
 import type { Address, Hex } from 'viem';
@@ -99,6 +100,8 @@ export async function POST(req: Request) {
   // Prove the payment on-chain BEFORE opening the stream or spending any
   // x402. Without this, the body is forgeable and anyone can drain the agent
   // wallet for free. Reject (402) on any mismatch.
+  const supabase = getSupabaseSafe();
+
   let verifiedAmountRaw: string;
   try {
     const { amountRaw } = await verifyPayment({
@@ -112,10 +115,29 @@ export async function POST(req: Request) {
     verifiedAmountRaw = amountRaw.toString();
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'payment verification failed';
-    return new Response(`payment not verified: ${msg}`, { status: 402 });
+    // This 402 returns before any thread row exists, so without the line below
+    // a real payment we merely could not read leaves NO trace anywhere: not in
+    // history, not in the refund queue, not in the nightly sweep. Only the
+    // ambiguous rejections are recorded, and only for a human to triage —
+    // nothing downstream sends money off this table.
+    const recorded =
+      e instanceof PaymentNotVerifiedError &&
+      (await recordOrphanPayment(supabase, {
+        chainId: body.chainId,
+        payTxHash: body.payTxHash,
+        walletAddress: body.walletAddress,
+        claimedThreadId: body.threadId,
+        tokenAddress: body.tokenAddress,
+        mode: body.mode,
+        kind: e.kind,
+        detail: msg,
+        observed: e.observed,
+      }));
+    return new Response(
+      `payment not verified: ${msg}${recorded ? ' — your payment has been recorded for review' : ''}`,
+      { status: 402 },
+    );
   }
-
-  const supabase = getSupabaseSafe();
 
   // Replay guard: the pending row also enforces one generation per payment
   // via the unique (chain_id, onchain_thread_id) index. Insert BEFORE opening

@@ -45,6 +45,48 @@ export async function settleX402Call(params: {
   return hash;
 }
 
+/**
+ * Why a payment could not be verified — and, crucially, whether money may have
+ * moved anyway.
+ *
+ * The route answers 402 before it writes any row, so a rejection leaves nothing
+ * behind. That is correct for a forged body and wrong for a real payment we
+ * simply could not read: the user is charged on chain and the system has no
+ * record at all. Distinguishing the two is what lets the ambiguous ones be
+ * recorded for a human without inviting anyone to fabricate records.
+ */
+export type PaymentFailureKind =
+  // The receipt could not be read, even after retries. A lagging node and a
+  // fabricated hash look identical here — so this is the ambiguous one.
+  | 'receipt-unavailable'
+  // The chain says the transaction reverted. No money moved.
+  | 'tx-reverted'
+  // The transaction exists but never paid our contract. Nothing to refund.
+  | 'no-payment-event'
+  // Our contract WAS paid — the body just describes that payment wrongly.
+  // Money definitely moved.
+  | 'mismatch';
+
+export interface ObservedPayment {
+  threadId?: string;
+  user?: string;
+  token?: string;
+  amountRaw?: string;
+  mode?: number;
+}
+
+export class PaymentNotVerifiedError extends Error {
+  constructor(
+    readonly kind: PaymentFailureKind,
+    message: string,
+    /** What the chain actually said, when it said anything. */
+    readonly observed?: ObservedPayment,
+  ) {
+    super(message);
+    this.name = 'PaymentNotVerifiedError';
+  }
+}
+
 // Canonical refundable base: the amount this specific thread actually
 // transferred, taken from its own ThreadRequested event.
 //
@@ -115,7 +157,12 @@ async function fetchReceiptWithRetry<T>(read: () => Promise<T>): Promise<T> {
     } catch {
       // Bounded: a payment tx that genuinely does not exist must not hold the
       // request open, and the caller is a user watching a stream.
-      if (attempt >= RECEIPT_ATTEMPTS) throw new Error('payment tx not found on chain');
+      if (attempt >= RECEIPT_ATTEMPTS) {
+        throw new PaymentNotVerifiedError(
+          'receipt-unavailable',
+          'payment tx not found on chain',
+        );
+      }
       await new Promise((r) => setTimeout(r, RECEIPT_RETRY_MS));
     }
   }
@@ -142,7 +189,7 @@ export async function verifyPayment(params: {
     publicClient.getTransactionReceipt({ hash: params.payTxHash }),
   );
   if (receipt.status !== 'success') {
-    throw new Error('payment tx did not succeed');
+    throw new PaymentNotVerifiedError('tx-reverted', 'payment tx did not succeed');
   }
 
   // Find the ThreadRequested log emitted *by our contract* (don't rely on
@@ -173,20 +220,37 @@ export async function verifyPayment(params: {
     }
   }
   if (!evt) {
-    throw new Error('no ThreadRequested event from ShipPostPayment in this tx');
+    throw new PaymentNotVerifiedError(
+      'no-payment-event',
+      'no ThreadRequested event from ShipPostPayment in this tx',
+    );
   }
 
+  // Past this point our contract was paid: every remaining check compares the
+  // caller's claims against a payment that really happened, so a failure means
+  // a real payment described wrongly — never a payment that did not occur.
+  const observed: ObservedPayment = {
+    threadId: evt.threadId.toString(),
+    user: evt.user,
+    token: evt.token,
+    amountRaw: evt.amount.toString(),
+    mode: Number(evt.mode),
+  };
+  const mismatch = (message: string): never => {
+    throw new PaymentNotVerifiedError('mismatch', message, observed);
+  };
+
   if (evt.threadId !== params.threadId) {
-    throw new Error('threadId does not match the payment tx');
+    mismatch('threadId does not match the payment tx');
   }
   if (getAddress(evt.user) !== getAddress(params.walletAddress)) {
-    throw new Error('payer does not match the payment tx');
+    mismatch('payer does not match the payment tx');
   }
   if (getAddress(evt.token) !== getAddress(params.tokenAddress)) {
-    throw new Error('token does not match the payment tx');
+    mismatch('token does not match the payment tx');
   }
   if (Number(evt.mode) !== params.mode) {
-    throw new Error('mode does not match the payment tx');
+    mismatch('mode does not match the payment tx');
   }
 
   // Defense in depth: the amount pulled must equal the canonical price for
@@ -204,7 +268,7 @@ export async function verifyPayment(params: {
     blockNumber: receipt.blockNumber,
   })) as bigint;
   if (evt.amount !== required) {
-    throw new Error('paid amount does not match required price');
+    mismatch('paid amount does not match required price');
   }
 
   return { amountRaw: evt.amount };

@@ -15,7 +15,13 @@ const runModeA = vi.fn();
 const runModeB = vi.fn();
 const MODE_A_TOTAL_COST_USD = '0.050';
 
-vi.mock('@/lib/agent/orchestrator', () => ({ verifyPayment }));
+// PaymentNotVerifiedError has to be the REAL class: the route narrows on
+// `instanceof`, so a stand-in would silently take the "do not record" branch and
+// the orphan-payment tests below would pass for the wrong reason.
+vi.mock('@/lib/agent/orchestrator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/agent/orchestrator')>();
+  return { verifyPayment, PaymentNotVerifiedError: actual.PaymentNotVerifiedError };
+});
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA, MODE_A_TOTAL_COST_USD }));
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB }));
@@ -26,6 +32,7 @@ vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB }));
 process.env.NEXT_PUBLIC_SUPPORTED_CHAIN_IDS = '11142220,8453,42220';
 
 const { POST } = await import('./route');
+const { PaymentNotVerifiedError } = await import('@/lib/agent/orchestrator');
 
 const CHAIN_ID = celoSepolia.id;
 const VERIFIED_AMOUNT = 50_000_000_000_000_000n; // 0.05 cUSD (18 decimals)
@@ -37,9 +44,14 @@ const VERIFIED_AMOUNT = 50_000_000_000_000_000n; // 0.05 cUSD (18 decimals)
 function makeSupabase(opts: { insertError?: { code?: string; message: string }; updateError?: { message: string } } = {}) {
   const inserts: Array<Record<string, unknown>> = [];
   const updates: Array<Record<string, unknown>> = [];
+  const orphans: Array<Record<string, unknown>> = [];
   const client = {
-    from() {
+    from(table: string) {
       return {
+        upsert(payload: Record<string, unknown>) {
+          if (table === 'orphan_payments') orphans.push(payload);
+          return Promise.resolve({ error: null });
+        },
         insert(payload: Record<string, unknown>) {
           inserts.push(payload);
           return Promise.resolve({ error: opts.insertError ?? null });
@@ -56,7 +68,7 @@ function makeSupabase(opts: { insertError?: { code?: string; message: string }; 
       };
     },
   };
-  return { client, inserts, updates };
+  return { client, inserts, updates, orphans };
 }
 
 function postReq(body: unknown): Request {
@@ -147,14 +159,75 @@ describe('POST /api/generate/stream', () => {
 
   describe('payment gate (no paid work before on-chain proof)', () => {
     it('returns 402 and spends nothing when verifyPayment rejects', async () => {
+      const { client, inserts, orphans } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
       verifyPayment.mockRejectedValue(new Error('threadId does not match'));
       const res = await POST(postReq(bodyA));
       expect(res.status).toBe(402);
       expect(await res.text()).toContain('payment not verified');
-      // No DB row, no pipeline, no x402 spend.
-      expect(getSupabaseServer).not.toHaveBeenCalled();
+      // No thread row, no pipeline, no x402 spend. (A Supabase client IS now
+      // obtained before the gate — the orphan record below needs one — but a
+      // plain Error carries no failure kind, so nothing is written at all.)
+      expect(inserts).toHaveLength(0);
+      expect(orphans).toHaveLength(0);
       expect(runModeA).not.toHaveBeenCalled();
       expect(runModeB).not.toHaveBeenCalled();
+    });
+
+    // The 402 fires before the threads insert, so without this a real payment
+    // the server merely could not read leaves no trace anywhere: not in
+    // history, not in the refund queue, not in the nightly sweep.
+    it('records an unreadable payment for triage, and says so', async () => {
+      const { client, inserts, orphans } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      verifyPayment.mockRejectedValue(
+        new PaymentNotVerifiedError('receipt-unavailable', 'payment tx not found on chain'),
+      );
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(402);
+      expect(await res.text()).toContain('recorded for review');
+      expect(orphans).toHaveLength(1);
+      expect(orphans[0]).toMatchObject({
+        chain_id: CHAIN_ID,
+        reason: 'receipt-unavailable',
+        pay_tx_hash: bodyA.payTxHash.toLowerCase(),
+      });
+      // Still no thread row: an unverified payment must not become a thread.
+      expect(inserts).toHaveLength(0);
+      expect(runModeA).not.toHaveBeenCalled();
+    });
+
+    it('records a payment our contract really took but the body described wrongly', async () => {
+      const { client, orphans } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      verifyPayment.mockRejectedValue(
+        new PaymentNotVerifiedError('mismatch', 'payer does not match the payment tx', {
+          threadId: '99',
+          amountRaw: '50000',
+        }),
+      );
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(402);
+      expect(orphans[0]).toMatchObject({
+        reason: 'mismatch',
+        observed_thread_id: '99',
+        observed_amount_raw: '50000',
+      });
+    });
+
+    it('records nothing when the chain proves no payment reached us', async () => {
+      const { client, orphans } = makeSupabase();
+      getSupabaseServer.mockReturnValue(client);
+      verifyPayment.mockRejectedValue(
+        new PaymentNotVerifiedError('no-payment-event', 'no ThreadRequested event'),
+      );
+
+      const res = await POST(postReq(bodyA));
+      expect(res.status).toBe(402);
+      expect(await res.text()).not.toContain('recorded for review');
+      expect(orphans).toHaveLength(0);
     });
   });
 
