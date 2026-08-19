@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
 import { GuestTaste } from '@/components/GuestTaste';
+import { PublicStatsStrip } from '@/components/PublicStatsStrip';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 const MD_UP = '(min-width: 768px)';
 
 /**
  * Pre-connect landing. One action on the fold — type a topic, get a free
- * first tweet. Connect appears after the sample (or as a quiet fallback).
+ * first tweet, with the live public numbers between the pitch and the form so
+ * proof arrives without a click. Connect appears after the sample (or as a
+ * quiet fallback).
  * Desktop: taste left, generating-screen demo right. Mobile: demo is a
  * disclosure under the fold so it cannot out-shout the form.
  */
@@ -40,6 +43,8 @@ export function LandingHero() {
           <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> only if you keep it.
         </p>
       </div>
+
+      <PublicStatsStrip />
 
       <div className="w-full grid gap-8 md:grid-cols-2 md:items-start">
         <div className="w-full">
