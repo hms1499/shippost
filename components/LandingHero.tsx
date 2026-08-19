@@ -5,6 +5,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
 import { GuestTaste } from '@/components/GuestTaste';
 import { PublicStatsStrip } from '@/components/PublicStatsStrip';
+import { SpecPlate } from '@/components/SpecPlate';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 const MD_UP = '(min-width: 768px)';
@@ -19,7 +20,8 @@ const MD_UP = '(min-width: 768px)';
  * surface, where a stranger decides in seconds whether any of it is real.
  *
  * Desktop: free play left, the running machine right. Mobile: the machine is a
- * disclosure under the fold so it cannot out-shout the one thing to do.
+ * disclosure under the fold so it cannot out-shout the one thing to do. The
+ * spec plate closes it, the way a machine carries its plate on the back.
  */
 export function LandingHero() {
   const { openConnectModal } = useConnectModal();
@@ -80,6 +82,8 @@ export function LandingHero() {
           )}
         </aside>
       </div>
+
+      <SpecPlate />
     </section>
   );
 }

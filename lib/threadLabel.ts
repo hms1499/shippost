@@ -27,6 +27,13 @@ const MODE_CODE: Record<number, string> = {
   5: 'NWS',
 };
 
+// Display names in mode order. Exported so anything listing what this machine
+// can write reads the same strings as the history rows, per the note above.
+export const MODE_NAMES: string[] = Object.keys(MODE_FALLBACK)
+  .map(Number)
+  .sort((a, b) => a - b)
+  .map((id) => MODE_FALLBACK[id]);
+
 export function modeCode(mode: number): string {
   return MODE_CODE[mode] ?? '???';
 }
