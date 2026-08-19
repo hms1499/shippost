@@ -5,20 +5,36 @@ import { AgentTrace } from '@/components/AgentTrace';
 import { initialState, applyEvent } from '@/lib/threadGeneration';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { PipelineEvent } from '@/lib/pipeline/types';
+import { X402_UNIT_COST_USD } from '@/lib/tokens';
+
+// Every x402 micro-charge settles for the same amount (lib/tokens.ts), so the
+// demo reads it from there. Hardcoding once put 0.010 and 0.005 on the landing
+// against a real 0.001 — the demo claimed the agent spends seventeen times what
+// it does, contradicting the live counter a few pixels above it.
+const UNIT = X402_UNIT_COST_USD;
+const TOTAL = (Number(UNIT) * 4).toFixed(3);
+
+const settled = (step: 'serper' | 'coingecko' | 'groq' | 'factCheck'): PipelineEvent => ({
+  type: 'step_settled',
+  step,
+  txHash: '0x0',
+  costAmount: UNIT,
+  tokenSymbol: 'cUSD',
+});
 
 // Canned Mode-B run through the real reducer. Plays once and holds the
 // finished frame — a loop next to the free-taste form is noise.
 const SCRIPT: { at: number; e: PipelineEvent }[] = [
   { at: 400,  e: { type: 'started' } },
   { at: 900,  e: { type: 'step_started', step: 'serper' } },
-  { at: 2200, e: { type: 'step_settled', step: 'serper', txHash: '0x0', costAmount: '0.010', tokenSymbol: 'cUSD' } },
+  { at: 2200, e: settled('serper') },
   { at: 2600, e: { type: 'step_started', step: 'coingecko' } },
-  { at: 3800, e: { type: 'step_settled', step: 'coingecko', txHash: '0x0', costAmount: '0.005', tokenSymbol: 'cUSD' } },
+  { at: 3800, e: settled('coingecko') },
   { at: 4200, e: { type: 'step_started', step: 'groq' } },
-  { at: 7200, e: { type: 'step_settled', step: 'groq', txHash: '0x0', costAmount: '0.001', tokenSymbol: 'cUSD' } },
+  { at: 7200, e: settled('groq') },
   { at: 7600, e: { type: 'step_started', step: 'factCheck' } },
-  { at: 9200, e: { type: 'step_settled', step: 'factCheck', txHash: '0x0', costAmount: '0.001', tokenSymbol: 'cUSD' } },
-  { at: 9700, e: { type: 'done', totalCostUsd: '0.017' } },
+  { at: 9200, e: settled('factCheck') },
+  { at: 9700, e: { type: 'done', totalCostUsd: TOTAL } },
 ];
 
 export function AgentTraceReplay() {
