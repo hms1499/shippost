@@ -4,7 +4,7 @@ import { RuleDivider } from '@/components/terminal/RuleDivider';
 // The repository this app is built from, taken from the git remote rather than
 // from memory — a wrong link here sends every reader to a stranger's code.
 const REPO_URL = 'https://github.com/hms1499/shippost';
-const X_URL = 'https://x.com/AnhK1186';
+const X_URL = 'https://x.com/coin_oppx';
 
 /**
  * The plate riveted to the back of a coin-operated machine: what it takes, what
