@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { BarChart3, History } from 'lucide-react';
+import { History } from 'lucide-react';
 
 interface IndexEntry {
   numeral: string;
@@ -17,13 +17,6 @@ interface IndexEntry {
 const ENTRIES: IndexEntry[] = [
   {
     numeral: '01',
-    Icon: BarChart3,
-    label: 'Public Stats',
-    description: 'Live metrics, recent threads, x402 settlements.',
-    href: '/stats',
-  },
-  {
-    numeral: '02',
     Icon: History,
     label: 'My History',
     description: "Threads you've composed on this chain.",
@@ -33,14 +26,15 @@ const ENTRIES: IndexEntry[] = [
 ];
 
 /**
- * Footer navigation index — terminal-style route list. Lives outside the
- * connect gate so Public Stats (which needs no wallet) is always
- * discoverable; account-scoped entries appear only once a wallet is
- * connected.
+ * Footer navigation index — terminal-style route list. Public metrics moved
+ * onto the landing itself, so every remaining entry is account-scoped: with no
+ * wallet connected the list is empty and the whole nav goes with it rather
+ * than leaving a heading over nothing.
  */
 export function ColophonIndex() {
   const { isConnected } = useAccount();
   const entries = ENTRIES.filter((e) => !e.requiresConnection || isConnected);
+  if (entries.length === 0) return null;
 
   return (
     <nav aria-label="Index" className="w-full flex flex-col gap-2">

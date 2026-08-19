@@ -332,7 +332,8 @@ hiện đúng USDC trên Base, cUSD/USDT/USDC trên Celo), còn link explorer si
 - **Làm gì:** lưu wallet address + metadata thread (no PII); phục vụ history/analytics.
 - **Gọi bởi:** chỉ server-side, **luôn dùng service role** (`getSupabaseServer`) bypass RLS — không
   có anon client. History/analytics qua edge-runtime routes (`/api/public/*`), trang `/app/history`,
-  `/app/stats`.
+  và `PublicStatsStrip` trên landing (trang `/app/stats` đã bỏ — số liệu công khai nằm thẳng trên
+  homepage, không cần click).
 - **Invariant:** `refund_requests` bật RLS không policy permissive (`0005`) → anon bị từ chối.
 
 ## 2.6 Refund — runbook
