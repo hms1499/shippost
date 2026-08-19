@@ -29,7 +29,12 @@ export function useResumeRun(run: PaidRun | null): ResumeState {
 
     async function tick() {
       if (cancelled) return;
-      const row = await fetchThreadRow(run!.chainId, run!.threadId, controller.signal);
+      const row = await fetchThreadRow(
+        run!.chainId,
+        run!.threadId,
+        run!.wallet,
+        controller.signal,
+      );
       if (cancelled) return;
 
       const next = interpretThreadRow(row);

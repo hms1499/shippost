@@ -15,7 +15,6 @@ const DONE: ThreadRow = {
   totalCostUsd: '0.003',
   tokenSymbol: 'cUSD',
   payTxHash: '0x7f3a',
-  walletAddress: '0xabc',
 };
 
 describe('interpretThreadRow', () => {
@@ -94,16 +93,20 @@ describe('fetchThreadRow', () => {
     vi.unstubAllGlobals();
   });
 
-  it('requests the thread by chain and id', async () => {
+  // The wallet is not decoration: without it the route serves any thread id to
+  // anyone, so a caller that forgets it must be caught here rather than in prod.
+  it('requests the thread by chain, id and owning wallet', async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => DONE,
     });
-    const out = await fetchThreadRow(42220, '4182');
+    const out = await fetchThreadRow(42220, '4182', '0xAbCdEf0123456789abcdef0123456789ABCDEF01');
     expect(out).toEqual(DONE);
     const url = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toBe('/api/thread?chainId=42220&threadId=4182');
+    expect(url).toBe(
+      '/api/thread?chainId=42220&threadId=4182&wallet=0xabcdef0123456789abcdef0123456789abcdef01',
+    );
   });
 
   it('returns null on 404 so the caller keeps waiting', async () => {
@@ -112,11 +115,11 @@ describe('fetchThreadRow', () => {
       status: 404,
       json: async () => ({ error: 'not found' }),
     });
-    expect(await fetchThreadRow(42220, '4182')).toBeNull();
+    expect(await fetchThreadRow(42220, '4182', '0xabc')).toBeNull();
   });
 
   it('returns null when the network throws', async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('offline'));
-    expect(await fetchThreadRow(42220, '4182')).toBeNull();
+    expect(await fetchThreadRow(42220, '4182', '0xabc')).toBeNull();
   });
 });

@@ -15,7 +15,6 @@ export interface ThreadRow {
   totalCostUsd: string | null;
   tokenSymbol: string | null;
   payTxHash: string | null;
-  walletAddress: string | null;
 }
 
 export type ResumeState =
@@ -63,10 +62,14 @@ export function interpretThreadRow(row: ThreadRow | null): ResumeState {
 export async function fetchThreadRow(
   chainId: number,
   threadId: string,
+  wallet: string,
   signal?: AbortSignal,
 ): Promise<ThreadRow | null> {
   try {
-    const res = await fetch(`/api/thread?chainId=${chainId}&threadId=${threadId}`, { signal });
+    const res = await fetch(
+      `/api/thread?chainId=${chainId}&threadId=${threadId}&wallet=${wallet.toLowerCase()}`,
+      { signal },
+    );
     if (!res.ok) return null;
     return (await res.json()) as ThreadRow;
   } catch {
