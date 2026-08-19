@@ -96,6 +96,19 @@ export async function GET(req: Request) {
             native: gas.native,
             requiredNative: gas.requiredNative,
           });
+        } else if (
+          gas.warn &&
+          (await claimAlertOnce(`orchestrator-gas-warn:${chainId}`, LOW_BALANCE_TTL_SEC))
+        ) {
+          // The band above the blocking requirement. Paging only at the
+          // blocking requirement means the first signal is a user-facing
+          // outage — which is how the 2026-08-19 Base block was discovered.
+          await alertOps('Orchestrator EOA gas running low — top up before it blocks', {
+            chainId,
+            address: gas.address,
+            native: gas.native,
+            requiredNative: gas.requiredNative,
+          });
         }
       } catch (e) {
         console.error(

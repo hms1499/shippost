@@ -170,6 +170,56 @@ describe('orchestrator gas heartbeat', () => {
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
   });
 
+  // The old alert fired at exactly the threshold that already blocks every
+  // user, so it could only ever report an outage that had already started.
+  it('pages early while the signer is still funded but inside the warning band', async () => {
+    checkOrchestratorGas.mockResolvedValue({
+      low: false,
+      warn: true,
+      native: 0.00003,
+      requiredNative: 0.0000132,
+      address: '0xEOA',
+    });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledWith(
+      expect.stringMatching(/gas running low/i),
+      expect.objectContaining({ address: '0xEOA', native: 0.00003, requiredNative: 0.0000132 }),
+    );
+  });
+
+  it('throttles the early page under its own key, so it cannot mask the outage page', async () => {
+    checkOrchestratorGas.mockResolvedValue({
+      low: false,
+      warn: true,
+      native: 0.00003,
+      requiredNative: 0.0000132,
+      address: '0xEOA',
+    });
+    await GET(req(auth));
+    expect(claimAlertOnce).toHaveBeenCalledWith(
+      expect.stringMatching(/^orchestrator-gas-warn:/),
+      expect.any(Number),
+    );
+  });
+
+  it('sends the outage page and not the early page once the signer blocks', async () => {
+    checkOrchestratorGas.mockResolvedValue({
+      low: true,
+      warn: false,
+      native: 0.000001,
+      requiredNative: 0.0000132,
+      address: '0xEOA',
+    });
+    await GET(req(auth));
+    expect(alertOps).toHaveBeenCalledWith(
+      expect.stringMatching(/settles will fail/i),
+      expect.anything(),
+    );
+    expect(alertOps).not.toHaveBeenCalledWith(
+      expect.stringMatching(/gas running low/i),
+      expect.anything(),
+    );
+  });
 });
 
 // The preview fails CLOSED and answers {available:false} with HTTP 200, so a
