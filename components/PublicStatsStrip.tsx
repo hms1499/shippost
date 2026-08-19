@@ -6,6 +6,7 @@ import { SUPPORTED_CHAIN_IDS, chainLabel } from '@/lib/chainPolicy';
 import { explorerBase } from '@/lib/chains';
 import { CONTRACTS } from '@/lib/contracts';
 import { sumChainStats, type ChainStats } from '@/lib/publicStats';
+import { OperatorCounter } from '@/components/OperatorCounter';
 
 // One request per chain, folded into a single total. A chain that fails
 // resolves to null and simply drops out of the sum.
@@ -29,8 +30,8 @@ async function fetchAllChains(): Promise<ChainStats> {
 const count = new Intl.NumberFormat('en-US');
 
 /**
- * Pre-connect proof of work: the three numbers that say this thing is real —
- * threads composed, USD settled on chain, x402 calls the agent has paid for.
+ * Pre-connect proof of work, drawn as the machine's own counter: threads
+ * composed, USD settled on chain, x402 calls the agent has paid for.
  * Summed across every supported chain, because the work is split across them
  * and any one chain's row reads as a fraction of what CoinOp has actually done.
  *
@@ -60,11 +61,15 @@ export function PublicStatsStrip() {
       aria-label="Live public stats"
       className="w-full flex flex-col gap-3 border-y border-border py-4 md:py-5"
     >
-      <dl className="grid grid-cols-3 gap-3 md:gap-6 text-center">
-        <Stat label="threads" value={data ? count.format(data.threads) : '—'} />
-        <Stat label="on-chain volume" value={data ? `$${data.volumeUsd}` : '—'} money />
-        <Stat label="x402 settlements" value={data ? count.format(data.x402Count) : '—'} />
-      </dl>
+      <div className="grid grid-cols-3 gap-3 md:gap-6">
+        <OperatorCounter label="threads" value={data ? count.format(data.threads) : '—'} />
+        <OperatorCounter
+          label="settled on chain"
+          value={data ? `$${data.volumeUsd}` : '—'}
+          money
+        />
+        <OperatorCounter label="x402 calls" value={data ? count.format(data.x402Count) : '—'} />
+      </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="font-mono text-[11px] text-muted-foreground">
@@ -90,23 +95,6 @@ export function PublicStatsStrip() {
         )}
       </div>
     </section>
-  );
-}
-
-function Stat({ label, value, money }: { label: string; value: string; money?: boolean }) {
-  return (
-    // Reversed in flow, not in the DOM: the label stays the term that precedes
-    // its value for assistive tech, while the number reads first visually.
-    <div className="flex flex-col-reverse items-center gap-1">
-      <dt className="heading-sub text-[10px] leading-tight">{label}</dt>
-      <dd
-        className={`text-xl md:text-3xl font-bold font-mono tabular-nums leading-none ${
-          money ? 'text-money' : 'text-foreground'
-        }`}
-      >
-        {value}
-      </dd>
-    </div>
   );
 }
 
