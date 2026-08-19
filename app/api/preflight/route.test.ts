@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const checkSpendReadiness = vi.fn();
-vi.mock('@/lib/agent/walletHealth', () => ({ checkSpendReadiness }));
+const minGasOverrideForChain = vi.fn();
+vi.mock('@/lib/agent/walletHealth', () => ({ checkSpendReadiness, minGasOverrideForChain }));
 
 import { DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
 
@@ -26,6 +27,7 @@ function req(token?: string, chainId: number | string = CELO): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   checkSpendReadiness.mockResolvedValue({ ok: true });
+  minGasOverrideForChain.mockReturnValue(undefined);
 });
 
 afterEach(() => {
@@ -115,6 +117,26 @@ describe('per-chain readiness', () => {
     await GET(req('USDC', 8453));
     expect(checkSpendReadiness).toHaveBeenCalledWith(
       expect.objectContaining({ chainId: 8453, tokenSymbol: 'USDC' }),
+    );
+  });
+
+  // ORCHESTRATOR_MIN_GAS_NATIVE reached the cron alert only, so the blocking
+  // floor could not be retuned on prod without a deploy.
+  it('passes the per-chain gas override into the gate', async () => {
+    minGasOverrideForChain.mockReturnValue(0.0005);
+    const GET = await load();
+    await GET(req('USDC', 8453));
+    expect(minGasOverrideForChain).toHaveBeenCalledWith(8453);
+    expect(checkSpendReadiness).toHaveBeenCalledWith(
+      expect.objectContaining({ chainId: 8453, minGasNative: 0.0005 }),
+    );
+  });
+
+  it('leaves the floor computed when no override is set', async () => {
+    const GET = await load();
+    await GET(req('USDC', 8453));
+    expect(checkSpendReadiness).toHaveBeenCalledWith(
+      expect.objectContaining({ minGasNative: undefined }),
     );
   });
 

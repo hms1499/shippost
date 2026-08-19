@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { checkSpendReadiness, type SpendReadiness } from '@/lib/agent/walletHealth';
+import {
+  checkSpendReadiness,
+  minGasOverrideForChain,
+  type SpendReadiness,
+} from '@/lib/agent/walletHealth';
 import { isSupportedChain, DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
 import { getTokens, type TokenSymbol } from '@/lib/tokens';
 
@@ -40,7 +44,13 @@ export async function GET(req: Request) {
 
   let readiness: SpendReadiness;
   try {
-    readiness = await checkSpendReadiness({ chainId, tokenSymbol });
+    // The override reaches the gate, not just the cron alert: without it the
+    // blocking floor cannot be retuned on prod without a deploy.
+    readiness = await checkSpendReadiness({
+      chainId,
+      tokenSymbol,
+      minGasNative: minGasOverrideForChain(chainId),
+    });
   } catch (e) {
     // Fail OPEN. This is a guard, not a gate of record: the backstop is the
     // invariant that every post-payment failure is clean and refundable, and a
