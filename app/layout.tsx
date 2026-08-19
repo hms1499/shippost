@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono, Inter } from 'next/font/google';
 import { Providers } from './providers';
+import { shareAppUrl } from '@/lib/shareText';
 import './globals.css';
 
 const mono = JetBrains_Mono({
@@ -20,9 +21,30 @@ const inter = Inter({
   display: 'swap',
 });
 
+const TITLE = 'CoinOp — coin-operated AI agent';
+const DESCRIPTION =
+  'Drop $0.10 in. An on-chain agent pays AI services per call (x402) and hands you a ready-to-post X thread.';
+
 export const metadata: Metadata = {
-  title: 'CoinOp — coin-operated AI agent',
-  description: 'Drop $0.10 in. An on-chain agent pays AI services per call (x402) and hands you a ready-to-post X thread.',
+  // Every share link this app builds points back here (lib/shareText.ts), and
+  // without a card those links land in someone's feed as a bare t.co stub.
+  // metadataBase also resolves the generated opengraph-image to an absolute
+  // URL, which every scraper requires.
+  metadataBase: new URL(shareAppUrl()),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    siteName: 'CoinOp',
+    title: TITLE,
+    description: DESCRIPTION,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
   other: {
     'talentapp:project_verification': 'a716144f6408810e3737c83cfc3fd4e663c78686f3bc89e2945c4bd0346a196c4e46cc35371bf8137e929a2a73f5e6024aab7c9bf90ec93a4d34b052ddf144a8',
   },
