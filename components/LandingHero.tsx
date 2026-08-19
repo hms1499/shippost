@@ -10,12 +10,16 @@ import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 const MD_UP = '(min-width: 768px)';
 
 /**
- * Pre-connect landing. One action on the fold — type a topic, get a free
- * first tweet, with the live public numbers between the pitch and the form so
- * proof arrives without a click. Connect appears after the sample (or as a
- * quiet fallback).
- * Desktop: taste left, generating-screen demo right. Mobile: demo is a
- * disclosure under the fold so it cannot out-shout the form.
+ * Pre-connect landing — the machine in attract mode.
+ *
+ * A coin-op machine nobody is playing does three things: it demos itself, it
+ * shows its counter, and it waits for a coin. This page is that state, in that
+ * order — thesis, counter, then free play beside the machine mid-run. MiniPay
+ * auto-connects and never reaches here (HomeClient), so this is the web
+ * surface, where a stranger decides in seconds whether any of it is real.
+ *
+ * Desktop: free play left, the running machine right. Mobile: the machine is a
+ * disclosure under the fold so it cannot out-shout the one thing to do.
  */
 export function LandingHero() {
   const { openConnectModal } = useConnectModal();
@@ -33,27 +37,29 @@ export function LandingHero() {
   const showDemo = desktop || demoOpen;
 
   return (
-    <section className="relative w-full max-w-4xl flex flex-col items-center gap-8 scanlines rounded-lg">
-      <div className="text-center flex flex-col items-center gap-2">
-        <p className="text-3xl font-bold tracking-tight">
+    <section className="relative w-full max-w-4xl flex flex-col items-center gap-8 md:gap-10 scanlines rounded-lg">
+      <div className="text-center flex flex-col items-center gap-3">
+        <h2 className="font-mono font-bold text-[clamp(1.9rem,5.4vw,3.25rem)] leading-[0.98] tracking-[-0.03em]">
           One coin in. <span className="text-primary">One thread out.</span>
-        </p>
-        <p className="text-sm text-muted-foreground max-w-md font-sans">
-          Type a topic, get a ready-to-post X thread in ~20s. Pay{' '}
-          <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> only if you keep it.
+        </h2>
+        <p className="text-sm md:text-base text-muted-foreground max-w-xl font-sans leading-relaxed [text-wrap:balance]">
+          Type a topic. The agent buys its own research call by call, then hands back an X
+          thread you can post — <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>,
+          and only if you keep it.
         </p>
       </div>
 
       <PublicStatsStrip />
 
-      <div className="w-full grid gap-8 md:grid-cols-2 md:items-start">
-        <div className="w-full">
+      <div className="w-full grid gap-8 md:grid-cols-2 md:items-stretch">
+        <div className="w-full flex flex-col gap-2">
+          <p className="heading-sub text-[10px]">Free play</p>
           <GuestTaste onUnlock={openConnectModal} />
         </div>
 
         <aside className="w-full flex flex-col gap-2">
           {desktop ? (
-            <p className="heading-sub text-[10px]">How a paid run looks</p>
+            <p className="heading-sub text-[10px]">The machine, mid-run</p>
           ) : (
             <button
               type="button"
@@ -61,14 +67,14 @@ export function LandingHero() {
               aria-expanded={demoOpen}
               className="self-start heading-sub text-[10px] hover:text-primary transition-colors"
             >
-              {demoOpen ? 'Hide paid-run demo' : 'How a paid run looks'}
+              {demoOpen ? 'Hide the machine' : 'Watch the machine run'}
             </button>
           )}
           {showDemo && (
             <>
               <AgentTraceReplay />
               <p className="text-[11px] font-mono text-muted-foreground leading-snug">
-                Demo of the generating screen — one canned pass, no payment, no on-chain spend.
+                One canned pass. No payment, no on-chain spend.
               </p>
             </>
           )}

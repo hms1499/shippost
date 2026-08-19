@@ -43,7 +43,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
     const locked = Math.max(result.totalTweets - 1, 0);
     return (
       <div className="w-full flex flex-col gap-3">
-        <p className="heading-sub text-[10px]">Sample · First tweet free</p>
+        <p className="heading-sub text-[10px]">First tweet, free</p>
         <Card className="p-4">
           <p className="whitespace-pre-wrap font-sans text-sm">{result.firstTweet}</p>
         </Card>
@@ -78,10 +78,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full flex flex-col gap-2">
-      <p className="font-mono text-[11px] text-muted-foreground leading-snug">
-        Educational · a few free tastes a day · no wallet
-      </p>
+    <form onSubmit={handleSubmit} className="w-full h-full flex flex-col gap-2">
       <Input
         value={topic}
         onChange={(e) => setTopic(e.target.value)}
@@ -107,6 +104,9 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
           </>
         )}
       </Button>
+      <p className="font-mono text-[11px] text-muted-foreground leading-snug">
+        Educational mode · a few a day · no wallet
+      </p>
       {failKind === 'limited' && (
         <p className="text-xs font-sans text-muted-foreground leading-snug">
           Out of free tastes for now.{' '}
@@ -139,7 +139,9 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         type="button"
         onClick={onUnlock}
         disabled={!onUnlock}
-        className="self-center font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+        // Pinned to the bottom of the column so it lands on the demo caption's
+        // line opposite; one alignment down the whole column.
+        className="self-start mt-auto pt-4 font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
       >
         or connect to pick a mode
       </button>

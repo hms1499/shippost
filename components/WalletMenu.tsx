@@ -204,7 +204,9 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
             <button
               type="button"
               onClick={openConnectModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary bg-primary text-primary-foreground heading-sub text-[10px] hover:bg-primary/90 transition-colors"
+              // Quiet on purpose: the landing's one solid-green control is the
+              // free-taste CTA. Two filled greens on a screen is no hierarchy.
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/40 text-primary heading-sub text-[10px] hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <Wallet size={11} aria-hidden />
               Sign in

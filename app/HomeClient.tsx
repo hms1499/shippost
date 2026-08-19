@@ -1224,7 +1224,9 @@ export default function HomeClient() {
             <h1 className="font-mono font-bold tracking-tight text-[clamp(2.25rem,10.5vw,3.4rem)] text-foreground leading-[0.9]">
               CoinOp
             </h1>
-            <span className="heading-sub text-[10px] mt-2">
+            {/* Tighter tracking below md: at 0.16em this line broke mid-word
+                ("AGENT-" / "RUN") in the 360px MiniPay frame. */}
+            <span className="heading-sub text-[9px] tracking-[0.1em] md:text-[10px] md:tracking-[0.16em] mt-2">
               AI thread writer, agent-run
             </span>
           </div>
