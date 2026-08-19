@@ -68,7 +68,7 @@ export function HistoryList({ walletAddress, chainId, explorerBase }: Props) {
     );
 
   return (
-    <ol className="w-full max-w-md flex flex-col list-none font-mono">
+    <ol className="w-full flex flex-col list-none font-mono">
       {threads.map((t, i) => (
         <HistoryEntry
           key={`${t.chain_id}-${t.onchain_thread_id}`}
