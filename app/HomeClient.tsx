@@ -1361,8 +1361,10 @@ export default function HomeClient() {
         </>
       )}
 
+      {/* The divider belongs to the index, not the footer: with no wallet
+          connected the index is empty, and a rule on its own under the
+          landing's own closing plate was just a stray line. */}
       <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col items-center gap-4 mt-4`}>
-        <RuleDivider />
         <ColophonIndex />
       </footer>
     </main>

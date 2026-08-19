@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { History } from 'lucide-react';
+import { RuleDivider } from '@/components/terminal/RuleDivider';
 
 interface IndexEntry {
   numeral: string;
@@ -37,7 +38,8 @@ export function ColophonIndex() {
   if (entries.length === 0) return null;
 
   return (
-    <nav aria-label="Index" className="w-full flex flex-col gap-2">
+    <nav aria-label="Index" className="w-full flex flex-col gap-4">
+      <RuleDivider />
       <p className="heading-sub text-[10px] self-center">Index</p>
       <ul className="flex flex-col gap-1.5">
         {entries.map((item) => {
