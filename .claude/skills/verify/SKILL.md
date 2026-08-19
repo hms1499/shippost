@@ -11,7 +11,31 @@ description: How to runtime-verify CoinOp UI/flow changes — dev server + Playw
 pnpm dev --port 3111   # ready in ~2s; run in background
 ```
 
-Mobile viewport matters (MiniPay webview): `page.setViewportSize({ width: 390, height: 844 })`.
+## Check BOTH frames — the app has two layouts
+
+`app/HomeClient.tsx:151` — `const spread = !isMiniPay && isDesktop;` (breakpoint in
+`lib/useIsDesktop.ts`). Mobile/MiniPay is a `max-w-md` column; desktop is an
+`max-w-4xl` two-column folio, and `LandingHero` splits at `md:` on its own. A
+change verified at one width says nothing about the other — a landing element
+capped at `max-w-md` looked right at 360 and sat half-width inside the 896px
+spread on desktop.
+
+So verify every layout change at both:
+
+- **360×740** — MiniPay webview, the narrowest real device.
+- **1440×900** — the folio spread.
+
+Cheap assertions that catch most of it:
+
+```js
+// no horizontal scroll, at every width
+await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); // → 0
+// a full-width element must match its siblings, not stop halfway
+await page.evaluate(() => [...document.querySelectorAll('main > *')].map((e) => Math.round(e.getBoundingClientRect().width)));
+```
+
+Screenshot both and actually look at them; width numbers agree long before a
+layout reads well.
 
 ## Reaching connected-state UI (the main unlock)
 
