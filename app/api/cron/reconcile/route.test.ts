@@ -15,7 +15,7 @@ vi.mock('@/lib/agent/walletHealth', () => ({
   checkAgentWalletBalance,
   checkOrchestratorGas,
   checkReserveBalance,
-  minGasNativeForChain: (chainId: number) => (chainId === 8453 || chainId === 84532 ? 0.0001 : 0.05),
+  minGasOverrideForChain: () => undefined,
 }));
 vi.mock('@/lib/agent/previewHealth', () => ({ checkPreviewAlive }));
 vi.mock('@/lib/rateLimit', () => ({ claimAlertOnce }));
@@ -41,7 +41,13 @@ beforeEach(() => {
   // Healthy balances by default so the reconcile-focused tests stay isolated.
   checkAgentWalletBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
   checkReserveBalance.mockResolvedValue({ low: [], balances: { cUSD: 5, USDT: 5, USDC: 5 } });
-  checkOrchestratorGas.mockResolvedValue({ low: false, native: 1, address: '0xEOA' });
+  checkOrchestratorGas.mockResolvedValue({
+    low: false,
+    warn: false,
+    native: 1,
+    requiredNative: 0.0000132,
+    address: '0xEOA',
+  });
   checkPreviewAlive.mockResolvedValue({ ok: true });
   claimAlertOnce.mockResolvedValue(true);
 });
@@ -163,6 +169,7 @@ describe('orchestrator gas heartbeat', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ swept: 0, enqueued: 0, errors: [] });
   });
+
 });
 
 // The preview fails CLOSED and answers {available:false} with HTTP 200, so a

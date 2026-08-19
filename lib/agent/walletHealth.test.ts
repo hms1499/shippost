@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseEther, parseUnits, type Address } from 'viem';
+import { parseEther, parseGwei, parseUnits, type Address } from 'viem';
 import { getTokens } from '../tokens';
 import {
   checkAgentWalletBalance,
   checkReserveBalance,
   checkOrchestratorGas,
   checkSpendReadiness,
-  minGasNativeForChain,
+  minGasOverrideForChain,
   type ReadinessReaders,
 } from './walletHealth';
 
@@ -81,21 +81,13 @@ function readiness(overrides: Partial<ReadinessReaders> = {}): ReadinessReaders 
     readPaused: () => Promise.resolve(false),
     readOwner: () => Promise.resolve(OWNER),
     readNativeBalance: () => Promise.resolve(parseEther('1')),
+    readGasPrice: () => Promise.resolve(parseGwei('200')),
     readDailyCap: (token) =>
       Promise.resolve(parseUnits('10', token === T.cUSD!.address ? 18 : 6)),
     readSpentToday: () => Promise.resolve(0n),
     ...overrides,
   };
 }
-
-describe('minGasNativeForChain', () => {
-  it('is 0.0001 ETH on Base and 0.05 CELO elsewhere', () => {
-    expect(minGasNativeForChain(8453)).toBe(0.0001);
-    expect(minGasNativeForChain(84532)).toBe(0.0001);
-    expect(minGasNativeForChain(42220)).toBe(0.05);
-    expect(minGasNativeForChain(11142220)).toBe(0.05);
-  });
-});
 
 describe('checkOrchestratorGas', () => {
   it('reports the on-chain owner and its balance in human native units', async () => {
@@ -104,7 +96,13 @@ describe('checkOrchestratorGas', () => {
       minNative: 0.05,
       readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.25')) }),
     });
-    expect(health).toEqual({ low: false, native: 0.25, address: OWNER });
+    expect(health).toEqual({
+      low: false,
+      warn: false,
+      native: 0.25,
+      requiredNative: 0.05,
+      address: OWNER,
+    });
   });
 
   it('flags a signer below the floor', async () => {
@@ -143,22 +141,26 @@ describe('checkSpendReadiness', () => {
     expect(r).toEqual({ ok: false, reason: 'gas' });
   });
 
-  it('does not apply the Celo 0.05 floor to Base ETH', async () => {
-    // 0.00015 ETH is above Base's 0.0001 floor and far below Celo's 0.05.
-    // One number for both chains is what blocked Base while Celo was fine.
-    const tiny = parseEther('0.00015');
+  it('prices the floor per chain, so one balance can be ample on Base and short on Celo', async () => {
+    // 0.09 native. On Base at 0.006 gwei a thread's four settles cost ~0.0000021
+    // ETH, so this is ample. On Celo at 200 gwei the same four cost ~0.088 CELO,
+    // so it is not even one thread. No single constant can answer both.
+    const same = parseEther('0.09');
     const onBase = await checkSpendReadiness({
       chainId: 8453,
       tokenSymbol: 'USDC',
       readers: {
-        ...readiness({ readNativeBalance: () => Promise.resolve(tiny) }),
+        ...readiness({
+          readNativeBalance: () => Promise.resolve(same),
+          readGasPrice: () => Promise.resolve(parseGwei('0.006')),
+        }),
         readDailyCap: () => Promise.resolve(parseUnits('10', 6)),
       },
     });
     const onCelo = await checkSpendReadiness({
       chainId: CHAIN,
       tokenSymbol: 'cUSD',
-      readers: readiness({ readNativeBalance: () => Promise.resolve(tiny) }),
+      readers: readiness({ readNativeBalance: () => Promise.resolve(same) }),
     });
     expect(onBase).toEqual({ ok: true });
     expect(onCelo).toEqual({ ok: false, reason: 'gas' });
@@ -254,9 +256,121 @@ it('uses minNative for the gas floor', async () => {
   const health = await checkOrchestratorGas({
     chainId: 8453,
     minNative: 0.002,
-    readers: { readOwner, readNativeBalance },
+    readers: { readOwner, readNativeBalance, readGasPrice: vi.fn() },
   });
 
   expect(health.low).toBe(true);
   expect(health.native).toBeCloseTo(0.001);
+});
+
+// ---------------------------------------------------------------------------
+// The floor is denominated in gas units priced at check time, not in a fixed
+// amount of native token. The fixed number was wrong in both directions from the
+// same constant: 48x too strict on Base (it turned away a paying user whose
+// signer still held ~43 threads of runway) and, at Celo's 200 gwei, below the
+// cost of a single thread (so the gate waved through a run that could not
+// finish, after taking the money).
+
+// Base at its calm 0.006 gwei unless a test says otherwise.
+function baseGas(nativeBalance: string, gwei = '0.006'): ReadinessReaders {
+  return readiness({
+    readNativeBalance: () => Promise.resolve(parseEther(nativeBalance)),
+    readGasPrice: () => Promise.resolve(parseGwei(gwei)),
+  });
+}
+
+describe('gas floor priced from gas units', () => {
+  it('clears the exact Base balance the 0.0001 ETH floor rejected', async () => {
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.000090509') });
+    expect(health.low).toBe(false);
+    expect(health.requiredNative).toBeCloseTo(0.0000132, 9);
+  });
+
+  it('blocks the Celo balance the 0.05 CELO floor let through', async () => {
+    const health = await checkOrchestratorGas({
+      chainId: CHAIN,
+      readers: readiness({ readNativeBalance: () => Promise.resolve(parseEther('0.06')) }),
+    });
+    expect(health.low).toBe(true);
+  });
+
+  it('raises the requirement when gas price spikes', async () => {
+    const calm = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.0005') });
+    const spike = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.0005', '0.6') });
+    expect(calm.low).toBe(false);
+    expect(spike.low).toBe(true);
+    expect(spike.requiredNative).toBeGreaterThan(calm.requiredNative);
+  });
+
+  it('never demands more than the per-chain ceiling, however absurd the gas price', async () => {
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('1', '100000') });
+    expect(health.requiredNative).toBe(0.001);
+    expect(health.low).toBe(false);
+  });
+
+  it('still demands the per-chain minimum when the chain reports a zero gas price', async () => {
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.000001', '0') });
+    expect(health.requiredNative).toBe(0.000002);
+    expect(health.low).toBe(true);
+  });
+
+  it('lets an explicit minNative win without reading the gas price at all', async () => {
+    const readGasPrice = vi.fn();
+    const health = await checkOrchestratorGas({
+      chainId: 8453,
+      minNative: 0.002,
+      readers: {
+        readOwner: () => Promise.resolve(OWNER),
+        readNativeBalance: () => Promise.resolve(parseEther('0.001')),
+        readGasPrice,
+      },
+    });
+    expect(health.low).toBe(true);
+    expect(health.requiredNative).toBe(0.002);
+    expect(readGasPrice).not.toHaveBeenCalled();
+  });
+});
+
+// A page that fires at the same threshold that already blocks every user is not
+// a warning, it is an outage notice. The band sits above the blocking floor so
+// there is still time to top up.
+describe('gas warning band', () => {
+  it('warns while the signer is still above the blocking floor', async () => {
+    // required 0.0000132, band 3x = 0.0000396
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.00003') });
+    expect(health.low).toBe(false);
+    expect(health.warn).toBe(true);
+  });
+
+  it('stays quiet on a comfortably funded signer', async () => {
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.0005') });
+    expect(health.low).toBe(false);
+    expect(health.warn).toBe(false);
+  });
+
+  it('reports an already-blocked signer as low rather than warned', async () => {
+    const health = await checkOrchestratorGas({ chainId: 8453, readers: baseGas('0.000001') });
+    expect(health.low).toBe(true);
+    expect(health.warn).toBe(false);
+  });
+});
+
+// The override existed but reached the cron alert only, so the blocking floor
+// could not be retuned on prod without a deploy. It is per-chain because one
+// shared number would apply an ETH-scaled floor to CELO.
+describe('minGasOverrideForChain', () => {
+  it('reads the override for that chain and leaves other chains computed', () => {
+    vi.stubEnv('ORCHESTRATOR_MIN_GAS_NATIVE_8453', '0.0005');
+    expect(minGasOverrideForChain(8453)).toBe(0.0005);
+    expect(minGasOverrideForChain(CHAIN)).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+
+  it('ignores a value that is unparseable or non-positive', async () => {
+    for (const bad of ['not-a-number', '', '0', '-1']) {
+      vi.stubEnv('ORCHESTRATOR_MIN_GAS_NATIVE_8453', bad);
+      expect(minGasOverrideForChain(8453)).toBeUndefined();
+    }
+    vi.unstubAllEnvs();
+  });
 });

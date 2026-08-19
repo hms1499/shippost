@@ -86,6 +86,7 @@ export interface ReadinessReaders {
   readPaused: () => Promise<boolean>;
   readOwner: () => Promise<Address>;
   readNativeBalance: (address: Address) => Promise<bigint>;
+  readGasPrice: () => Promise<bigint>;
   readDailyCap: (token: Address) => Promise<bigint>;
   readSpentToday: (token: Address) => Promise<bigint>;
 }
@@ -94,18 +95,68 @@ export interface ReadinessReaders {
 // factCheck), so a thread must have headroom for four to avoid dying mid-run.
 const MAX_X402_CALLS_PER_THREAD = 4n;
 
-// Per-chain floors: CELO gas is ~0.002/settle, so 0.05 CELO ≈ 25 threads.
-// Base L2 fee for the same settle is ~1e-6 ETH; 0.05 ETH would be hundreds of
-// dollars of idle float. 0.0001 ETH matches scripts/deploy-chain.ts and is
-// still many threads of Base runway. An ETH threshold is not a CELO threshold.
-export function minGasNativeForChain(chainId: number): number {
-  if (chainId === base.id || chainId === baseSepolia.id) return 0.0001;
-  return 0.05;
+// How much native gas the orchestrator EOA must hold to be trusted with a
+// thread. This was a fixed amount per chain — 0.0001 ETH / 0.05 CELO — copied
+// from scripts/deploy-chain.ts, where it was measured for a one-shot deploy of
+// 2.2M gas. That is the wrong unit for a runtime check: gas price differs by
+// four orders of magnitude between Base and Celo and drifts over time, so the
+// one constant was simultaneously 48x too strict on Base (it turned away a
+// paying user whose signer still held ~43 threads of runway) and, at Celo's
+// 200 gwei, below the cost of a single thread — a gate that waves through a run
+// which then dies after taking the money. Denominate in gas units instead and
+// price them when we ask.
+
+// Measured 2026-08-19 with eth_estimateGas against live Base mainnet state:
+// executeX402Call is 86,536 gas, already including the cold spentOnDay
+// 0 -> nonzero SSTORE that the first settle of each UTC day pays. Rounded up.
+const GAS_PER_SETTLE = 110_000n;
+
+// The price is read once, but the thread settles over the following minutes and
+// several threads can be in flight. 5x one worst-case thread absorbs a spike
+// mid-run without parking idle float on the signer.
+const GAS_SAFETY_MULTIPLIER = 5n;
+
+// Page the human at 3x the blocking requirement. An alert that fires at the
+// blocking requirement is not a warning — by then every user is already being
+// turned away, which is exactly how the 2026-08-19 outage was first noticed.
+const GAS_WARN_MULTIPLIER = 3n;
+
+// Clamps on the computed requirement. The ceiling is there because a garbage
+// gas-price read must never freeze all revenue (same reason /api/preflight fails
+// open); the floor is there because a zero read must not quietly turn the gate
+// into a no-op.
+function gasRequirementBounds(chainId: number): { min: bigint; max: bigint } {
+  if (chainId === base.id || chainId === baseSepolia.id) {
+    return { min: parseEther('0.000002'), max: parseEther('0.001') };
+  }
+  return { min: parseEther('0.02'), max: parseEther('2') };
+}
+
+async function requiredGasWei(
+  chainId: number,
+  readGasPrice: () => Promise<bigint>,
+): Promise<bigint> {
+  const price = await readGasPrice();
+  const need = GAS_PER_SETTLE * MAX_X402_CALLS_PER_THREAD * GAS_SAFETY_MULTIPLIER * price;
+  const { min, max } = gasRequirementBounds(chainId);
+  return need < min ? min : need > max ? max : need;
+}
+
+// Per-chain override, because one shared number would apply an ETH-scaled floor
+// to CELO. Unparseable or non-positive values are ignored rather than honored: a
+// typo in this env var must not become a floor that blocks every payment.
+export function minGasOverrideForChain(chainId: number): number | undefined {
+  const raw = process.env[`ORCHESTRATOR_MIN_GAS_NATIVE_${chainId}`]?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 export interface GasHealth {
-  low: boolean;
+  low: boolean; // below the blocking requirement — users are being turned away
+  warn: boolean; // funded, but inside the warning band. Never true while low.
   native: number; // human units of the chain's native token on the orchestrator EOA
+  requiredNative: number; // what this check demanded, so an alert can say so
   address: Address;
 }
 
@@ -116,15 +167,27 @@ export interface GasHealth {
 export async function checkOrchestratorGas(params: {
   chainId: number;
   minNative?: number;
-  readers?: Pick<ReadinessReaders, 'readOwner' | 'readNativeBalance'>;
+  readers?: Pick<ReadinessReaders, 'readOwner' | 'readNativeBalance' | 'readGasPrice'>;
 }): Promise<GasHealth> {
   const readers = params.readers ?? defaultReadinessReaders(params.chainId);
   // Read from the chain rather than deriving it from AGENT_WALLET_PRIVATE_KEY —
   // nothing here touches a private key.
   const address = await readers.readOwner();
   const raw = await readers.readNativeBalance(address);
-  const min = parseEther(String(params.minNative ?? minGasNativeForChain(params.chainId)));
-  return { low: raw < min, native: Number(formatUnits(raw, 18)), address };
+  // An explicit override wins outright and skips the gas-price read: it is the
+  // lever for retuning the gate when the computed number is wrong.
+  const required =
+    params.minNative !== undefined
+      ? parseEther(String(params.minNative))
+      : await requiredGasWei(params.chainId, readers.readGasPrice);
+  const low = raw < required;
+  return {
+    low,
+    warn: !low && raw < required * GAS_WARN_MULTIPLIER,
+    native: Number(formatUnits(raw, 18)),
+    requiredNative: Number(formatUnits(required, 18)),
+    address,
+  };
 }
 
 export async function checkSpendReadiness(params: {
@@ -180,6 +243,7 @@ function defaultReadinessReaders(chainId: number): ReadinessReaders {
     readPaused: () => read<boolean>('paused'),
     readOwner: () => read<Address>('owner'),
     readNativeBalance: (address) => publicClient.getBalance({ address }),
+    readGasPrice: () => publicClient.getGasPrice(),
     readDailyCap: (token) => read<bigint>('dailySpendCap', [token]),
     readSpentToday: async (token) =>
       read<bigint>('spentOnDay', [await read<bigint>('currentDay'), token]),

@@ -5,7 +5,7 @@ import {
   checkAgentWalletBalance,
   checkOrchestratorGas,
   checkReserveBalance,
-  minGasNativeForChain,
+  minGasOverrideForChain,
 } from '@/lib/agent/walletHealth';
 import { checkPreviewAlive } from '@/lib/agent/previewHealth';
 import { claimAlertOnce } from '@/lib/rateLimit';
@@ -81,8 +81,9 @@ export async function GET(req: Request) {
       // nothing once its signer is out of gas. Users now hit the preflight and
       // are blocked before paying, so page while there is still time to top up.
       try {
-        const minNative =
-          Number(process.env.ORCHESTRATOR_MIN_GAS_NATIVE) || minGasNativeForChain(chainId);
+        // undefined means "use the computed, gas-priced requirement" — the
+        // override is per chain because an ETH number is not a CELO number.
+        const minNative = minGasOverrideForChain(chainId);
         const gas = await checkOrchestratorGas({ chainId, minNative });
         if (
           gas.low &&
@@ -93,6 +94,7 @@ export async function GET(req: Request) {
             minNative,
             address: gas.address,
             native: gas.native,
+            requiredNative: gas.requiredNative,
           });
         }
       } catch (e) {
