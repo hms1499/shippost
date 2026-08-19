@@ -4,7 +4,17 @@
 
 Two settlement paths, both call `refundThread` (`lib/agent/orchestrator.ts`): the admin endpoint `/api/refund` (one-off, `x-admin-key`) and the queue worker `pnpm refund:process <requestId>`.
 
-Three things fill the queue, and none of them move money: the user's own button (`/api/refund-request`), and two passes in the nightly sweep — `status='pending'` past the cutoff → `slow-cancel`, and `status='failed'` with `tweets IS NULL` and no `refund_tx_hash` → `full`. The second pass is what makes the UI's "queued automatically" true; a failed run is invisible to the first, so before it existed only a user tapping the button ever queued one. Failed runs that DID write tweets are excluded on purpose — that is a partial delivery, and its refund stays user-initiated.
+A payment that never became a thread is NOT in this queue and cannot be: there
+is no thread to refund against. Those land in `orphan_payments`
+(`lib/agent/orphanPayments.ts`) — written when `/api/generate/stream` rejects a
+payment it could not disprove (`receipt-unavailable`, or a `mismatch` where our
+contract did emit `ThreadRequested`). It is a **triage queue for a human**:
+nothing reads it to send money, a row is a lead to check on the explorer rather
+than a proven debt, and anyone can make one appear by POSTing an invented hash.
+The nightly cron pages while rows stay `open`. Refunding one means finding the
+real payment on chain first, then using the admin path.
+
+Three things fill the refund queue itself, and none of them move money: the user's own button (`/api/refund-request`), and two passes in the nightly sweep — `status='pending'` past the cutoff → `slow-cancel`, and `status='failed'` with `tweets IS NULL` and no `refund_tx_hash` → `full`. The second pass is what makes the UI's "queued automatically" true; a failed run is invisible to the first, so before it existed only a user tapping the button ever queued one. Failed runs that DID write tweets are excluded on purpose — that is a partial delivery, and its refund stays user-initiated.
 
 **Invariant: `threads.refund_tx_hash` is the single source of truth — once set, that thread is paid out and must never be sent again.** Both paths refuse when it's already set.
 

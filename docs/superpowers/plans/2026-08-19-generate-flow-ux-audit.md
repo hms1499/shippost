@@ -12,17 +12,18 @@ Method: **[code]** throughout. Nothing here was reproduced on a device this
 session; every finding is established by reading the code, and each carries the
 `file:line` that establishes it. Findings that need a device to confirm say so.
 
-**Status 2026-08-19:** every finding fixed except the orphan payment (the open
-half of G2), in `dd27f2f`..`3a67841` (unpushed). Each carries a Fixed note below.
-Verified by `tsc`, `vitest` (803 pass) and `next build` — **not** on a device;
+**Status 2026-08-19:** every finding fixed, in `dd27f2f`..`3a93afe` (unpushed). Each carries a Fixed note below.
+Verified by `tsc`, `vitest` (815 pass) and `next build` — **not** on a device;
 the failure paths they change need a real failing paid run to exercise.
 
-**Two things must happen before or with the deploy:**
+**Three things must happen before or with the deploy:**
 
-1. **Run migration `0012_funnel_deliver_stage.sql`.** The funnel ingest swallows
-   insert errors (`app/api/public/funnel/route.ts:63-67`), so deploying the code
-   without the migration drops every `deliver` event silently against the CHECK
-   constraint.
+1. **Run migrations `0012_funnel_deliver_stage.sql` and
+   `0013_orphan_payments.sql`.** Both fail silently if skipped: the funnel
+   ingest swallows insert errors (`app/api/public/funnel/route.ts:63-67`) so
+   every `deliver` event would be dropped by the CHECK constraint, and
+   `recordOrphanPayment` swallows its own write errors by design, so a missing
+   table would quietly restore the exact hole 0013 exists to close.
 2. **Decide the prod Celo price.** G8 makes the UI show what the contract
    charges. If $0.10 is the intended price, the fix is `setPrice` on
    `0x0dea3241…`, not more UI work — the display now follows the chain either
@@ -54,9 +55,8 @@ Severity, unchanged from the first audit:
 
 The three to act on first are **G1**, **G2** and **G5** — all three are the same
 shape: a user who paid, whose run did not deliver, and whose only remaining
-in-app action does not work. All three are fixed. What remains is the orphan
-payment — the open half of G2, and the only way left for a paid user to end up
-with no record at all.
+in-app action does not work. All three are fixed, and so is everything else
+here, including the orphan payment that the first pass left open.
 
 ---
 
@@ -162,8 +162,14 @@ Fatals now carry a `fatalKind`: `pipeline` (a run the server started),
 pay tx copyable instead; `connection-lost` stops claiming a failure at all. The
 server's own message replaces the status code.
 
-**Still open:** the orphan payment itself. A 402 still leaves money on chain with
-no record anywhere — the user can now act on it, but only by hand.
+**The orphan payment is now closed too, in `3a93afe`** — but not by option 1.
+`verifyPayment` types its failures instead of throwing bare strings, and only
+the two that cannot be disproved are recorded in a new `orphan_payments` table:
+`receipt-unavailable` (a lagging node is indistinguishable from an invented
+hash) and `mismatch` (our contract emitted `ThreadRequested`, so money really
+moved). A reverted tx, or one that never paid us, is not recorded — that would
+be inventing debts. The table is a triage queue: nothing reads it to send money,
+and the nightly cron pages while rows stay open.
 
 ---
 
@@ -423,15 +429,14 @@ insert errors, so without it every `deliver` is dropped silently.
 2. ~~**G3 + G4**~~ — done 2026-08-19.
 3. ~~**G8 + 6.4 + 7.1**~~ — done 2026-08-19.
 4. ~~**G7, G9, G10, G11**~~ — done 2026-08-19.
-5. **The orphan payment** (the half of G2 left open) — still needs the schema
-   decision, and is the only remaining way a paid user ends up with no record at
-   all.
-6. **The six input screens** still price from `THREAD_PRICE_USD` — the last of
-   the drift, and worth doing with first-audit finding 3.2 (one shared
-   payment-token hook) rather than as six edits.
-7. **First-audit leftovers untouched by this pass:** 1.1 (landing refund
-   promise), 1.2 (fabricated tx links on the landing), 2.1/2.2, 3.1/3.3, 4.1,
-   5.1, 6.2/7.2 (`target="_blank"` in a webview).
+5. ~~**The orphan payment**~~ — done 2026-08-19.
+6. ~~**The six input screens**~~ — done 2026-08-19.
+
+Nothing from this audit is left. The 2026-08-15 audit's own leftovers (1.1, 1.2,
+2.x, 3.x, 4.1, 5.1, 6.2, 7.2) were deliberately **not** carried over: that pass
+is old enough that its file:line evidence needs re-establishing before any of it
+is acted on. Re-audit rather than trust it — the six-screens item in this pass
+is a worked example of why.
 
 Not yet exercised on a device: every failure path touched above. A real failing
 paid run is the only thing that proves them, and the 2026-08-18 lesson applies —
