@@ -89,13 +89,24 @@ export function useThreadGeneration() {
         clearSlowTimer();
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const msg = err instanceof Error ? err.message : 'network error';
-        setState((s) => ({ ...s, fatal: msg, isDone: true, isSlow: false }));
+        setState((s) => ({ ...s, fatal: msg, fatalKind: 'network', isDone: true, isSlow: false }));
         return;
       }
 
       if (!res.ok || !res.body) {
         clearSlowTimer();
-        setState((s) => ({ ...s, fatal: `HTTP ${res.status}`, isDone: true, isSlow: false }));
+        // The server's own words, not `HTTP 402`. Every rejection on this route
+        // is written to be read by the person who just paid — "payment not
+        // verified: payment tx not found on chain" tells them what to do next;
+        // a status code tells them nothing and hides which failure this was.
+        const reason = (await res.text().catch(() => '')).trim();
+        setState((s) => ({
+          ...s,
+          fatal: reason || `the server refused the request (HTTP ${res.status})`,
+          fatalKind: 'rejected',
+          isDone: true,
+          isSlow: false,
+        }));
         return;
       }
 

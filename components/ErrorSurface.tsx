@@ -21,7 +21,14 @@ export type ErrorKind =
   | 'spend-paused'
   | 'spend-gas'
   | 'spend-cap'
-  | 'cap-hit';
+  | 'cap-hit'
+  // The SSE connection dropped. Not a failure — the run continues server-side.
+  | 'connection-lost'
+  // The payment landed but /api/generate/stream refused to start the run (402
+  // unverified, 409 replay, 503 could-not-record). For 402/503 no thread row
+  // was ever written, so the ordinary refund button cannot work — it answers
+  // `thread not found`. The pay tx is the only handle the user has left.
+  | 'run-not-started';
 
 export type RefundRequestStatus = 'idle' | 'sending' | 'sent' | 'error';
 
@@ -38,6 +45,12 @@ interface Props {
    * it with reassuring copy.
    */
   detail?: string | null;
+  /**
+   * The payment transaction, shown copyable on `run-not-started`. When no
+   * thread row exists this hash is the user's entire claim, so it has to be
+   * on screen and copyable — not left in a wallet history they have to dig for.
+   */
+  payTxHash?: string | null;
 }
 
 const COPY: Record<
@@ -103,6 +116,20 @@ const COPY: Record<
     body: "Today's agent budget is spent, so it cannot generate this thread. New generations resume at midnight UTC. You have not been charged.",
     primary: 'Try again',
   },
+  // The stream died on the client's side. It says nothing about the run, which
+  // keeps going server-side — /api/generate/stream stops streaming, never
+  // generating, when `emit` finds the controller closed. Claiming a failure
+  // here would send the user to request a refund for a thread about to land.
+  'connection-lost': {
+    title: 'Connection lost',
+    body: 'Your device lost the connection to this run — the agent keeps working regardless. The thread appears in history as soon as it finishes. Nothing was charged twice and nothing needs retrying.',
+    primary: 'Open history',
+  },
+  'run-not-started': {
+    title: 'Paid, but the run never started',
+    body: 'Your payment is on chain — nothing was generated against it. Copy the transaction below and keep it: it is the proof of payment, and the only thing needed to get this refunded. Check history first in case the thread was already generated.',
+    primary: 'Open history',
+  },
 };
 
 export function ErrorSurface({
@@ -112,9 +139,13 @@ export function ErrorSurface({
   refundStatus = 'idle',
   refundError,
   detail,
+  payTxHash,
 }: Props) {
   const c = COPY[kind];
+  // Two independent instances: one confirmation must not light up the other's
+  // button when both a reason and a tx hash are on screen.
   const { copied, failed: copyFailed, copy } = useCopy();
+  const txCopy = useCopy();
   const isRefundKind =
     kind === 'partial' ||
     kind === 'full-fail' ||
@@ -142,6 +173,23 @@ export function ErrorSurface({
           Queued for you by the nightly sweep — or tap below to queue it now. An
           operator sends every refund from the queue.
         </p>
+      )}
+      {payTxHash && (
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+            payment transaction
+          </p>
+          <p className="text-xs font-mono text-foreground/90 break-all select-text">
+            {payTxHash}
+          </p>
+          <button
+            type="button"
+            onClick={() => txCopy.copy(payTxHash)}
+            className="self-start text-xs font-mono text-muted-foreground underline underline-offset-2"
+          >
+            {txCopy.copied ? 'copied ✓' : txCopy.failed ? 'select the text above' : 'copy transaction'}
+          </button>
+        </div>
       )}
       {detail && (
         <div className="flex flex-col gap-1">

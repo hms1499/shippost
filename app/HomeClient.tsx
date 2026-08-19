@@ -29,7 +29,7 @@ import { WalletStatus } from '@/components/WalletStatus';
 import { PayContext } from '@/components/PayContext';
 import { LandingHero } from '@/components/LandingHero';
 import { ModePicker } from '@/components/ModePicker';
-import { ErrorSurface } from '@/components/ErrorSurface';
+import { ErrorSurface, type ErrorKind } from '@/components/ErrorSurface';
 import type { EducationalSubmitPayload } from '@/components/EducationalInput';
 import type { HotTakeSubmitPayload } from '@/components/HotTakeInput';
 import type { NewsBreakdownSubmitPayload } from '@/components/NewsBreakdownInput';
@@ -568,6 +568,27 @@ export default function HomeClient() {
   // as a distinct, full-refundable outcome with its own copy instead of a
   // generic failure.
   const capHit = gen.fatal != null && /CAP_EXCEEDED/i.test(gen.fatal);
+
+  // One decision instead of four overlapping guards. The order matters: how the
+  // run ended (`fatalKind`) outranks what the pipeline reported, because a
+  // rejected request and a dropped connection never had a pipeline at all — and
+  // presenting either as a failed run is what sent a paid user to a refund
+  // button that answers `thread not found`.
+  const fatalKind: ErrorKind | null = !gen.fatal
+    ? null
+    : gen.fatalKind === 'rejected'
+      ? 'run-not-started'
+      : gen.fatalKind === 'network'
+        ? 'connection-lost'
+        : capHit
+          ? 'cap-hit'
+          : gen.tweets
+            ? 'partial'
+            : 'full-fail';
+
+  const openHistory = useCallback(() => {
+    window.location.href = '/history';
+  }, []);
 
   // Try a free preview first; if it's unavailable for any reason, fall straight
   // through to the existing pay-first flow. A failed preview never blocks paying.
@@ -1160,31 +1181,24 @@ export default function HomeClient() {
           }}
         />
       )}
-      {screen === 'generating' && capHit && (
+      {screen === 'generating' && fatalKind && (
         <ErrorSurface
-          kind="cap-hit"
-          onRefundRequest={() => requestRefund('full')}
+          kind={fatalKind}
+          // The server's own reason, and only where it explains something the
+          // user can act on. On a pipeline failure it is internal noise.
+          detail={fatalKind === 'run-not-started' ? gen.fatal : undefined}
+          // No thread row exists for a 402/503, so the pay tx is the user's
+          // whole claim. It must be on screen, not in a wallet history.
+          payTxHash={fatalKind === 'run-not-started' ? txHash : undefined}
+          onRetry={openHistory}
+          onRefundRequest={() => requestRefund(fatalKind === 'partial' ? 'partial' : 'full')}
           refundStatus={refundStatus}
           refundError={refundError}
         />
       )}
-      {screen === 'generating' && !capHit && gen.fatal && !gen.tweets && (
-        <ErrorSurface
-          kind="full-fail"
-          onRefundRequest={() => requestRefund('full')}
-          refundStatus={refundStatus}
-          refundError={refundError}
-        />
-      )}
-      {screen === 'generating' && !capHit && gen.fatal && gen.tweets && (
-        <ErrorSurface
-          kind="partial"
-          onRefundRequest={() => requestRefund('partial')}
-          refundStatus={refundStatus}
-          refundError={refundError}
-        />
-      )}
-      {screen === 'generating' && gen.fatal && (
+      {/* Not offered on 'connection-lost': that run is still going, and this
+          button clears the record the resume path needs to find it again. */}
+      {screen === 'generating' && gen.fatal && fatalKind !== 'connection-lost' && (
         <Button
           variant="outline"
           onClick={() => {

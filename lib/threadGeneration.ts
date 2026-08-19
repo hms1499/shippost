@@ -20,10 +20,28 @@ export interface StepState {
   error?: string;
 }
 
+/**
+ * Where a fatal came from. The three mean very different things to someone who
+ * has already paid, and collapsing them into one string is what let a rejected
+ * request ("HTTP 402") be presented as a failed pipeline run, complete with a
+ * refund button that answers `thread not found`:
+ *
+ * - `pipeline` — the run started and the server gave up on it. A thread row
+ *   exists, so it is refundable through the normal queue.
+ * - `rejected` — the server refused to start it (402 unverified payment, 409
+ *   replay, 503 could-not-record). NO thread row exists for 402/503, so there
+ *   is nothing to refund against and the user needs their pay tx instead.
+ * - `network` — the connection dropped. Says nothing about the run, which keeps
+ *   going server-side (the `emit` guard in /api/generate/stream) and may well
+ *   deliver.
+ */
+export type FatalKind = 'pipeline' | 'rejected' | 'network';
+
 export interface ThreadGenerationState {
   steps: Record<StepId, StepState>;
   tweets: string[] | null;
   fatal: string | null;
+  fatalKind: FatalKind | null;
   hasStarted: boolean;
   isDone: boolean;
   isSlow: boolean;
@@ -39,6 +57,7 @@ export const initialState: ThreadGenerationState = {
   },
   tweets: null,
   fatal: null,
+  fatalKind: null,
   hasStarted: false,
   isDone: false,
   isSlow: false,
@@ -88,6 +107,8 @@ export function applyEvent(prev: ThreadGenerationState, e: PipelineEvent): Threa
     case 'done':
       return { ...prev, isDone: true, totalCostUsd: e.totalCostUsd, isSlow: false };
     case 'fatal':
-      return { ...prev, fatal: e.error, isDone: true, isSlow: false };
+      // Only the SSE event reaches this reducer, and it only exists once the
+      // stream is open — so a fatal here is always a run the server started.
+      return { ...prev, fatal: e.error, fatalKind: 'pipeline', isDone: true, isSlow: false };
   }
 }

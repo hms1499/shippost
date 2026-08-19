@@ -47,6 +47,27 @@ describe('applyEvent — slow is advisory, never an outcome', () => {
     expect(s.isDone).toBe(true);
   });
 
+  // Only the SSE event reaches this reducer, and the stream is open by then —
+  // so a fatal here always describes a run the server actually started, and is
+  // refundable through the normal queue. 'rejected' / 'network' are set by the
+  // hook instead, and mean the opposite: no run, or no answer yet.
+  it("marks a stream fatal as 'pipeline', never as a rejection", () => {
+    const s = applyEvent(initialState, { type: 'fatal', error: 'boom' });
+    expect(s.fatalKind).toBe('pipeline');
+  });
+
+  it('starts with no fatalKind, and never invents one on a healthy run', () => {
+    expect(initialState.fatalKind).toBeNull();
+    for (const e of [
+      { type: 'started' } as const,
+      { type: 'step_started', step: 'groq' } as const,
+      { type: 'step_output', step: 'groq', output: ['t'] } as const,
+      { type: 'done', totalCostUsd: '0.003' } as const,
+    ]) {
+      expect(applyEvent(initialState, e).fatalKind).toBeNull();
+    }
+  });
+
   it("never produces fatal === 'slow' from any event", () => {
     for (const e of [
       { type: 'started' } as const,
