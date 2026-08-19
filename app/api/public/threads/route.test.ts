@@ -10,10 +10,14 @@ const { GET } = await import('./route');
 // actually queried; the query resolves to an empty result set.
 function mockQuery() {
   const eqCalls: [string, unknown][] = [];
+  const cols: string[] = [];
   const client = {
     from() {
       const builder: any = {
-        select: () => builder,
+        select: (c: string) => {
+          cols.push(c);
+          return builder;
+        },
         order: () => builder,
         limit: () => builder,
         eq: (col: string, value: unknown) => {
@@ -27,7 +31,7 @@ function mockQuery() {
     },
   };
   getSupabaseServer.mockReturnValue(client);
-  return eqCalls;
+  return { eqCalls, cols };
 }
 
 beforeEach(() => {
@@ -39,7 +43,7 @@ describe('GET /api/public/threads', () => {
   // runs on. A hardcoded Celo id answered every such call with Celo's threads
   // long after Base became the default.
   it('falls back to the deployment default chain, not a hardcoded one', async () => {
-    const eqCalls = mockQuery();
+    const { eqCalls } = mockQuery();
 
     const res = await GET(new Request('http://localhost/api/public/threads'));
 
@@ -48,7 +52,7 @@ describe('GET /api/public/threads', () => {
   });
 
   it('honours an explicit chainId over the default', async () => {
-    const eqCalls = mockQuery();
+    const { eqCalls } = mockQuery();
 
     await GET(new Request('http://localhost/api/public/threads?chainId=42220'));
 
@@ -57,10 +61,32 @@ describe('GET /api/public/threads', () => {
 
   // The wallet filter is what keeps /history scoped to the connected wallet.
   it('lower-cases the wallet filter', async () => {
-    const eqCalls = mockQuery();
+    const { eqCalls } = mockQuery();
 
     await GET(new Request('http://localhost/api/public/threads?wallet=0xAbC'));
 
     expect(eqCalls).toContainEqual(['wallet_address', '0xabc']);
+  });
+
+  // One unscoped call used to return fifty strangers' topics and finished
+  // threads. What a run *is* stays public; what someone wrote does not.
+  it('withholds written content from an unscoped listing', async () => {
+    const { cols } = mockQuery();
+
+    await GET(new Request('http://localhost/api/public/threads?chainId=42220'));
+
+    expect(cols[0]).not.toContain('tweets');
+    expect(cols[0]).not.toContain('topic');
+    expect(cols[0]).toContain('onchain_thread_id');
+    expect(cols[0]).toContain('status');
+  });
+
+  it('includes content once the caller names the wallet it belongs to', async () => {
+    const { cols } = mockQuery();
+
+    await GET(new Request('http://localhost/api/public/threads?wallet=0xabc'));
+
+    expect(cols[0]).toContain('tweets');
+    expect(cols[0]).toContain('topic');
   });
 });

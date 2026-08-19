@@ -22,12 +22,19 @@ export async function GET(req: Request) {
   );
 
   try {
+    // What a run *is* — id, mode, token, price, status — is on chain already
+    // and safe to list. What the user wrote is not: an unscoped call returned
+    // fifty strangers' topics and finished threads in one request, no address
+    // needed. Content ships only when the caller names the wallet it belongs
+    // to, which is what /history does.
+    const PUBLIC_COLUMNS =
+      'chain_id,onchain_thread_id,wallet_address,mode,token_symbol,pay_tx_hash,total_cost_usd,status,created_at';
+    const OWNER_COLUMNS = `${PUBLIC_COLUMNS},topic,tweets`;
+
     const supabase = getSupabaseServer();
     let query = supabase
       .from('threads')
-      .select(
-        'chain_id,onchain_thread_id,wallet_address,mode,token_symbol,pay_tx_hash,topic,total_cost_usd,tweets,status,created_at',
-      )
+      .select(wallet ? OWNER_COLUMNS : PUBLIC_COLUMNS)
       .eq('chain_id', chainId)
       .order('created_at', { ascending: false })
       .limit(limit);
