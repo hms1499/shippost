@@ -229,6 +229,9 @@ export default function HomeClient() {
   // visible with stale data after the wallet is gone.
   const prevConnected = useRef(false);
   const paidTracked = useRef<string | null>(null);
+  // Deliberately never cleared: it holds a thread id, and re-POSTing the SAME
+  // thread is exactly what must not happen. A retry pays again and gets a new one.
+  const genStarted = useRef<string | null>(null);
   useEffect(() => {
     if (prevConnected.current && !isConnected) {
       setScreen('mode');
@@ -376,6 +379,15 @@ export default function HomeClient() {
     ) {
       return;
     }
+    // `gen.hasStarted` only flips when the first SSE event lands, and
+    // verifyPayment can spend seconds retrying a lagging RPC before that. Any
+    // payload change in that window — a chain switch re-derives the token —
+    // re-runs this effect, aborts the live request and POSTs again, which the
+    // unique index answers 409: the user is shown a failure for a run the
+    // server is completing normally. Latch on the thread itself, like `pay`.
+    const runKey = `${chainId}:${threadId.toString()}`;
+    if (genStarted.current === runKey) return;
+    genStarted.current = runKey;
     if (submitted) {
       void startGen({
         threadId,
@@ -485,7 +497,7 @@ export default function HomeClient() {
       if (draftTweets === null) {
         const mode: 0 | 1 | 2 | 3 | 4 | 5 =
           submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
-        track('share', { mode, chainId, wallet: address ?? undefined });
+        track('deliver', { mode, chainId, wallet: address ?? undefined });
         setDraftTweets(gen.tweets);
       }
       setScreen('preview');
@@ -1158,11 +1170,23 @@ export default function HomeClient() {
           <ShareToX tweets={draftTweets} />
         </StaggerItem>
         <StaggerItem>
-          {/* SELF-REPORTED signal: the app can't verify a post actually landed
-              on X, only that the user clicked here. When the funnel is
-              instrumented (C1), record this as a self-reported "claims posted"
-              event — never as a verified share-rate. */}
-          <Button onClick={() => setScreen('post-share')}>I posted it →</Button>
+          {/* SELF-REPORTED signal: the app cannot verify a post landed on X,
+              only that the user tapped here. Read 'share' as "claims posted",
+              never as a verified share rate. Until 2026-08-19 this button
+              recorded nothing and 'share' fired on delivery instead, which made
+              it a second delivery counter. */}
+          <Button
+            onClick={() => {
+              track('share', {
+                mode: submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5,
+                chainId,
+                wallet: address ?? undefined,
+              });
+              setScreen('post-share');
+            }}
+          >
+            I posted it →
+          </Button>
         </StaggerItem>
       </Stagger>
     ) : screen === 'post-share' && receiptToken ? (

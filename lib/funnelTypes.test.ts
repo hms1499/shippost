@@ -17,6 +17,10 @@ describe('funnelTypes', () => {
       'submit',
       'preview',
       'pay',
+      // 'deliver' sits where 'share' used to: 'share' fired on delivery and was
+      // therefore ~100% of 'pay' by construction. Order is load-bearing — the
+      // report reads conversion as stage[i] / stage[i-1].
+      'deliver',
       'share',
       'receipt_copied',
     ]);

@@ -2,6 +2,13 @@
 // the ingest route, and the report. No 'use client' / no server imports so it
 // is safe on both sides.
 
+// Order matters: the report reads conversion as stage[i] / stage[i-1].
+//
+// CUTOVER 2026-08-19 — 'share' used to fire the moment a thread was delivered,
+// so it counted deliveries and sat at ~100% of 'pay' by construction. It now
+// fires only when the user says they posted, and 'deliver' takes the slot it
+// was occupying. Rows written before that date carry the old meaning: 'share'
+// is inflated and 'deliver' is absent for any window reaching back past it.
 export const FUNNEL_STAGES = [
   'visit',
   'connect',
@@ -9,6 +16,7 @@ export const FUNNEL_STAGES = [
   'submit',
   'preview',
   'pay',
+  'deliver',
   'share',
   'receipt_copied',
 ] as const;

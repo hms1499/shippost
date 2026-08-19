@@ -85,6 +85,8 @@ export function AgentTrace({
 
   const activeSteps = ORDER.filter((id) => gen.steps[id].status !== 'pending');
   const groq = gen.steps.groq;
+  // Nothing was paid in the canned replay, so it must not print a price.
+  const paidLabel = demo ? null : paidAmountLabel ?? THREAD_PRICE_LABEL;
   const payLabel = demo
     ? 'demo · no payment'
     : payTxHash
@@ -100,8 +102,12 @@ export function AgentTrace({
         <span>
           {demo ? 'DEMO' : `THREAD${threadId !== null ? ` #${threadId.toString()}` : ''}`}
         </span>
-        <span className="text-money normal-case tracking-normal font-mono">
-          SPENT ${totalSpent(gen)}
+        {/* The user's price leads. This slot used to show only SPENT — the
+            agent's x402 outlay — so the biggest money number on the screen
+            right after someone paid was the one they were not charged. */}
+        <span className="flex items-baseline gap-2 normal-case tracking-normal font-mono">
+          {paidLabel && <span className="text-money">PAID {paidLabel}</span>}
+          <span className="text-muted-foreground">agent ${totalSpent(gen)}</span>
         </span>
       </div>
 
@@ -144,6 +150,17 @@ export function AgentTrace({
         aria-live="polite"
       >
         <LogRow glyph={payTxHash ? 'ok' : payStatus === 'error' ? 'fail' : 'run'} text={payLabel} txHash={payTxHash ?? undefined} explorer={chainExplorerBase} amount={payTxHash ? paidAmountLabel ?? THREAD_PRICE_LABEL : undefined} />
+        {/* verifyPayment reads the receipt back off the chain and retries a
+            lagging node up to four times, so several seconds can pass between
+            the payment landing and the first pipeline event. That is the worst
+            moment to show a blank panel to someone who just spent money. */}
+        {!demo && payTxHash && !gen.hasStarted && !gen.fatal && (
+          <LogRow
+            glyph="run"
+            text="verifying payment on chain…"
+            explorer={chainExplorerBase}
+          />
+        )}
         {lines.map((l) => (
           <motion.div
             key={l.key}
