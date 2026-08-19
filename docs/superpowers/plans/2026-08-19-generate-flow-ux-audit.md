@@ -12,10 +12,21 @@ Method: **[code]** throughout. Nothing here was reproduced on a device this
 session; every finding is established by reading the code, and each carries the
 `file:line` that establishes it. Findings that need a device to confirm say so.
 
-**Status 2026-08-19:** G1, G2, G3, G4, G5, G6 fixed in `dd27f2f`..`6335c91`
-(unpushed). Each carries a Fixed note below. Fixes are verified by `tsc`,
-`vitest` (791 pass) and `next build` — **not** on a device; the failure paths
-they change need a real failing paid run to exercise.
+**Status 2026-08-19:** every finding fixed except the orphan payment (the open
+half of G2), in `dd27f2f`..`3a67841` (unpushed). Each carries a Fixed note below.
+Verified by `tsc`, `vitest` (803 pass) and `next build` — **not** on a device;
+the failure paths they change need a real failing paid run to exercise.
+
+**Two things must happen before or with the deploy:**
+
+1. **Run migration `0012_funnel_deliver_stage.sql`.** The funnel ingest swallows
+   insert errors (`app/api/public/funnel/route.ts:63-67`), so deploying the code
+   without the migration drops every `deliver` event silently against the CHECK
+   constraint.
+2. **Decide the prod Celo price.** G8 makes the UI show what the contract
+   charges. If $0.10 is the intended price, the fix is `setPrice` on
+   `0x0dea3241…`, not more UI work — the display now follows the chain either
+   way.
 
 Severity, unchanged from the first audit:
 
@@ -35,17 +46,17 @@ Severity, unchanged from the first audit:
 | G4 | The trace says "nothing was delivered" next to a card saying the opposite | **P1** ✅ |
 | G5 | Returning to a run that failed dumps the user on the mode picker, silently | **P1** ✅ |
 | G6 | "All steps failed" is usually false | P2 ✅ |
-| G7 | The biggest money number on the paid screen is the one the user didn't pay | P2 |
-| G8 | The paid amount during a live run is a display constant — wrong on prod Celo today | P2 |
-| G9 | A ~6s dead window right after payment, with no line explaining it | P2 |
-| G10 | A duplicate `startGen` in that window turns a delivering run into `HTTP 409` | P2 |
-| G11 | The funnel's `share` stage counts deliveries, not shares | P2 |
+| G7 | The biggest money number on the paid screen is the one the user didn't pay | P2 ✅ |
+| G8 | The paid amount during a live run is a display constant — wrong on prod Celo today | P2 ✅ |
+| G9 | A ~6s dead window right after payment, with no line explaining it | P2 ✅ |
+| G10 | A duplicate `startGen` in that window turns a delivering run into `HTTP 409` | P2 ✅ |
+| G11 | The funnel's `share` stage counts deliveries, not shares | P2 ✅ |
 
 The three to act on first are **G1**, **G2** and **G5** — all three are the same
 shape: a user who paid, whose run did not deliver, and whose only remaining
-in-app action does not work. All three are fixed, along with G3, G4 and G6.
-What remains is the orphan payment (the open half of G2) and the truth-in-numbers
-group.
+in-app action does not work. All three are fixed. What remains is the orphan
+payment — the open half of G2, and the only way left for a paid user to end up
+with no record at all.
 
 ---
 
@@ -295,6 +306,9 @@ screen's biggest number is somebody else's.
 **Fix:** invert it. `PAID $0.05` in the header; agent spend as the sub-line it
 already has per step.
 
+**Fixed `3a67841`.** The demo replay prints no price at all — nothing was paid
+in it.
+
 ---
 
 ## G8 — The live run prints a constant, not the price paid — P2
@@ -331,6 +345,8 @@ The moment right after money leaves is the worst moment to show nothing.
 isn't open yet, have the client print *"verifying payment on chain…"* the
 instant it POSTs. One string, no protocol change.
 
+**Fixed `3a67841`** — the second form, keyed on `payTxHash && !gen.hasStarted`.
+
 ---
 
 ## G10 — A duplicate start in that window reports `HTTP 409` on a healthy run — P2
@@ -350,6 +366,10 @@ landing in the database and never on screen.
 Narrow (it needs a wallet-side chain switch in a ~6s window) but the failure is
 loud and wrong. **Fix:** latch on `threadId` with a ref, the way `paidTracked`
 already does at `:489-492`.
+
+**Fixed `3a67841`.** The latch is deliberately never cleared: it holds a thread
+id, and re-POSTing the same thread is precisely what must not happen. A retry
+pays again and gets a new one.
 
 ---
 
@@ -372,6 +392,15 @@ it exists to inform.
 `FUNNEL_STAGES` is append-only in practice — check the report
 (`lib/funnelReport.ts`) before renaming an existing stage.
 
+**Fixed `3a67841`, and it is a CUTOVER rather than a rename.** `deliver` was
+inserted where `share` sat — order is load-bearing, since the report reads
+conversion as `stage[i] / stage[i-1]`. Rows written before 2026-08-19 keep the
+old meaning, so any window reaching back past that date shows an inflated
+`share` and an absent `deliver`. Migration `0012` widens the CHECK constraint
+without rewriting a row: a historical event should keep what it actually
+recorded. **The migration must run before the deploy** — the ingest swallows
+insert errors, so without it every `deliver` is dropped silently.
+
 ---
 
 ## Status of first-audit findings inside this flow
@@ -392,15 +421,17 @@ it exists to inform.
 
 1. ~~**G1 + G2 + G5**~~ — done 2026-08-19.
 2. ~~**G3 + G4**~~ — done 2026-08-19.
-3. **G8 + 6.4 + 7.1** — truth in numbers: carry the verified amount to the
-   client, derive the receipt split from it. `settledCostTotal` (G3) took the
-   agent-spend half of this; the *paid* amount is still a display constant, and
-   on prod Celo it is wrong today.
-4. **G7, G9, G10, G11** — emphasis, the post-payment gap, the duplicate-start
-   latch, and the two instrumentation corrections.
+3. ~~**G8 + 6.4 + 7.1**~~ — done 2026-08-19.
+4. ~~**G7, G9, G10, G11**~~ — done 2026-08-19.
 5. **The orphan payment** (the half of G2 left open) — still needs the schema
    decision, and is the only remaining way a paid user ends up with no record at
    all.
+6. **The six input screens** still price from `THREAD_PRICE_USD` — the last of
+   the drift, and worth doing with first-audit finding 3.2 (one shared
+   payment-token hook) rather than as six edits.
+7. **First-audit leftovers untouched by this pass:** 1.1 (landing refund
+   promise), 1.2 (fabricated tx links on the landing), 2.1/2.2, 3.1/3.3, 4.1,
+   5.1, 6.2/7.2 (`target="_blank"` in a webview).
 
 Not yet exercised on a device: every failure path touched above. A real failing
 paid run is the only thing that proves them, and the 2026-08-18 lesson applies —
