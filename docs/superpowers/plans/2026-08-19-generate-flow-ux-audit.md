@@ -12,6 +12,11 @@ Method: **[code]** throughout. Nothing here was reproduced on a device this
 session; every finding is established by reading the code, and each carries the
 `file:line` that establishes it. Findings that need a device to confirm say so.
 
+**Status 2026-08-19:** G1, G2, G4, G5, G6 fixed in `dd27f2f`..`1902d9d`
+(unpushed). Each carries a Fixed note below. Fixes are verified by `tsc`,
+`vitest` (788 pass) and `next build` — **not** on a device; the failure paths
+they change need a real failing paid run to exercise.
+
 Severity, unchanged from the first audit:
 
 - **P0** — can lose money, or lose work the user already paid for.
@@ -24,12 +29,12 @@ Severity, unchanged from the first audit:
 
 | # | Finding | Sev |
 |---|---|---|
-| G1 | "Refund sent automatically" is not automatic — and a `failed` thread queues nothing at all | **P0** |
-| G2 | A 402 leaves the user paid, told "refundable", and the refund button answers `thread not found` | **P0** |
+| G1 | "Refund sent automatically" is not automatic — and a `failed` thread queues nothing at all | **P0** ✅ |
+| G2 | A 402 leaves the user paid, told "refundable", and the refund button answers `thread not found` | **P0** ✅ |
 | G3 | A failure that produced tweets promises "the working part of the thread" and never shows it | **P1** |
-| G4 | The trace says "nothing was delivered" next to a card saying the opposite | **P1** |
-| G5 | Returning to a run that failed dumps the user on the mode picker, silently | **P1** |
-| G6 | "All steps failed" is usually false | P2 |
+| G4 | The trace says "nothing was delivered" next to a card saying the opposite | **P1** ✅ |
+| G5 | Returning to a run that failed dumps the user on the mode picker, silently | **P1** ✅ |
+| G6 | "All steps failed" is usually false | P2 ✅ |
 | G7 | The biggest money number on the paid screen is the one the user didn't pay | P2 |
 | G8 | The paid amount during a live run is a display constant — wrong on prod Celo today | P2 |
 | G9 | A ~6s dead window right after payment, with no line explaining it | P2 |
@@ -38,7 +43,8 @@ Severity, unchanged from the first audit:
 
 The three to act on first are **G1**, **G2** and **G5** — all three are the same
 shape: a user who paid, whose run did not deliver, and whose only remaining
-in-app action does not work.
+in-app action does not work. All three are now fixed; G3 is the largest thing
+left.
 
 ---
 
@@ -82,6 +88,14 @@ within 24h."* Then either make the button the only story, or extend
 no queued request, at which point "automatic" becomes true and the copy can
 stay. The second is the better product, but it is a behaviour change, not a copy
 fix.
+
+**Fixed `dd27f2f` + `c2e4e86`** — both halves. `reconcileStuckThreads` gained a
+second pass over `status='failed'` with `tweets IS NULL` and no
+`refund_tx_hash`, queueing kind `full`; existing requests are looked up first so
+the nightly run does not re-page ops. Copy on all four surfaces now names the two
+real steps — the sweep queues, an operator sends. The partial card says the
+opposite on purpose: the sweep skips delivered runs, so that refund is
+user-initiated and the copy now says so.
 
 ---
 
@@ -127,6 +141,18 @@ remaining path is still a dead end.
    in `useThreadGeneration.ts:96-99`, and every message on that path was written
    to be read.
 
+**Fixed `4c0c253`** — options 2 and 3; option 1 was rejected as the schema
+decision, because a row written before verification can be created from a forged
+body, and `reconcile` would then queue refunds for payments that never happened.
+Fatals now carry a `fatalKind`: `pipeline` (a run the server started),
+`rejected` (402/409/503 — no run), `network` (no answer, run continues). The
+`run-not-started` surface drops the refund button that cannot work and shows the
+pay tx copyable instead; `connection-lost` stops claiming a failure at all. The
+server's own message replaces the status code.
+
+**Still open:** the orphan payment itself. A 402 still leaves money on chain with
+no record anywhere — the user can now act on it, but only by hand.
+
 ---
 
 ## G3 — Tweets that exist are never shown — P1
@@ -159,6 +185,11 @@ database, and the only way for the user to read them is `/history`.
 above the thread, instead of holding it on `generating`. The refund request
 stays exactly where it is — `partial` is already the right kind.
 
+**Still open** — the largest remaining item. Partly mitigated: the resume path
+(G5) now routes a delivered-but-failed run to history, where the tweets do
+render, and `interpretThreadRow` distinguishes the two failures so neither one
+is offered the wrong refund. The live screen still withholds the tweets.
+
 ---
 
 ## G4 — Two opposite claims in one viewport — P1
@@ -176,6 +207,8 @@ On a partial failure both are on screen at once.
 line off the partial card. `AgentTrace` just doesn't have the same condition.
 
 **Fix:** gate the `AgentTrace` line on `!gen.tweets`, matching `:119`.
+
+**Fixed `c2e4e86`.**
 
 ---
 
@@ -210,7 +243,13 @@ tweets* to `failed`, so this covers delivered-nothing runs too.
 offers the same `requestRefund('full')` action the live path offers. It needs
 `threadId` from `resumingRun`, not from `usePayForThread` — see G5a.
 
-### G5a — `requestRefund` is a silent no-op without a live pay — P2
+**Fixed `1902d9d`** — plus one thing the finding missed: `ResumeState.failed`
+had to carry `delivered`, because a failed run that still wrote tweets is a
+partial delivery and a `full` refund there pays the user back for a thread they
+can read. Delivered → `partial` card pointing at history; not delivered →
+`full`. The record is now cleared when the user leaves, not for them.
+
+### G5a — `requestRefund` is a silent no-op without a live pay — P2 ✅
 
 `app/HomeClient.tsx:534` opens with `if (!address || !threadId) return;` and
 `threadId` comes from `usePayForThread`, which a resumed session never populated.
@@ -230,6 +269,8 @@ step throws (`runModeB.ts:101-105`). The stepper directly above the card shows
 
 **Fix:** *"The thread couldn't be generated."* — true in every case that reaches
 this card.
+
+**Fixed `c2e4e86`**, as a side effect of rewriting that body for G1.
 
 ---
 
@@ -341,17 +382,19 @@ it exists to inform.
 
 ## Suggested order
 
-1. **G1 + G2 + G5** — the "you paid and it didn't work" path. One spec: honest
-   refund copy, a refund action that works when no row exists, and a `failed`
-   branch on the resume screen. These are the same user in three places.
-2. **G3 + G4** — deliver the tweets that exist and stop contradicting the card
-   below. Small, and it converts the most annoying failure into a mostly-fine
-   outcome.
+1. ~~**G1 + G2 + G5**~~ — done 2026-08-19.
+2. **G3** — deliver the tweets that exist on the live screen. G4 is already done,
+   so this is the last half of that pair, and it converts the most annoying
+   failure into a mostly-fine outcome.
 3. **G8 + 6.4 + 7.1** — truth in numbers: carry the verified amount to the
    client, derive the receipt split from it.
-4. **G6, G7, G9, G10, G11** — copy, emphasis, and the two instrumentation
-   corrections.
+4. **G7, G9, G10, G11** — emphasis, the post-payment gap, the duplicate-start
+   latch, and the two instrumentation corrections.
+5. **The orphan payment** (the half of G2 left open) — still needs the schema
+   decision, and is the only remaining way a paid user ends up with no record at
+   all.
 
-Everything in 1 and 2 is client-side except the G2 server change, which is the
-one item here that needs a schema decision (pre-verify row vs. a separate orphan
-table) before it can be planned.
+Not yet exercised on a device: every failure path touched above. A real failing
+paid run is the only thing that proves them, and the 2026-08-18 lesson applies —
+when verifying a recovery path, the interruption itself has to be part of the
+test.
