@@ -26,7 +26,11 @@ export type ResumeState =
       totalCostUsd: string;
       topic: string | null;
     }
-  | { state: 'failed' }
+  // `delivered` separates the two failures that need different money answers: a
+  // run that produced nothing is fully refundable, while one that failed after
+  // writing tweets is a partial delivery — the nightly sweep deliberately skips
+  // those (lib/agent/reconcile.ts), and the tweets are readable in /history.
+  | { state: 'failed'; delivered: boolean }
   | { state: 'gone' };
 
 export function interpretThreadRow(row: ThreadRow | null): ResumeState {
@@ -36,12 +40,14 @@ export function interpretThreadRow(row: ThreadRow | null): ResumeState {
   // to give up.
   if (!row) return { state: 'checking' };
 
-  if (row.status === 'failed') return { state: 'failed' };
+  if (row.status === 'failed') {
+    return { state: 'failed', delivered: (row.tweets?.length ?? 0) > 0 };
+  }
 
   if (row.status === 'completed') {
     // Completed with nothing to show is a broken run, not a delivery. Sending
     // the user to the refund copy is the honest branch.
-    if (!row.tweets || row.tweets.length === 0) return { state: 'failed' };
+    if (!row.tweets || row.tweets.length === 0) return { state: 'failed', delivered: false };
     return {
       state: 'done',
       tweets: row.tweets,

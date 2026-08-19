@@ -65,12 +65,28 @@ describe('interpretThreadRow', () => {
   it('reports failed when the run failed', () => {
     expect(interpretThreadRow({ ...DONE, status: 'failed', tweets: null })).toEqual({
       state: 'failed',
+      delivered: false,
     });
   });
 
+  // A run can fail AFTER groq settled — the deadline firing during fact-check is
+  // the usual shape — and the route persists those tweets. Offering a FULL
+  // refund there would pay the user back for a thread they can read in history.
+  it('marks a failed run that still produced tweets as delivered', () => {
+    expect(
+      interpretThreadRow({ ...DONE, status: 'failed', tweets: ['t1', 't2'] }),
+    ).toEqual({ state: 'failed', delivered: true });
+  });
+
   it('treats completed-with-no-tweets as a failure, not a success', () => {
-    expect(interpretThreadRow({ ...DONE, tweets: [] })).toEqual({ state: 'failed' });
-    expect(interpretThreadRow({ ...DONE, tweets: null })).toEqual({ state: 'failed' });
+    expect(interpretThreadRow({ ...DONE, tweets: [] })).toEqual({
+      state: 'failed',
+      delivered: false,
+    });
+    expect(interpretThreadRow({ ...DONE, tweets: null })).toEqual({
+      state: 'failed',
+      delivered: false,
+    });
   });
 
   it('treats an unrecognised status as still running', () => {

@@ -35,15 +35,32 @@ export function ResumingRun({
       <p className="mt-1 text-[11px] font-mono text-muted-foreground break-all">
         tx {run.payTxHash}
       </p>
+      {/* The reassurance is only true while the run might still deliver. Once
+          the row says it failed, repeating it above the failure reads as the
+          app not knowing what happened. */}
       <p className="mt-3 text-sm font-sans text-muted-foreground leading-snug">
-        {label} — the agent kept working while you were away. Nothing was lost and
-        you will not be charged again.
+        {state.state === 'failed'
+          ? `${label} — this run is finished and it did not succeed.`
+          : `${label} — the agent kept working while you were away. Nothing was lost and you will not be charged again.`}
       </p>
 
       {state.state === 'checking' && (
         <p className="mt-4 flex items-center gap-2 text-sm font-mono text-muted-foreground">
           <Loader2 size={14} className="animate-spin" aria-hidden />
           checking for your thread…
+        </p>
+      )}
+
+      {/* Before this branch existed, a failed row bounced the user straight to
+          the mode picker with no message and no refund path — and cleared the
+          record on the way out. That is the population most likely to be owed
+          money: their run is the one that failed. The refund card itself is
+          rendered by HomeClient below this panel, the same as a live run. */}
+      {state.state === 'failed' && (
+        <p className="mt-4 text-sm font-sans text-muted-foreground leading-snug">
+          {state.delivered
+            ? 'It stopped partway, after writing part of the thread. What it produced is saved — open history to read it.'
+            : 'Nothing was delivered, so nothing was generated against your payment.'}
         </p>
       )}
 

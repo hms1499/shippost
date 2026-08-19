@@ -292,10 +292,11 @@ export default function HomeClient() {
       // and thread id from it, and the poll has already stopped.
       clearPaidRun();
     } else if (resumeState.state === 'failed') {
+      // Stay on the resume screen and say so. Bouncing to the mode picker left
+      // the one user guaranteed to be owed money on the emptiest screen in the
+      // app — and clearPaidRun() here meant a reload could not even get back to
+      // it. The record is cleared when they choose to leave, not for them.
       resumeApplied.current = true;
-      setScreen('mode');
-      clearPaidRun();
-      setResumingRun(null);
     }
   }, [resumeState, resumingRun]);
 
@@ -531,7 +532,17 @@ export default function HomeClient() {
 
   const requestRefund = useCallback(
     async (kind: 'full' | 'partial' | 'slow-cancel') => {
-      if (!address || !threadId) return;
+      // A resumed run has no live pay state, so the thread comes back from
+      // storage instead. Reading it only from usePayForThread is why a refund
+      // button on a recovered run would have done nothing at all — no request,
+      // no spinner, no error, just a dead tap.
+      const target =
+        threadId != null
+          ? { id: threadId.toString(), chainId }
+          : resumingRun
+            ? { id: resumingRun.threadId, chainId: resumingRun.chainId }
+            : null;
+      if (!address || !target) return;
       setRefundStatus('sending');
       setRefundError(null);
       try {
@@ -539,8 +550,8 @@ export default function HomeClient() {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            chainId,
-            onchainThreadId: threadId.toString(),
+            chainId: target.chainId,
+            onchainThreadId: target.id,
             walletAddress: address,
             kind,
           }),
@@ -553,7 +564,7 @@ export default function HomeClient() {
         setRefundError(e instanceof Error ? e.message : 'request failed');
       }
     },
-    [address, threadId, chainId],
+    [address, threadId, chainId, resumingRun],
   );
 
   // Soft steps that failed even after retry — thread is still usable but the
@@ -589,6 +600,31 @@ export default function HomeClient() {
   const openHistory = useCallback(() => {
     window.location.href = '/history';
   }, []);
+
+  // Abandon whatever run is on screen and go somewhere clean. Four callers had
+  // their own copy of this fourteen-line reset; the resume screen needed a
+  // fifth, which is one copy past the point where they start drifting apart.
+  // Callers that pick a destination from the payloads must compute it BEFORE
+  // calling — this clears them.
+  const startOver = useCallback(
+    (to: Screen) => {
+      clearPaidRun();
+      setResumingRun(null);
+      setResumedReceipt(null);
+      resumeApplied.current = false;
+      reset();
+      resetGen();
+      setDraftTweets(null);
+      setSubmitted(null);
+      setHotTake(null);
+      setNewsBreakdown(null);
+      setTokenAnalysis(null);
+      setDailyRecap(null);
+      setComparison(null);
+      setScreen(to);
+    },
+    [reset, resetGen],
+  );
 
   // Try a free preview first; if it's unavailable for any reason, fall straight
   // through to the existing pay-first flow. A failed preview never blocks paying.
@@ -1112,22 +1148,7 @@ export default function HomeClient() {
         agentWalletAddress={getContracts(chainId).AgentWallet}
         explorerBase={explorerBase(chainId)}
         onReceiptCopied={() => track('receipt_copied', { chainId, wallet: address ?? undefined })}
-        onWriteAnother={() => {
-          clearPaidRun();
-          setResumingRun(null);
-          setResumedReceipt(null);
-          resumeApplied.current = false;
-          reset();
-          resetGen();
-          setDraftTweets(null);
-          setSubmitted(null);
-          setHotTake(null);
-          setNewsBreakdown(null);
-          setTokenAnalysis(null);
-          setDailyRecap(null);
-          setComparison(null);
-          setScreen('mode');
-        }}
+        onWriteAnother={() => startOver('mode')}
       />
     ) : null;
 
@@ -1164,22 +1185,28 @@ export default function HomeClient() {
           detail={error}
           onRetry={() => {
             const back: Screen = submitted ? 'educational' : hotTake ? 'hot-take' : newsBreakdown ? 'news-breakdown' : tokenAnalysis ? 'token-analysis' : dailyRecap ? 'daily-recap' : comparison ? 'comparison' : 'mode';
-            clearPaidRun();
-            setResumingRun(null);
-            setResumedReceipt(null);
-            resumeApplied.current = false;
-            reset();
-            resetGen();
-            setDraftTweets(null);
-            setSubmitted(null);
-            setHotTake(null);
-            setNewsBreakdown(null);
-            setTokenAnalysis(null);
-            setDailyRecap(null);
-            setComparison(null);
-            setScreen(back);
+            startOver(back);
           }}
         />
+      )}
+      {/* A recovered run that failed gets the same refund card a live one does.
+          'partial' when tweets survived: the sweep skips those by design, so
+          this button is the only way that refund is ever requested. */}
+      {screen === 'resuming' && resumeState.state === 'failed' && (
+        <>
+          <ErrorSurface
+            kind={resumeState.delivered ? 'partial' : 'full-fail'}
+            onRetry={openHistory}
+            onRefundRequest={() =>
+              requestRefund(resumeState.delivered ? 'partial' : 'full')
+            }
+            refundStatus={refundStatus}
+            refundError={refundError}
+          />
+          <Button variant="outline" onClick={() => startOver('mode')}>
+            Write another
+          </Button>
+        </>
       )}
       {screen === 'generating' && fatalKind && (
         <ErrorSurface
@@ -1201,22 +1228,7 @@ export default function HomeClient() {
       {screen === 'generating' && gen.fatal && fatalKind !== 'connection-lost' && (
         <Button
           variant="outline"
-          onClick={() => {
-            clearPaidRun();
-            setResumingRun(null);
-            setResumedReceipt(null);
-            resumeApplied.current = false;
-            reset();
-            resetGen();
-            setDraftTweets(null);
-            setSubmitted(null);
-            setHotTake(null);
-            setNewsBreakdown(null);
-            setTokenAnalysis(null);
-            setDailyRecap(null);
-            setComparison(null);
-            setScreen('mode');
-          }}
+          onClick={() => startOver('mode')}
         >
           Write another
         </Button>
