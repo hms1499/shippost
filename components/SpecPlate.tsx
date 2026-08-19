@@ -38,16 +38,18 @@ export function SpecPlate() {
           </span>
         </Row>
 
-        <Row label="Source">
-          <ExternalLink href={REPO_URL} icon={<GithubMark />}>
-            github.com/hms1499/shippost
-          </ExternalLink>
-        </Row>
-
-        <Row label="On X">
-          <ExternalLink href={X_URL} icon={<XMark />}>
-            @AnhK1186
-          </ExternalLink>
+        <Row label="Elsewhere">
+          {/* One row now that the values are names rather than addresses: a
+              second row labelled "On X" holding the single word "X" read as a
+              stutter. */}
+          <span className="flex items-center gap-3 flex-wrap">
+            <ExternalLink href={REPO_URL} icon={<GithubMark />} label="GitHub repository">
+              GitHub
+            </ExternalLink>
+            <ExternalLink href={X_URL} icon={<XMark />} label="X profile">
+              X
+            </ExternalLink>
+          </span>
         </Row>
       </dl>
     </section>
@@ -57,10 +59,14 @@ export function SpecPlate() {
 function ExternalLink({
   href,
   icon,
+  label,
   children,
 }: {
   href: string;
   icon: React.ReactNode;
+  /** Spoken name. "X" alone tells a screen reader nothing out of context; the
+   *  visible word stays inside it, as WCAG's label-in-name requires. */
+  label: string;
   children: React.ReactNode;
 }) {
   return (
@@ -68,6 +74,7 @@ function ExternalLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={label}
       className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground no-underline hover:text-primary transition-colors"
     >
       {icon}
