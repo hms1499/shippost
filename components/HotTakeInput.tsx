@@ -9,6 +9,8 @@ import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TokenSelector } from './TokenSelector';
 import { UrlPreviewCard, type UrlPreview } from './UrlPreviewCard';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
+import { useThreadPrice } from '@/lib/useThreadPrice';
+import { payability } from '@/lib/payability';
 import { computeTokenAmount } from '@/lib/tokens';
 import { highestValue } from '@/lib/chainChoice';
 import { parseUrl } from '@/lib/urlParser';
@@ -45,7 +47,7 @@ const ANGLE_OPTIONS: { value: Angle; label: string }[] = [
 ];
 
 export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) {
-  const { balances, isLoading } = useBalances();
+  const { balances, isLoading, isError } = useBalances();
   const [input, setInput] = useState('');
   const [angle, setAngle] = useState<Angle>('skeptical');
 
@@ -64,9 +66,16 @@ export function HotTakeInput({ onSubmit, onBack, disabled, submitting }: Props) 
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
   const effectiveToken = selectedToken ?? defaultToken;
-  const insufficient =
-    effectiveToken !== null &&
-    effectiveToken.balance < computeTokenAmount(effectiveToken);
+  // Compared against the on-chain price, not computeTokenAmount: the price is
+  // settable, so a local constant can warn a wallet that can in fact afford it.
+  const threadPrice = useThreadPrice(effectiveToken);
+  const payGate = payability({
+    token: effectiveToken,
+    price: threadPrice,
+    balancesLoading: isLoading,
+    balancesError: isError,
+  });
+  const insufficient = !payGate.canPay && payGate.reason !== 'no-token';
 
   const trimmedLen = input.trim().length;
   // Only nag once they've started typing — an empty box explains itself.

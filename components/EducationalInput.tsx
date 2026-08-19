@@ -8,6 +8,8 @@ import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TokenSelector } from './TokenSelector';
 import { useBalances, type TokenBalance } from '@/lib/useBalances';
+import { useThreadPrice } from '@/lib/useThreadPrice';
+import { payability } from '@/lib/payability';
 import { computeTokenAmount } from '@/lib/tokens';
 import { highestValue } from '@/lib/chainChoice';
 import { takeGuestTopic } from '@/lib/guestSession';
@@ -34,7 +36,7 @@ const AUDIENCE_OPTIONS = [
 ];
 
 export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Props) {
-  const { balances, isLoading } = useBalances();
+  const { balances, isLoading, isError } = useBalances();
   const [topic, setTopic] = useState(() => takeGuestTopic() ?? '');
   const [audience, setAudience] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
 
@@ -45,9 +47,16 @@ export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Pro
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
   const effectiveToken = selectedToken ?? defaultToken;
-  const insufficient =
-    effectiveToken !== null &&
-    effectiveToken.balance < computeTokenAmount(effectiveToken);
+  // Compared against the on-chain price, not computeTokenAmount: the price is
+  // settable, so a local constant can warn a wallet that can in fact afford it.
+  const threadPrice = useThreadPrice(effectiveToken);
+  const payGate = payability({
+    token: effectiveToken,
+    price: threadPrice,
+    balancesLoading: isLoading,
+    balancesError: isError,
+  });
+  const insufficient = !payGate.canPay && payGate.reason !== 'no-token';
   // Deliberately NOT gated on `insufficient`: this button buys the free
   // preview, so requiring a fundable balance locked empty wallets — new MiniPay
   // users, i.e. exactly the organic ones — out of trying the product at all.

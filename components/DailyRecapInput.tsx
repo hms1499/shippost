@@ -7,6 +7,8 @@ import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { TokenSelector } from './TokenSelector';
 import { useBalances } from '@/lib/useBalances';
+import { useThreadPrice } from '@/lib/useThreadPrice';
+import { payability } from '@/lib/payability';
 import type { TokenBalance } from '@/lib/useBalances';
 import { computeTokenAmount } from '@/lib/tokens';
 import { highestValue } from '@/lib/chainChoice';
@@ -27,7 +29,7 @@ interface Props {
 // Deliberately input-free: the agent grounds itself in today's market
 // snapshot and headlines. The only choice here is which token pays.
 export function DailyRecapInput({ onSubmit, onBack, disabled, submitting }: Props) {
-  const { balances, isLoading } = useBalances();
+  const { balances, isLoading, isError } = useBalances();
 
   const defaultToken = useMemo(() => {
     if (!balances.length) return null;
@@ -36,9 +38,16 @@ export function DailyRecapInput({ onSubmit, onBack, disabled, submitting }: Prop
 
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
   const effectiveToken = selectedToken ?? defaultToken;
-  const insufficient =
-    effectiveToken !== null &&
-    effectiveToken.balance < computeTokenAmount(effectiveToken);
+  // Compared against the on-chain price, not computeTokenAmount: the price is
+  // settable, so a local constant can warn a wallet that can in fact afford it.
+  const threadPrice = useThreadPrice(effectiveToken);
+  const payGate = payability({
+    token: effectiveToken,
+    price: threadPrice,
+    balancesLoading: isLoading,
+    balancesError: isError,
+  });
+  const insufficient = !payGate.canPay && payGate.reason !== 'no-token';
 
   // Deliberately NOT gated on `insufficient`: this button buys the free
   // preview, so requiring a fundable balance locked empty wallets — new MiniPay
