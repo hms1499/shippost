@@ -43,6 +43,24 @@ export function settledCalls(steps: Record<StepId, StepState>): X402Call[] {
   return calls;
 }
 
+/**
+ * What the agent actually settled, summed from the steps themselves.
+ *
+ * The stream reports a total only on `done`, so a run that ended in `fatal`
+ * has none — and the receipt used to fall back to a hardcoded '0.001', which
+ * is a number nothing measured. These costs are the ones already shown on the
+ * trace with their tx hashes beside them, so summing them is the one honest
+ * answer available for a run that stopped partway.
+ */
+export function settledCostTotal(steps: Record<StepId, StepState>): string {
+  let sum = 0;
+  for (const call of settledCalls(steps)) {
+    const c = Number(call.costAmount);
+    if (Number.isFinite(c)) sum += c;
+  }
+  return sum.toFixed(3);
+}
+
 export function agentProfitUsd(paidAmountUsd: string, agentSpentUsd: string): string {
   const paid = Number(paidAmountUsd);
   const spent = Number(agentSpentUsd);

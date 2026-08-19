@@ -61,6 +61,7 @@ import { savePaidRun, loadPaidRun, clearPaidRun, isResumable, type PaidRun } fro
 import { useResumeRun } from '@/hooks/useResumeRun';
 import { ResumingRun } from '@/components/ResumingRun';
 import { initialState as initialGenState } from '@/lib/threadGeneration';
+import { settledCostTotal } from '@/lib/receiptText';
 import { fetchSpendReadiness, type SpendBlockReason } from '@/lib/preflight';
 import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { CHAINS } from '@/lib/prompts/comparison';
@@ -473,8 +474,14 @@ export default function HomeClient() {
     startGen,
   ]);
 
+  // Tweets reaching the client is what decides this, NOT whether the run ended
+  // cleanly. A fatal after groq settled still produced a thread — the deadline
+  // firing during fact-check is the usual shape, and the route persists those
+  // tweets. Holding them back because a later step threw meant the app told the
+  // user "you get the working part of the thread" and then showed them an error
+  // card, with the thread readable only in /history. (`fatal` implies `isDone`.)
   useEffect(() => {
-    if (gen.isDone && gen.tweets && !gen.fatal) {
+    if (gen.isDone && gen.tweets) {
       if (draftTweets === null) {
         const mode: 0 | 1 | 2 | 3 | 4 | 5 =
           submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
@@ -573,6 +580,15 @@ export default function HomeClient() {
   const degradedSteps = (['serper', 'coingecko', 'factCheck'] as const).filter(
     (s) => gen.steps[s]?.status === 'failed',
   );
+
+  // What to say above a thread that is not the full article. A run that died
+  // after producing tweets outranks a soft step that degraded them: it is the
+  // bigger fact, and it is the one the user has not been told yet.
+  const partialNotice: string | null = gen.fatal
+    ? 'This run stopped before it finished, so the thread below is as far as the agent got. It is yours to use — or request a partial refund if it falls short.'
+    : degradedSteps.length > 0
+      ? `Built without live data (${degradedSteps.join(', ')}). Still usable — or request a refund if it falls short.`
+      : null;
 
   // AgentWallet.executeX402Call reverts with "CAP_EXCEEDED" once the daily
   // spend cap is hit; that string propagates verbatim into gen.fatal. Treat it
@@ -1078,13 +1094,10 @@ export default function HomeClient() {
       />
     ) : screen === 'preview' && draftTweets ? (
       <Stagger className="w-full max-w-md flex flex-col gap-4">
-        {degradedSteps.length > 0 && (
+        {partialNotice && (
           <StaggerItem>
             <div className="rounded-md border border-border border-l-2 border-l-money bg-card px-4 py-3 flex flex-col gap-2.5">
-              <p className="text-sm font-sans text-muted-foreground">
-                Built without live data ({degradedSteps.join(', ')}). Still
-                usable — or request a refund if it falls short.
-              </p>
+              <p className="text-sm font-sans text-muted-foreground">{partialNotice}</p>
               {refundStatus === 'sent' ? (
                 <p className="text-xs font-sans text-muted-foreground">
                   Refund requested. Operator will process within 24h.
@@ -1137,7 +1150,17 @@ export default function HomeClient() {
                 formatUnits(computeTokenAmount(receiptToken), receiptToken.decimals),
               ).toFixed(3)
         }
-        agentSpentUsd={gen.totalCostUsd ?? resumedReceipt?.totalCostUsd ?? '0.001'}
+        // The stream reports a total only on `done`. Routing a partial run here
+        // made the old '0.001' fallback reachable — a figure nothing measured,
+        // printed on a document that looks like a record. Sum what actually
+        // settled instead; '0.000' is the honest last resort, and reads as
+        // unknown the same way the resumed path's does.
+        agentSpentUsd={
+          gen.totalCostUsd ??
+          (gen.hasStarted ? settledCostTotal(gen.steps) : null) ??
+          resumedReceipt?.totalCostUsd ??
+          '0.000'
+        }
         tokenSymbol={receiptToken.symbol}
         payTxHash={txHash ?? resumingRun?.payTxHash ?? null}
         // No live run means no per-step costs were ever streamed, and the

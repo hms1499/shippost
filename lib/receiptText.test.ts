@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReceiptText, settledCalls } from './receiptText';
+import { buildReceiptText, settledCalls, settledCostTotal } from './receiptText';
 import type { StepState } from './threadGeneration';
 import type { StepId } from './pipeline/types';
 
@@ -9,6 +9,35 @@ const steps: Record<StepId, StepState> = {
   groq: { status: 'settled', costAmount: '0.001', tokenSymbol: 'cUSD', txHash: '0xccc', chainId: 8453 },
   factCheck: { status: 'pending' },
 };
+
+describe('settledCostTotal', () => {
+  it('sums the settled steps', () => {
+    expect(settledCostTotal(steps)).toBe('0.014');
+  });
+
+  // A run that ended in `fatal` never gets a total from the stream, and the
+  // receipt used to print a hardcoded '0.001' there. Zero settles means zero
+  // spent — a real answer, unlike the constant.
+  it('is 0.000 when nothing settled, rather than a made-up figure', () => {
+    expect(
+      settledCostTotal({
+        serper: { status: 'failed' },
+        coingecko: { status: 'pending' },
+        groq: { status: 'running' },
+        factCheck: { status: 'pending' },
+      }),
+    ).toBe('0.000');
+  });
+
+  it('ignores a settled step carrying no cost', () => {
+    expect(
+      settledCostTotal({
+        ...steps,
+        factCheck: { status: 'settled', txHash: '0xddd' },
+      }),
+    ).toBe('0.014');
+  });
+});
 
 describe('settledCalls', () => {
   it('returns only settled steps, in pipeline order, with display labels', () => {
