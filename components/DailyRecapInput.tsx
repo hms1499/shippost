@@ -56,7 +56,16 @@ export function DailyRecapInput({ onSubmit, onBack, disabled, submitting }: Prop
   const canSubmit = effectiveToken !== null && !disabled && !submitting;
 
   const amountStr = effectiveToken
-    ? Number(formatUnits(computeTokenAmount(effectiveToken), effectiveToken.decimals)).toFixed(2)
+    // The chain's price, with the constant only as the fallback for the frames
+    // before the read lands. These screens named THREAD_PRICE_USD while the gate
+    // right above them was already comparing against the real price — so prod
+    // Celo quoted $0.10 for a thread its contract sells at $0.05.
+    ? Number(
+        formatUnits(
+          threadPrice ?? computeTokenAmount(effectiveToken),
+          effectiveToken.decimals,
+        ),
+      ).toFixed(2)
     : '';
 
   return (
