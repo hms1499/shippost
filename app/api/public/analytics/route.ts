@@ -3,16 +3,18 @@ import { formatUnits } from 'viem';
 import { getSupabaseServer } from '@/lib/supabase';
 import { aggregateAgentSpend } from '@/lib/agentSpend';
 import { getTokens, type TokenSymbol } from '@/lib/tokens';
+import { DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
 
 export const runtime = 'nodejs';
 export const revalidate = 30;
 
-const MAINNET_CHAIN_ID = 42220;
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const chainIdParam = url.searchParams.get('chainId');
-  const chainId = chainIdParam ? Number(chainIdParam) : MAINNET_CHAIN_ID;
+  // The fallback follows the deployment's own chain policy — a hardcoded id
+  // here answered every param-less call with Celo's numbers once Base became
+  // the default chain.
+  const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
 
   try {
     const supabase = getSupabaseServer();

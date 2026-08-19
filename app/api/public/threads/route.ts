@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
 
 export const runtime = 'nodejs';
 export const revalidate = 30;
 
-const MAINNET_CHAIN_ID = 42220;
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 
@@ -12,7 +12,10 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const wallet = url.searchParams.get('wallet')?.toLowerCase();
   const chainIdParam = url.searchParams.get('chainId');
-  const chainId = chainIdParam ? Number(chainIdParam) : MAINNET_CHAIN_ID;
+  // The fallback follows the deployment's own chain policy — a hardcoded id
+  // here answered every param-less call with Celo's numbers once Base became
+  // the default chain.
+  const chainId = chainIdParam ? Number(chainIdParam) : DEFAULT_CHAIN_ID;
   const limit = Math.min(
     Math.max(Number(url.searchParams.get('limit') ?? DEFAULT_LIMIT) || DEFAULT_LIMIT, 1),
     MAX_LIMIT,

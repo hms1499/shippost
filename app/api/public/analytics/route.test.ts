@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DEFAULT_CHAIN_ID } from '@/lib/chainPolicy';
 
 const getSupabaseServer = vi.fn();
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
@@ -14,6 +15,7 @@ interface ThreadRow {
 // wallet_address list, and the cost/amount rows. Serve the same rows to all
 // three; only the third is under test here.
 function mockThreadRows(rows: ThreadRow[]) {
+  const eqCalls: [string, unknown][] = [];
   const client = {
     from() {
       const builder: any = {
@@ -21,7 +23,10 @@ function mockThreadRows(rows: ThreadRow[]) {
           builder._head = opts?.head === true;
           return builder;
         },
-        eq: () => builder,
+        eq: (col: string, value: unknown) => {
+          eqCalls.push([col, value]);
+          return builder;
+        },
         then: (resolve: (v: unknown) => unknown) =>
           Promise.resolve(
             builder._head
@@ -33,6 +38,7 @@ function mockThreadRows(rows: ThreadRow[]) {
     },
   };
   getSupabaseServer.mockReturnValue(client);
+  return eqCalls;
 }
 
 beforeEach(() => {
@@ -93,5 +99,17 @@ describe('GET /api/public/analytics', () => {
 
     expect(res.status).toBe(200);
     expect(body.volumeUsd).toBe('0.10');
+  });
+
+  // A caller that omits chainId must get the chain this deployment actually
+  // runs on. A hardcoded Celo id answered every such call with Celo's numbers
+  // long after Base became the default.
+  it('falls back to the deployment default chain, not a hardcoded one', async () => {
+    const eqCalls = mockThreadRows([]);
+
+    const res = await GET(new Request('http://localhost/api/public/analytics'));
+
+    expect(res.status).toBe(200);
+    expect(eqCalls).toContainEqual(['chain_id', DEFAULT_CHAIN_ID]);
   });
 });
