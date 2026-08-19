@@ -22,6 +22,10 @@ const count = new Intl.NumberFormat('en-US');
  * Pre-connect proof of work: the three numbers that say this thing is real —
  * threads composed, USD settled on chain, x402 calls the agent has paid for.
  *
+ * Spans whatever width the landing gives it — a column on mobile, the full
+ * folio on desktop — so its rules line up with the header rule above and the
+ * two-column grid below instead of floating at half width.
+ *
  * Deliberately silent when there is nothing to show. A visitor who has never
  * seen CoinOp reads "0 threads · $0.00" as a dead product, so a zero count or
  * a failed fetch renders nothing at all rather than an empty scoreboard. The
@@ -46,9 +50,9 @@ export function PublicStatsStrip() {
   return (
     <section
       aria-label="Live public stats"
-      className="w-full max-w-md self-center flex flex-col gap-3 border-y border-border py-4"
+      className="w-full flex flex-col gap-3 border-y border-border py-4 md:py-5"
     >
-      <dl className="grid grid-cols-3 gap-3 text-center">
+      <dl className="grid grid-cols-3 gap-3 md:gap-6 text-center">
         <Stat label="threads" value={data ? count.format(data.threads) : '—'} />
         <Stat label="on-chain volume" value={data ? `$${data.volumeUsd}` : '—'} money />
         <Stat label="x402 settlements" value={data ? count.format(data.x402Count) : '—'} />
@@ -81,7 +85,7 @@ function Stat({ label, value, money }: { label: string; value: string; money?: b
     <div className="flex flex-col-reverse items-center gap-1">
       <dt className="heading-sub text-[10px] leading-tight">{label}</dt>
       <dd
-        className={`text-xl font-bold font-mono tabular-nums leading-none ${
+        className={`text-xl md:text-3xl font-bold font-mono tabular-nums leading-none ${
           money ? 'text-money' : 'text-foreground'
         }`}
       >
