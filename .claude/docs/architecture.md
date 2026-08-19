@@ -1,20 +1,19 @@
-# Architecture (routing map)
+# Architecture (agent quick reference)
 
-The canonical, detailed walkthrough is **[`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)** (progressive disclosure, Tầng 0→3, with diagrams + glossary). Don't duplicate it here — this file just routes you to the right section and holds a few agent quick-reference bits.
+Invariants that are expensive to rediscover from the code: deployed addresses,
+contract rules, and the gas-sponsorship rules. Everything else is read from the
+source, which is the only description of this system that cannot go stale.
 
 ## Where each domain lives
 
-| Domain | Read | Agent rules also in |
+| Domain | Code | Agent rules |
 |---|---|---|
-| Two layers + one generate run (big picture) | §1 | — |
-| On-chain — `ShipPostPayment`, `AgentWallet` | §2.1 (detail §3.3 daily cap) | this file ↓ |
-| Backend — `/api/generate/stream`, pipeline | §2.2 (detail §3.1, §3.2, §3.4) | [`generate-flow.md`](generate-flow.md) |
-| x402 — two models | §2.3 | [`x402.md`](x402.md) |
-| Frontend — `app/` + `components/` + `hooks/` | §2.4 | — |
-| Paying — EIP-5792 bundle, gas sponsorship | §2.4 | this file ↓ |
-| Data — Supabase | §2.5 | — |
-| Refund — runbook | §2.6 (caveat §3.5) | [`refunds.md`](refunds.md) |
-| Chain config, commands, glossary | Phụ lục | — |
+| On-chain — `ShipPostPayment`, `AgentWallet` | `contracts/` | this file ↓ |
+| Backend — `/api/generate/stream`, pipeline | `app/api/generate/stream/`, `lib/pipeline/` | [`generate-flow.md`](generate-flow.md) |
+| x402 — two models | `lib/x402/`, `lib/agent/orchestrator.ts` | [`x402.md`](x402.md) |
+| Paying — EIP-5792 bundle, gas sponsorship | `lib/usePayForThread.ts`, `app/api/paymaster/` | this file ↓ |
+| Refund — runbook | `app/api/refund/`, `lib/agent/reconcile.ts` | [`refunds.md`](refunds.md) |
+| Chains, tokens, price | `lib/chainPolicy.ts`, `lib/tokens.ts`, `lib/threadPrice.ts` | this file ↓ |
 
 ## Deployed contracts
 

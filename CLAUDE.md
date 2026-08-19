@@ -68,9 +68,9 @@ Never change or assume these without explicit sign-off:
 
 ## Additional Documentation
 
-The full architecture walkthrough is the **canonical** source: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — progressive disclosure (Tầng 0→3), diagrams, glossary. The `.claude/docs/` files below are short agent rule-sets that point into it; read them before editing the matching code, and follow the `§` links for the *why*.
+The `.claude/docs/` files are short agent rule-sets. Read the one that matches before editing that code; each rule names the code that enforces it.
 
-- [`.claude/docs/architecture.md`](.claude/docs/architecture.md) — routing map into `docs/ARCHITECTURE.md` by domain, plus contract invariants, chain config, and env quick-reference.
-- [`.claude/docs/x402.md`](.claude/docs/x402.md) — the two x402 settlement models and the verify-before-spend rule (detail: §2.3).
-- [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md) — hostile-body invariants for `/api/generate/stream` (detail: §2.2, Tầng 3).
-- [`.claude/docs/refunds.md`](.claude/docs/refunds.md) — refund safety properties + the recovery procedure for a row stuck in `processing` (detail: §2.6).
+- [`.claude/docs/architecture.md`](.claude/docs/architecture.md) — deployed addresses, contract invariants, gas-sponsorship rules, env quick-reference.
+- [`.claude/docs/x402.md`](.claude/docs/x402.md) — the two x402 settlement models and the verify-before-spend rule.
+- [`.claude/docs/generate-flow.md`](.claude/docs/generate-flow.md) — hostile-body invariants for `/api/generate/stream`.
+- [`.claude/docs/refunds.md`](.claude/docs/refunds.md) — refund safety properties + the recovery procedure for a row stuck in `processing`.

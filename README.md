@@ -139,7 +139,7 @@ The paymaster URL is a server secret, so the client talks to `/api/paymaster` in
 
 **Model 1 — per-thread generate (we *buy*).** Groq, Serper, and CoinGecko don't support x402 natively, so each pipeline step *simulates* x402 in-process by pulling stablecoin from AgentWallet via `settleX402Call`, on the same chain the user paid on. There are **no public `/api/x402/*` proxy routes** for these — the earlier unauthenticated proxies were removed in `8f4c222` (free-drain risk).
 
-**Model 2 — `/api/x402/groq` (we *sell*).** A genuine x402 endpoint: the *caller* pays *us* in USDC through a hosted facilitator, settling to the treasury. It does **not** touch AgentWallet, and its chain is `X402_CHAIN_ID`, independent of Layer 1. Proven live on Base mainnet ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1)); now running on the Celo facilitator. See [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §2.3.
+**Model 2 — `/api/x402/groq` (we *sell*).** A genuine x402 endpoint: the *caller* pays *us* in USDC through a hosted facilitator, settling to the treasury. It does **not** touch AgentWallet, and its chain is `X402_CHAIN_ID`, independent of Layer 1. Proven live on Base mainnet ([tx `0x7b71d5f7…92db1`](https://basescan.org/tx/0x7b71d5f74b832abab6c807ba0daccadbf62d4ca4dc5fda80c059bb14e3b92db1)); now running on the Celo facilitator. See [docs/x402-mainnet-proof.md](docs/x402-mainnet-proof.md).
 
 ### Pipeline
 

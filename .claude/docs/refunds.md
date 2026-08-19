@@ -1,8 +1,10 @@
 # Refund operations (runbook)
 
-> Canonical model + diagram: [`docs/ARCHITECTURE.md` §2.6](../../docs/ARCHITECTURE.md); funding model (reserve-funded, v2): §3.5; migration: [`docs/reserve-refund-migration.md`](../../docs/reserve-refund-migration.md). This file holds the operational recovery procedure not in that doc.
+> Refund safety properties and the operational recovery procedure. The reserve-funded (v2) migration history is in [`docs/reserve-refund-migration.md`](../../docs/reserve-refund-migration.md); the payout path itself is `app/api/refund/route.ts`, and the queue is filled by `lib/agent/reconcile.ts` plus `app/api/refund-request/route.ts`.
 
 Two settlement paths, both call `refundThread` (`lib/agent/orchestrator.ts`): the admin endpoint `/api/refund` (one-off, `x-admin-key`) and the queue worker `pnpm refund:process <requestId>`.
+
+Three things fill the queue, and none of them move money: the user's own button (`/api/refund-request`), and two passes in the nightly sweep — `status='pending'` past the cutoff → `slow-cancel`, and `status='failed'` with `tweets IS NULL` and no `refund_tx_hash` → `full`. The second pass is what makes the UI's "queued automatically" true; a failed run is invisible to the first, so before it existed only a user tapping the button ever queued one. Failed runs that DID write tweets are excluded on purpose — that is a partial delivery, and its refund stays user-initiated.
 
 **Invariant: `threads.refund_tx_hash` is the single source of truth — once set, that thread is paid out and must never be sent again.** Both paths refuse when it's already set.
 
