@@ -69,7 +69,7 @@ export function LandingHero() {
               onClick={() => setDemoOpen((o) => !o)}
               aria-expanded={demoOpen}
               aria-pressed={demoOpen}
-              className="self-start heading-sub text-[10px] hover:text-primary transition-colors"
+              className="self-start heading-sub text-[10px] hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
             >
               {demoOpen ? 'Hide the machine' : 'Watch the machine run'}
             </button>

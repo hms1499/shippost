@@ -33,6 +33,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(shareAppUrl()),
   title: TITLE,
   description: DESCRIPTION,
+  // Both / and /app resolve to the same composer, and share links land on the
+  // root — so they must not be treated as separate ranking sites. Next 14 does
+  // not emit a canonical link by default; declaring the root here stops Google
+  // from treating /app as an independent, thin-page URL.
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     siteName: 'CoinOp',
@@ -67,6 +74,18 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${mono.variable} ${inter.variable}`}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'CoinOp',
+              description: DESCRIPTION,
+              url: shareAppUrl(),
+            }),
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -42,7 +42,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
   if (result) {
     const locked = Math.max(result.totalTweets - 1, 0);
     return (
-      <div className="w-full flex flex-col gap-3">
+      <div className="w-full flex flex-col gap-3" role="status" aria-live="polite">
         <p className="heading-sub text-[10px]">First tweet, free</p>
         <Card className="p-4">
           <p className="whitespace-pre-wrap font-sans text-sm">{result.firstTweet}</p>
@@ -69,7 +69,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
             setResult(null);
             setTopic('');
           }}
-          className="self-center font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors"
+          className="self-center font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
         >
           try another topic
         </button>
@@ -114,7 +114,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
             type="button"
             onClick={onUnlock}
             disabled={!onUnlock}
-            className="underline hover:text-primary transition-colors disabled:opacity-50"
+            className="underline hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
           >
             Connect your wallet
           </button>{' '}
@@ -128,7 +128,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
             type="button"
             onClick={onUnlock}
             disabled={!onUnlock}
-            className="underline hover:text-primary transition-colors disabled:opacity-50"
+            className="underline hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
           >
             Connect
           </button>{' '}
@@ -141,7 +141,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         disabled={!onUnlock}
         // Pinned to the bottom of the column so it lands on the demo caption's
         // line opposite; one alignment down the whole column.
-        className="self-start mt-auto pt-4 font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+        className="self-start mt-auto pt-4 font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
       >
         or connect to pick a mode
       </button>
