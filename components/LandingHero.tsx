@@ -45,9 +45,10 @@ export function LandingHero() {
           One coin in. <span className="text-primary">One thread out.</span>
         </h2>
         <p className="text-sm md:text-base text-muted-foreground max-w-xl font-sans leading-relaxed [text-wrap:balance]">
-          Type a topic. The agent buys its own research call by call, then hands back an X
-          thread you can post — <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>,
-          and only if you keep it.
+          Type a topic — say &quot;what are zk-rollups&quot;. The agent buys its own research call
+          by call, then hands back an X thread you can post for{' '}
+          <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>, and only if you
+          keep it.
         </p>
       </div>
 
@@ -67,6 +68,7 @@ export function LandingHero() {
               type="button"
               onClick={() => setDemoOpen((o) => !o)}
               aria-expanded={demoOpen}
+              aria-pressed={demoOpen}
               className="self-start heading-sub text-[10px] hover:text-primary transition-colors"
             >
               {demoOpen ? 'Hide the machine' : 'Watch the machine run'}

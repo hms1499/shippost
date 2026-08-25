@@ -87,7 +87,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         disabled={loading}
         aria-label="Topic for a free sample thread"
       />
-      <Button type="submit" disabled={loading || !topic.trim()} className="w-full group">
+      <Button type="submit" disabled={loading || !topic.trim()} aria-busy={loading} className="w-full group">
         {loading ? (
           <>
             <Loader2 size={16} className="animate-spin" aria-hidden />
