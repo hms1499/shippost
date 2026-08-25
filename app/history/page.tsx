@@ -18,7 +18,7 @@ export default function HistoryPage() {
   const chainId = walletChainId ?? configChainId;
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 pt-10">
+    <main id="main-content" className="min-h-screen flex flex-col items-center p-6 pt-10">
       {/* One width for the whole page: header, rule and list cannot drift apart,
           and the column opens up to the folio on desktop instead of stranding
           448px of list in the middle of the screen. */}

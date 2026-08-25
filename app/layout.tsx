@@ -86,6 +86,15 @@ export default function RootLayout({
             }),
           }}
         />
+        {/* Keyboard/screen-reader users land here on first Tab so they can jump
+            straight past the header/hero/stats to the content, instead of
+            tabbing through the whole machine. Hidden until focused. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:font-mono focus:text-xs focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          Skip to content
+        </a>
         <Providers>{children}</Providers>
       </body>
     </html>

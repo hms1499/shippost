@@ -26,7 +26,7 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-6 px-6 py-10">
+    <main id="main-content" className="min-h-screen flex flex-col items-center justify-center gap-6 px-6 py-10">
       <section className="w-full max-w-md flex flex-col gap-4">
         <p className="heading-sub text-[10px] text-destructive">Error</p>
         <h1 className="font-mono font-bold text-2xl tracking-tight">This screen stopped.</h1>
