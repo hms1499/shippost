@@ -5,6 +5,7 @@ import { PaymentNotVerifiedError, verifyPayment } from '@/lib/agent/orchestrator
 import { recordOrphanPayment } from '@/lib/agent/orphanPayments';
 import { getSupabaseServer } from '@/lib/supabase';
 import { claimGenerationOnce } from '@/lib/rateLimit';
+import { alertOps } from '@/lib/alert';
 import type { Address, Hex } from 'viem';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 import type { Angle } from '@/lib/prompts/modeB';
@@ -55,6 +56,22 @@ function withDeadline<T>(p: Promise<T>, ms: number, onTimeout?: () => void): Pro
     }, ms);
   });
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
+// The terminal write is what tells reconcile.ts this run is done. Lose it and
+// the row stays 'pending', which the nightly sweep turns into a queued refund —
+// for a thread whose tweets already went out over SSE. The update is a full
+// overwrite keyed on (chain_id, onchain_thread_id), so replaying it is safe.
+async function writeWithRetry(
+  run: () => PromiseLike<{ error: { message: string } | null }>,
+  attempts = 3,
+): Promise<{ error: { message: string } | null }> {
+  let last = await run();
+  for (let i = 1; i < attempts && last.error; i++) {
+    await new Promise((r) => setTimeout(r, 250 * i));
+    last = await run();
+  }
+  return last;
 }
 
 function sseLine(e: PipelineEvent): string {
@@ -287,22 +304,35 @@ export async function POST(req: Request) {
         marketSnippet = out.marketSnippet;
 
         if (supabase) {
-          const { error } = await supabase
-            .from('threads')
-            .update({
-              tweets,
-              total_cost_usd: totalCostUsd,
-              groq_tx_hash: txByStep.groq ?? null,
-              serper_tx_hash: txByStep.serper ?? null,
-              fact_check_tx_hash: txByStep.factCheck ?? null,
-              search_summary: searchSummary,
-              market_snippet: marketSnippet,
-              status: 'completed',
-              groq_settle_chain_id: groqSettleChainId,
-            })
-            .eq('chain_id', body.chainId)
-            .eq('onchain_thread_id', threadId);
-          if (error) console.error('[supabase] update completed failed:', error.message);
+          const { error } = await writeWithRetry(() =>
+            supabase
+              .from('threads')
+              .update({
+                tweets,
+                total_cost_usd: totalCostUsd,
+                groq_tx_hash: txByStep.groq ?? null,
+                serper_tx_hash: txByStep.serper ?? null,
+                fact_check_tx_hash: txByStep.factCheck ?? null,
+                search_summary: searchSummary,
+                market_snippet: marketSnippet,
+                status: 'completed',
+                groq_settle_chain_id: groqSettleChainId,
+              })
+              .eq('chain_id', body.chainId)
+              .eq('onchain_thread_id', threadId),
+          );
+          if (error) {
+            console.error('[supabase] update completed failed:', error.message);
+            // Delivered, but the row still says 'pending'. Left alone the sweep
+            // refunds a thread the user is holding. Page a human instead of
+            // letting the refund queue be the place this is discovered.
+            void alertOps('thread delivered but not recorded as completed', {
+              chainId: body.chainId,
+              threadId,
+              payTxHash: body.payTxHash,
+              error: error.message,
+            });
+          }
         }
 
         emit({
@@ -316,19 +346,24 @@ export async function POST(req: Request) {
 
         if (supabase) {
           // Persist partial state on failure so admin can recover/refund the user.
-          const { error } = await supabase
-            .from('threads')
-            .update({
-              tweets: capturedTweets,
-              status: 'failed',
-              error_message: msg,
-              groq_tx_hash: txByStep.groq ?? null,
-              groq_settle_chain_id: groqSettleChainId,
-              serper_tx_hash: txByStep.serper ?? null,
-              fact_check_tx_hash: txByStep.factCheck ?? null,
-            })
-            .eq('chain_id', body.chainId)
-            .eq('onchain_thread_id', threadId);
+          // Not alerted like the completed path: losing this write leaves the
+          // row 'pending', and the sweep refunding a run that really did fail
+          // is the right answer, not a leak.
+          const { error } = await writeWithRetry(() =>
+            supabase
+              .from('threads')
+              .update({
+                tweets: capturedTweets,
+                status: 'failed',
+                error_message: msg,
+                groq_tx_hash: txByStep.groq ?? null,
+                groq_settle_chain_id: groqSettleChainId,
+                serper_tx_hash: txByStep.serper ?? null,
+                fact_check_tx_hash: txByStep.factCheck ?? null,
+              })
+              .eq('chain_id', body.chainId)
+              .eq('onchain_thread_id', threadId),
+          );
           if (error) console.error('[supabase] update failed failed:', error.message);
         }
 

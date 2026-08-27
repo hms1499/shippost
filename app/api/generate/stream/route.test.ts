@@ -11,6 +11,7 @@ import { celoSepolia } from '@/lib/chains';
 // (pure address lookup with hardcoded fallbacks).
 const verifyPayment = vi.fn();
 const getSupabaseServer = vi.fn();
+const alertOps = vi.fn((_message: string, _context?: object) => Promise.resolve());
 const runModeA = vi.fn();
 const runModeB = vi.fn();
 const MODE_A_TOTAL_COST_USD = '0.050';
@@ -23,6 +24,7 @@ vi.mock('@/lib/agent/orchestrator', async (importOriginal) => {
   return { verifyPayment, PaymentNotVerifiedError: actual.PaymentNotVerifiedError };
 });
 vi.mock('@/lib/supabase', () => ({ getSupabaseServer }));
+vi.mock('@/lib/alert', () => ({ alertOps }));
 vi.mock('@/lib/pipeline/runModeA', () => ({ runModeA, MODE_A_TOTAL_COST_USD }));
 vi.mock('@/lib/pipeline/runModeB', () => ({ runModeB }));
 
@@ -69,6 +71,33 @@ function makeSupabase(opts: { insertError?: { code?: string; message: string }; 
     },
   };
   return { client, inserts, updates, orphans };
+}
+
+// Like makeSupabase, but the terminal update fails the first `failTimes` calls.
+// Models a transient DB blip rather than a permanent outage.
+function makeSupabaseFlakyUpdate(failTimes: number) {
+  let updateCalls = 0;
+  const client = {
+    from() {
+      return {
+        upsert: () => Promise.resolve({ error: null }),
+        insert: () => Promise.resolve({ error: null }),
+        update() {
+          updateCalls++;
+          const fail = updateCalls <= failTimes;
+          const chain = {
+            eq: () => chain,
+            then: (r: (v: { error: unknown }) => unknown) =>
+              Promise.resolve({
+                error: fail ? { message: 'connection reset' } : null,
+              }).then(r),
+          };
+          return chain;
+        },
+      };
+    },
+  };
+  return { client, calls: () => updateCalls };
 }
 
 function postReq(body: unknown): Request {
@@ -321,6 +350,40 @@ describe('POST /api/generate/stream', () => {
       expect(res.status).toBe(503);
       expect(runModeA).not.toHaveBeenCalled();
       expect(runModeB).not.toHaveBeenCalled();
+    });
+  });
+
+  // Recording the delivery is the ONLY thing that stops reconcile.ts from
+  // refunding it: that sweep queues a refund for every status='pending' row past
+  // its cutoff, and the tweets have already gone out over SSE by then. A lost
+  // write here therefore means the user keeps the thread AND gets their money
+  // back — the free-content-plus-refund the flow is built to avoid.
+  describe('recording the delivery (a lost write becomes a refund)', () => {
+    it('retries a transient failure on the completed write', async () => {
+      const { client, calls } = makeSupabaseFlakyUpdate(2);
+      getSupabaseServer.mockReturnValue(client);
+
+      const res = await POST(postReq(bodyA));
+      const sse = await readSSE(res);
+
+      expect(calls()).toBeGreaterThan(1); // did not give up on the first error
+      expect(alertOps).not.toHaveBeenCalled(); // it landed, so nobody is paged
+      expect(sse).toContain('"type":"done"');
+    });
+
+    it('pages ops when the completed write never lands', async () => {
+      const { client } = makeSupabaseFlakyUpdate(Number.MAX_SAFE_INTEGER);
+      getSupabaseServer.mockReturnValue(client);
+
+      const res = await POST(postReq(bodyA));
+      const sse = await readSSE(res);
+
+      // The user still gets the thread they paid for...
+      expect(sse).toContain('"type":"done"');
+      // ...but a human is told the row says otherwise, rather than letting the
+      // nightly sweep discover it as a refund.
+      expect(alertOps).toHaveBeenCalled();
+      expect(String(alertOps.mock.calls[0][0])).toMatch(/deliver/i);
     });
   });
 
