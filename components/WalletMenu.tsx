@@ -246,7 +246,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 className={
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-card transition-colors ' +
+                  'flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border bg-card transition-colors active:bg-primary/10 ' +
                   (isMiniPay
                     ? 'border-primary/50 hover:border-primary'
                     : 'border-border hover:border-primary/50')

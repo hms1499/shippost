@@ -69,7 +69,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
             setResult(null);
             setTopic('');
           }}
-          className="self-center font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+          className="self-center inline-flex items-center justify-center min-h-9 px-2 font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
         >
           try another topic
         </button>

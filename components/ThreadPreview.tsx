@@ -221,7 +221,7 @@ function FolioLeaf({
               <button
                 type="button"
                 onClick={onStartEdit}
-                className="flex items-center gap-1 px-2 h-9 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+                className="flex items-center gap-1 px-2 h-9 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
               >
                 <Pencil size={11} aria-hidden />
                 edit
@@ -230,7 +230,7 @@ function FolioLeaf({
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex items-center gap-1 px-2 h-9 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors"
+                className="flex items-center gap-1 px-2 h-9 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive active:bg-destructive/15 transition-colors"
               >
                 <XIcon size={11} aria-hidden />
                 cancel
@@ -296,7 +296,9 @@ function LeafNib({
       title={label}
       className={
         'flex items-center justify-center h-9 w-9 rounded text-muted-foreground no-underline transition-colors disabled:opacity-30 disabled:cursor-not-allowed ' +
-        (danger ? 'hover:text-destructive' : 'hover:text-primary')
+        (danger
+          ? 'hover:text-destructive active:bg-destructive/15'
+          : 'hover:text-primary active:bg-primary/15')
       }
     >
       {children}

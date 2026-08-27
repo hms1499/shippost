@@ -1083,7 +1083,7 @@ export default function HomeClient() {
         <button
           type="button"
           onClick={() => setScreen(inputScreenForActiveMode)}
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+          className="self-start flex items-center gap-1.5 min-h-9 px-1 -mx-1 rounded heading-sub text-[10px] no-underline hover:text-primary active:bg-primary/10 transition-colors"
         >
           ← Back, try the preview again
         </button>
@@ -1113,7 +1113,7 @@ export default function HomeClient() {
             setSpendBlockReason(null);
             setScreen(inputScreenForActiveMode);
           }}
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors"
+          className="self-start flex items-center gap-1.5 min-h-9 px-1 -mx-1 rounded heading-sub text-[10px] no-underline hover:text-primary active:bg-primary/10 transition-colors"
         >
           ← Back
         </button>

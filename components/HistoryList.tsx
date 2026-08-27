@@ -128,7 +128,7 @@ function HistoryEntry({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={bodyId}
-        className="w-full min-h-[44px] flex flex-col gap-0.5 py-2.5 text-left text-xs no-underline hover:bg-primary/5 transition-colors"
+        className="w-full min-h-[44px] flex flex-col gap-0.5 py-2.5 text-left text-xs no-underline hover:bg-primary/5 active:bg-primary/10 transition-colors"
       >
         <span className="flex items-center gap-3">
           <span className="text-muted-foreground shrink-0">
@@ -167,7 +167,7 @@ function HistoryEntry({
                 <button
                   type="button"
                   onClick={() => void copy(tweets.join('\n\n'))}
-                  className="inline-flex items-center gap-1 h-9 px-2 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+                  className="inline-flex items-center gap-1 h-9 px-2 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
                 >
                   {copied ? 'copied all' : failed ? 'clipboard blocked' : 'copy all'}
                 </button>
@@ -203,7 +203,7 @@ function HistoryEntry({
             href={`${explorerBase}/tx/${thread.pay_tx_hash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="self-start inline-flex items-center h-9 font-mono text-[11px] text-muted-foreground/70 no-underline hover:text-primary transition-colors"
+            className="self-start inline-flex items-center h-9 px-1 -mx-1 rounded font-mono text-[11px] text-muted-foreground/70 no-underline hover:text-primary active:bg-primary/10 transition-colors"
           >
             payment tx ↗
           </a>

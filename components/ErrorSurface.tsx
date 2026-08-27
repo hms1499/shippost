@@ -185,7 +185,7 @@ export function ErrorSurface({
           <button
             type="button"
             onClick={() => txCopy.copy(payTxHash)}
-            className="self-start text-xs font-mono text-muted-foreground underline underline-offset-2"
+            className="self-start inline-flex items-center min-h-9 px-1 -mx-1 rounded text-xs font-mono text-muted-foreground underline underline-offset-2 hover:text-primary active:bg-primary/10 transition-colors"
           >
             {txCopy.copied ? 'copied ✓' : txCopy.failed ? 'select the text above' : 'copy transaction'}
           </button>
@@ -199,7 +199,7 @@ export function ErrorSurface({
           <button
             type="button"
             onClick={() => copy(detail)}
-            className="self-start text-xs font-mono text-muted-foreground underline underline-offset-2"
+            className="self-start inline-flex items-center min-h-9 px-1 -mx-1 rounded text-xs font-mono text-muted-foreground underline underline-offset-2 hover:text-primary active:bg-primary/10 transition-colors"
           >
             {copied ? 'copied ✓' : copyFailed ? 'select the text above' : 'copy error'}
           </button>

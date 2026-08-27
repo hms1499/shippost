@@ -31,7 +31,7 @@ export function CopyNib({
           ? 'text-destructive '
           : copied
             ? 'text-primary '
-            : 'text-muted-foreground hover:text-primary ') +
+            : 'text-muted-foreground hover:text-primary active:bg-primary/10 ') +
         className
       }
     >

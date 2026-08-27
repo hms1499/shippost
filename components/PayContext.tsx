@@ -31,7 +31,7 @@ export function PayContext({ symbol, onChange }: Props) {
         <button
           type="button"
           onClick={onChange}
-          className="text-muted-foreground underline underline-offset-2 hover:text-primary transition-colors"
+          className="text-muted-foreground underline underline-offset-2 hover:text-primary active:text-primary transition-colors"
         >
           change
         </button>

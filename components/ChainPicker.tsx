@@ -47,7 +47,9 @@ export function ChainPicker({
               aria-current={o.isCurrent}
               className={
                 'w-full px-3 py-2.5 flex flex-col gap-1 text-left transition-colors ' +
-                (o.isCurrent ? 'bg-[hsl(var(--primary)/0.08)] ' : 'hover:bg-muted/40 ') +
+                (o.isCurrent
+                  ? 'bg-[hsl(var(--primary)/0.08)] '
+                  : 'hover:bg-muted/40 active:bg-muted/60 ') +
                 (busy && !pending ? 'opacity-50 ' : '')
               }
             >
