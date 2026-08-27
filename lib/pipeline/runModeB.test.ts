@@ -53,6 +53,28 @@ beforeEach(() => {
   runFactCheckStep.mockResolvedValue({ tweets: ['1', '2'] });
 });
 
+describe('fact-check rejection keeps the paid draft', () => {
+  // The user-facing half of the factCheckStep count guard: when the fact-check
+  // refuses its own output, the thread the user paid for must still be the
+  // Groq draft — degraded and visibly so, never replaced by junk and never
+  // empty. This is what makes the strict check in factCheckStep safe to ship.
+  it('delivers the draft and marks the step failed when fact-check throws', async () => {
+    runFactCheckStep.mockRejectedValue(
+      new Error('fact-check returned 1 tweets for a 2-tweet draft'),
+    );
+    const events: PipelineEvent[] = [];
+    const out = await runModeB(
+      { ...baseCtx, angle: 'skeptical', eventDescription: 'token X depegged' },
+      (e) => events.push(e),
+    );
+
+    expect(out.tweets).toEqual(['1', '2']); // the draft, intact
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'step_failed', step: 'factCheck' }),
+    );
+  });
+});
+
 describe('runModeB default (Hot Take) behaviour', () => {
   it('queries Serper with the eventDescription', async () => {
     await runModeB({ ...baseCtx, angle: 'skeptical', eventDescription: 'token X depegged' }, () => {});

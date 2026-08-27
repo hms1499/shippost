@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { getAddress } from 'viem';
-import { parseThread } from '@/lib/threadParser';
+import { parseThread, boundThread } from '@/lib/threadParser';
 import { retryOnce } from './retry';
 import { settleSoftStep } from './settleSoftStep';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
@@ -53,7 +53,28 @@ export async function runFactCheckStep(
     throw e;
   }
 
-  const tweets = parseThread(raw);
+  // boundThread, not a bare parseThread: this output REPLACES the draft
+  // (runModeB.ts), so it needs the same empty/runaway validation the draft
+  // itself gets in generateDraft.ts.
+  const tweets = boundThread(parseThread(raw));
+
+  // The fact-check has the last word on 5 of the 6 modes, and its result is
+  // persisted as `completed` — which no refund path reverses. The prompt asks
+  // for one tweet per draft tweet, same order, no commentary; when the model
+  // ignores that, parseThread still returns something that LOOKS like a thread.
+  // A refusal ("I cannot verify these claims.") collapses a 7-tweet draft to a
+  // single line of apology; a rambling answer inflates it to dozens. Neither is
+  // a fact-check of this draft, so treat it as a soft-step failure: runModeB
+  // catches, emits step_failed, and delivers the unchecked draft instead.
+  //
+  // Deliberately strict. Falling back costs the user a fact-check they can see
+  // they didn't get; accepting a mismatch costs them the thread they paid for.
+  if (tweets.length !== input.tweets.length) {
+    throw new Error(
+      `fact-check returned ${tweets.length} tweets for a ${input.tweets.length}-tweet draft`,
+    );
+  }
+
   emit({ type: 'step_output', step: 'factCheck', output: tweets });
 
   await settleSoftStep({ ctx, step: 'factCheck', serviceAddress: FC_SINK, emit });

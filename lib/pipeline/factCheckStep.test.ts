@@ -45,6 +45,39 @@ describe('runFactCheckStep', () => {
     );
   });
 
+  // The fact-check REPLACES the draft (runModeB.ts:127, unconditionally), and it
+  // is the last word on 5 of the 6 modes. So its output has to be checked
+  // against the draft it is replacing, not just parsed. The prompt already
+  // demands "exactly the same number of tweets ... No commentary, no preamble"
+  // (lib/prompts/factCheck.ts) — these are the ways a model ignores that.
+  describe('rejects output that is not a plausible replacement for the draft', () => {
+    it('rejects a refusal / prose blob that would collapse the thread to one tweet', async () => {
+      // parseThread turns unnumbered prose into a SINGLE tweet, so without a
+      // count check a 2-tweet draft is delivered as one line of apology.
+      create.mockResolvedValue({
+        choices: [{ message: { content: 'I cannot verify these claims.' } }],
+      });
+      const events: { type: string }[] = [];
+      await expect(runFactCheckStep(ctx, input, (e) => events.push(e))).rejects.toThrow(/tweet/i);
+      // and the bad content must never have been handed to the client
+      expect(events.some((e) => e.type === 'step_output')).toBe(false);
+      expect(settleX402Call).not.toHaveBeenCalled();
+    });
+
+    it('rejects runaway output far longer than the draft', async () => {
+      const runaway = Array.from({ length: 60 }, (_, i) => `${i + 1}/ rambling`).join('\n\n');
+      create.mockResolvedValue({ choices: [{ message: { content: runaway } }] });
+      await expect(runFactCheckStep(ctx, input, () => {})).rejects.toThrow(/tweet/i);
+      expect(settleX402Call).not.toHaveBeenCalled();
+    });
+
+    it('accepts output that matches the draft tweet-for-tweet', async () => {
+      const out = await runFactCheckStep({ ...ctx, chainId: 42220 }, input, () => {});
+      expect(out.tweets).toHaveLength(input.tweets.length);
+      expect(settleX402Call).toHaveBeenCalledOnce();
+    });
+  });
+
   it('still settles on Celo', async () => {
     await runFactCheckStep({ ...ctx, chainId: 42220, tokenSymbol: 'cUSD' }, input, () => {});
     expect(settleX402Call).toHaveBeenCalledOnce();
