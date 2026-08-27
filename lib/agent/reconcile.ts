@@ -109,17 +109,17 @@ export async function reconcileStuckThreads(
 // The other half of "paid, never delivered, never refunded".
 //
 // The sweep above only ever sees status='pending' — a run that died silently.
-// A run that failed *loudly* is written status='failed' by the route's own catch
-// (app/api/generate/stream/route.ts), which that query can never match. So until
-// this pass existed, the only thing that queued a refund for a failed run was the
-// user tapping "Request refund now"; anyone who read the UI's "a refund will be
-// sent automatically" and closed the app was never refunded at all.
+// A run that ended *loudly* is written to a terminal status by the route's own
+// catch (app/api/generate/stream/route.ts), which that query can never match. So
+// until this pass existed, the only thing that queued a refund for such a run was
+// the user tapping "Request refund now"; anyone who read the UI's "a refund will
+// be sent automatically" and closed the app was never refunded at all.
 //
 // Two conditions keep this honest and cheap:
-//   tweets IS NULL          — a failed run that still produced tweets is a
-//                             PARTIAL delivery. Refunding it in full would pay
-//                             the user back for content they received, so it
-//                             stays a user-initiated 'partial' request.
+//   tweets IS NULL          — a run that still produced tweets is a PARTIAL
+//                             delivery. Refunding it in full would pay the user
+//                             back for content they received, so it stays a
+//                             user-initiated 'partial' request.
 //   refund_tx_hash IS NULL  — already paid out. That column is the single source
 //                             of truth for payouts (CLAUDE.md); never re-send.
 //
@@ -133,10 +133,18 @@ async function enqueueFailedRuns(
   limit: number,
   result: ReconcileResult,
 ): Promise<void> {
+  // Both terminal states, not just 'failed'. interpretThreadRow (lib/resumeRun.ts)
+  // already tells a user whose row says 'completed' with nothing in it that the
+  // run is broken and refundable — "Completed with nothing to show is a broken
+  // run, not a delivery." The sweep queried only 'failed', so the one state the
+  // UI calls refundable was the one nothing ever queued. Defence in depth: the
+  // route writes status and tweets in the same update and boundThread rejects an
+  // empty thread, so this should not occur — but the two layers disagreeing about
+  // what is owed is the bug, whether or not it is reachable today.
   const { data, error } = await supabase
     .from('threads')
     .select('chain_id, onchain_thread_id, wallet_address')
-    .eq('status', 'failed')
+    .in('status', ['failed', 'completed'])
     .is('tweets', null)
     .is('refund_tx_hash', null)
     .lt('created_at', cutoff)

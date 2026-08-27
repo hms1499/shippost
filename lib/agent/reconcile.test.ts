@@ -19,7 +19,8 @@ interface Query {
  * records and returns itself, awaiting resolves) because reconcile now runs
  * three different shapes against `threads` / `refund_requests`:
  *   status='pending' + created_at<cutoff                  → stuck rows
- *   status='failed' + tweets IS NULL + refund_tx_hash IS NULL → delivered-nothing rows
+ *   status in (failed,completed) + tweets IS NULL + refund_tx_hash IS NULL
+ *                                                         → delivered-nothing rows
  *   refund_requests.in(onchain_thread_id, …)              → dedupe
  * `resolve` picks the answer per recorded query, so a test only describes the
  * rows it cares about.
@@ -45,7 +46,9 @@ function makeDb(opts: {
         ? { data: null, error: { message: opts.requestsSelectError } }
         : { data: opts.existingRequests ?? [], error: null };
     }
-    if (q.filters.status === 'failed') {
+    // enqueueFailedRuns now filters both terminal states via .in(), so the
+    // recorded value is an array rather than the old bare 'failed'.
+    if (q.filters.status === 'failed' || Array.isArray(q.filters.status)) {
       return opts.failedSelectError
         ? { data: null, error: { message: opts.failedSelectError } }
         : { data: opts.failedRows ?? [], error: null };
@@ -225,14 +228,19 @@ describe('reconcileStuckThreads — failed runs that delivered nothing', () => {
     expect(db.flips).toHaveLength(0);
   });
 
-  it('only selects failed rows that delivered nothing and were never paid out', async () => {
+  it('only selects terminal rows that delivered nothing and were never paid out', async () => {
     const db = makeDb({ failedRows: [] });
     await reconcileStuckThreads(db.client, { now: NOW, thresholdMs: 900_000 });
 
-    const q = db.query((q) => q.filters.status === 'failed');
+    const q = db.query((q) => Array.isArray(q.filters.status));
     expect(q).toBeDefined();
-    // A failed run that still produced tweets is a PARTIAL delivery — refunding
-    // it in full would pay for content the user received.
+    // BOTH terminal states. interpretThreadRow (lib/resumeRun.ts) tells a user
+    // whose row says 'completed' with nothing in it that the run is broken and
+    // refundable; querying only 'failed' left that the one state the UI calls
+    // refundable and nothing ever queued.
+    expect(q?.filters.status).toEqual(['failed', 'completed']);
+    // A run that still produced tweets is a PARTIAL delivery — refunding it in
+    // full would pay for content the user received.
     expect(q?.filters.tweets).toBeNull();
     // Already paid out. `threads.refund_tx_hash` is the single source of truth.
     expect(q?.filters.refund_tx_hash).toBeNull();
