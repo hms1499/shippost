@@ -35,7 +35,7 @@ Sample market data: (none)
 <example_thread>
 1/ Circle launched native USDC on Celo on April 30, 2024 (circle.com). Until now, USDC on Celo was a bridged asset, USDC.e.
 
-2/ Native issuance means Circle mints and redeems directly on Celo — no bridge in the redemption path, which is where bridged stablecoins carry their extra trust assumptions.
+2/ Native issuance means Circle mints and redeems directly on Celo. There is no bridge in the redemption path, which is where bridged stablecoins carry their extra trust assumptions.
 
 3/ Holders of bridged USDC.e are affected first: Portal is coordinating a migration to the native token. Apps quoting USDC.e liquidity will need to re-point pools and price feeds.
 

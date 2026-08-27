@@ -47,15 +47,15 @@ Sample market data: (none)
 Sample angle: skeptical
 
 <example_thread>
-1/ Dencun activated on Ethereum mainnet on March 13, 2024 and changed how L2s post data to L1.
+1/ Dencun activated on Ethereum mainnet on March 13, 2024. It did not touch throughput or proving. It changed where L2s put their data and what that data costs them, and every L2 fee number since then follows from that one move.
 
-2/ Pre-Dencun, L2s settled calldata at the same gas market as everyone else. EIP-4844 introduced a separate blob fee market, target 3 blobs per block, max 6.
+2/ Before Dencun, L2s posted calldata into the same gas market as every swap and mint on L1, so they bid against ordinary users for blockspace. EIP-4844 gave them a separate blob fee market, target 3 blobs per block, hard cap 6.
 
-3/ In the days after activation, L2 user fees on Arbitrum, Optimism, and Base fell roughly 10x. Throughput limits on those L2s now scale with blob supply, not L1 calldata gas.
+3/ In the days after activation, user fees on Arbitrum, Optimism and Base fell roughly 10x. The ceiling on those L2s now moves with blob supply rather than with L1 calldata gas. That is a different constraint with a different failure mode.
 
-4/ Blob base fees have hovered near zero since launch — supply has run ahead of demand. The cost L2s pay for L1 data is currently not a meaningful ETH burn input.
+4/ The caveat is that blob base fees have sat near zero since launch, because supply has run ahead of demand. The data L2s buy from L1 is currently not a meaningful ETH burn input, so the saving is a subsidy nobody has had to price yet.
 
-5/ What would change my mind: a sustained stretch of more than two weeks where blob base fees stay non-zero and L2 throughput keeps climbing.
+5/ What would change my mind: a sustained stretch of more than two weeks where blob base fees stay non-zero and L2 throughput keeps climbing anyway. That would show the demand is real and not an artifact of cheap early blockspace.
 </example_thread>`;
 
 export function buildModeBPrompt(input: ModeBInput): string {

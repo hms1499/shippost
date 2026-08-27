@@ -67,7 +67,7 @@ Sample angle: skeptical
 
 2/ The token's job is narrow: UNI votes on governance. It does not, as of today, route any protocol revenue to holders.
 
-3/ That gap is the whole UNI debate. A "fee switch" — turning on protocol fees and directing them to the DAO or stakers — has been proposed repeatedly since 2022 and has not shipped.
+3/ That gap is the whole UNI debate. A "fee switch" would turn on protocol fees and direct them to the DAO or stakers. It has been proposed repeatedly since 2022 and has not shipped.
 
 4/ The market prices UNI at roughly the capital in the protocol: $4.45B cap against $4.2B TVL, an mcap/TVL near 1.06. The governance premium is thin.
 
