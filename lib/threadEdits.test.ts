@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { moveTweet, deleteTweet, renumber } from './threadEdits';
+import { moveTweet, deleteTweet, renumber, splitTweet, canSplit } from './threadEdits';
+import { TWEET_MAX_CHARS } from './threadParser';
 
 describe('moveTweet', () => {
   it('swaps an item up (dir -1)', () => {
@@ -87,5 +88,54 @@ describe('numbering survives structural edits', () => {
     const input = ['1/ a', '2/ b'];
     renumber(input);
     expect(input).toEqual(['1/ a', '2/ b']);
+  });
+});
+
+describe('splitTweet', () => {
+  // Real sentences start with a capital, and the seam regex requires one — that
+  // is what keeps "e.g. foo" from reading as a boundary.
+  const sentence = (n: number) => `X${'x'.repeat(n - 2)}.`;
+  const long = `1/ ${sentence(150)} ${sentence(150)}`; // 305 chars, one clean seam
+
+  it('splits an over-long tweet at a sentence boundary and renumbers', () => {
+    const out = splitTweet([long, '2/ after'], 0);
+    expect(out).toHaveLength(3);
+    expect(out[0].startsWith('1/ ')).toBe(true);
+    expect(out[1].startsWith('2/ ')).toBe(true);
+    expect(out[2]).toBe('3/ after'); // the tail moved down
+    out.forEach((t) => expect(t.length).toBeLessThanOrEqual(TWEET_MAX_CHARS));
+  });
+
+  it('loses no words', () => {
+    const [a, b] = splitTweet([long], 0);
+    const words = (s: string) => s.replace(/^\d+\/\s*/, '').split(/\s+/).filter(Boolean);
+    expect([...words(a), ...words(b)]).toEqual(words(long));
+  });
+
+  it('never cuts inside a decimal or an abbreviation', () => {
+    // A seam after "$3.94B" or "e.g." would be a mid-sentence cut.
+    const t = `1/ Base TVL is $3.94B today, e.g. roughly 26x Celo. ${'y'.repeat(240)}.`;
+    const out = splitTweet([t], 0);
+    expect(out[0]).toContain('$3.94B');
+    expect(out[0]).toContain('e.g. roughly');
+  });
+
+  it('refuses a tweet with no usable seam, leaving it untouched', () => {
+    const unsplittable = `1/ ${'z'.repeat(320)}`; // one run-on, no sentence end
+    expect(canSplit(unsplittable)).toBe(false);
+    expect(splitTweet([unsplittable], 0)).toEqual([unsplittable]);
+  });
+
+  it('refuses when a seam exists but one half would still be over', () => {
+    const lopsided = `1/ short. ${'q'.repeat(330)}`;
+    expect(canSplit(lopsided)).toBe(false);
+  });
+
+  it('canSplit is false for a tweet already within the limit', () => {
+    expect(canSplit('1/ already fine. Two sentences.')).toBe(false);
+  });
+
+  it('leaves the array untouched for an out-of-range index', () => {
+    expect(splitTweet([long], 5)).toEqual([long]);
   });
 });

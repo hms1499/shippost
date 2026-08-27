@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { CopyNib } from '@/components/CopyNib';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
-import { moveTweet, deleteTweet } from '@/lib/threadEdits';
+import { moveTweet, deleteTweet, splitTweet, canSplit } from '@/lib/threadEdits';
 import { detectBannedPhrases } from '@/lib/bannedPhrases';
 import { TWEET_MAX_CHARS } from '@/lib/threadParser';
 
@@ -67,6 +67,9 @@ export function ThreadPreview({ tweets, onChange }: Props) {
   function remove(i: number) {
     onChange(deleteTweet(tweets, i));
   }
+  function split(i: number) {
+    onChange(splitTweet(tweets, i));
+  }
 
   const anyEditing = editingIdx !== null;
   const total = tweets.length;
@@ -104,6 +107,8 @@ export function ThreadPreview({ tweets, onChange }: Props) {
               onMoveUp={() => move(i, -1)}
               onMoveDown={() => move(i, 1)}
               onDelete={() => remove(i)}
+              canSplitTweet={canSplit(tw)}
+              onSplit={() => split(i)}
               animationDelay={i * 0.08}
             />
           );
@@ -137,6 +142,8 @@ interface LeafProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
+  canSplitTweet: boolean;
+  onSplit: () => void;
   animationDelay: number;
 }
 
@@ -157,6 +164,8 @@ function FolioLeaf({
   onMoveUp,
   onMoveDown,
   onDelete,
+  canSplitTweet,
+  onSplit,
   animationDelay,
 }: LeafProps) {
   return (
@@ -258,7 +267,14 @@ function FolioLeaf({
         {/* Length. Shown while editing (live feedback for the thing being typed)
             and whenever a tweet is over the limit — never on a settled tweet
             that is fine, which would put a counter on every card for no reason. */}
-        <TweetLength text={isEditing ? draft : text} live={isEditing} />
+        <TweetLength
+          text={isEditing ? draft : text}
+          live={isEditing}
+          // Splitting rewrites the array, so never offer it mid-edit: the open
+          // editor's index would drift, the same reason move/delete hide too.
+          canSplitTweet={!isEditing && canSplitTweet}
+          onSplit={onSplit}
+        />
 
         {isEditing && (
           <div className="flex items-center gap-2 mt-1 justify-end">
@@ -280,15 +296,38 @@ function FolioLeaf({
  * tweet is the user's to fix (every tweet is editable in place), so this states
  * the problem and its consequence instead of silently solving it.
  */
-function TweetLength({ text, live }: { text: string; live: boolean }) {
+function TweetLength({
+  text,
+  live,
+  canSplitTweet,
+  onSplit,
+}: {
+  text: string;
+  live: boolean;
+  canSplitTweet?: boolean;
+  onSplit?: () => void;
+}) {
   const n = text.length;
   const over = n - TWEET_MAX_CHARS;
 
   if (over > 0) {
     return (
-      <p className="font-mono text-[10px] text-destructive tabular-nums">
-        {n}/{TWEET_MAX_CHARS} · {over} over — X will not accept this tweet
-      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="font-mono text-[10px] text-destructive tabular-nums">
+          {n}/{TWEET_MAX_CHARS} · {over} over — X will not accept this tweet
+        </p>
+        {/* Offered only when a clean sentence seam exists. No seam means the fix
+            is a human edit, and a disabled button would just be a dead end. */}
+        {canSplitTweet && onSplit && (
+          <button
+            type="button"
+            onClick={onSplit}
+            className="inline-flex items-center min-h-9 px-2 -mx-1 rounded font-mono text-[10px] text-primary no-underline hover:bg-primary/10 active:bg-primary/20 transition-colors"
+          >
+            split into two →
+          </button>
+        )}
+      </div>
     );
   }
   if (!live) return null;
