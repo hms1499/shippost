@@ -71,6 +71,14 @@ function getSupabaseSafe() {
 
 function validate(b: Partial<StreamRequest>): string | null {
   if (!b.threadId) return 'threadId required';
+  // threadId is proved against the chain as a BigInt but persisted as TEXT
+  // under the unique (chain_id, onchain_thread_id) index. BigInt() accepts many
+  // spellings of one number — '0x2a', ' 42', '+42' are all 42 — so an
+  // unnormalized string passes the payment proof and still lands as a DISTINCT
+  // row: another generation off one payment, and later another refund off it
+  // too (the refund worker keys on this same text). Reject the exotic spellings
+  // here; canonicalizeThreadId below collapses the ones that survive ('042').
+  if (!/^[0-9]{1,78}$/.test(b.threadId)) return 'malformed threadId';
   if (!b.chainId) return 'chainId required';
   // Explicit allowlist. Relying on getContracts() to throw made an unsupported
   // chain a 500 raised partway through the route; it must be a 400 raised
@@ -86,6 +94,13 @@ function validate(b: Partial<StreamRequest>): string | null {
   return mode.validateInput(b);
 }
 
+// Plain decimal, no leading zeros — the single spelling that reaches the DB, so
+// the unique index actually sees a replay as a duplicate. `/^[0-9]{1,78}$/` has
+// already run, so BigInt cannot throw here.
+function canonicalizeThreadId(raw: string): string {
+  return BigInt(raw).toString();
+}
+
 export async function POST(req: Request) {
   let body: StreamRequest;
   try {
@@ -97,6 +112,9 @@ export async function POST(req: Request) {
   const err = validate(body);
   if (err) return new Response(err, { status: 400 });
 
+  // Every DB read/write below uses this, never body.threadId.
+  const threadId = canonicalizeThreadId(body.threadId);
+
   // Prove the payment on-chain BEFORE opening the stream or spending any
   // x402. Without this, the body is forgeable and anyone can drain the agent
   // wallet for free. Reject (402) on any mismatch.
@@ -107,7 +125,7 @@ export async function POST(req: Request) {
     const { amountRaw } = await verifyPayment({
       chainId: body.chainId,
       payTxHash: body.payTxHash as Hex,
-      threadId: BigInt(body.threadId),
+      threadId: BigInt(threadId),
       walletAddress: body.walletAddress as Address,
       tokenAddress: body.tokenAddress as Address,
       mode: body.mode,
@@ -126,7 +144,7 @@ export async function POST(req: Request) {
         chainId: body.chainId,
         payTxHash: body.payTxHash,
         walletAddress: body.walletAddress,
-        claimedThreadId: body.threadId,
+        claimedThreadId: threadId,
         tokenAddress: body.tokenAddress,
         mode: body.mode,
         kind: e.kind,
@@ -148,7 +166,7 @@ export async function POST(req: Request) {
   if (supabase) {
     const { error } = await supabase.from('threads').insert({
       chain_id: body.chainId,
-      onchain_thread_id: body.threadId,
+      onchain_thread_id: threadId,
       wallet_address: body.walletAddress.toLowerCase(),
       mode: body.mode,
       token_symbol: body.tokenSymbol,
@@ -240,7 +258,7 @@ export async function POST(req: Request) {
         const ac = new AbortController();
         const baseCtx = {
           chainId: body.chainId,
-          threadId: BigInt(body.threadId),
+          threadId: BigInt(threadId),
           topic: body.topic ?? body.eventDescription ?? '',
           audience: body.audience ?? 'beginner',
           agentWallet: contracts.AgentWallet,
@@ -283,7 +301,7 @@ export async function POST(req: Request) {
               groq_settle_chain_id: groqSettleChainId,
             })
             .eq('chain_id', body.chainId)
-            .eq('onchain_thread_id', body.threadId);
+            .eq('onchain_thread_id', threadId);
           if (error) console.error('[supabase] update completed failed:', error.message);
         }
 
@@ -310,7 +328,7 @@ export async function POST(req: Request) {
               fact_check_tx_hash: txByStep.factCheck ?? null,
             })
             .eq('chain_id', body.chainId)
-            .eq('onchain_thread_id', body.threadId);
+            .eq('onchain_thread_id', threadId);
           if (error) console.error('[supabase] update failed failed:', error.message);
         }
 

@@ -244,6 +244,73 @@ describe('POST /api/generate/stream', () => {
       expect(runModeA).not.toHaveBeenCalled(); // but spent zero x402
     });
 
+    // The two tests above hand the route a canned 23505. That proves it REACTS
+    // to a unique violation, but never that Postgres would actually raise one.
+    // This double enforces the real index — unique on (chain_id,
+    // onchain_thread_id) where onchain_thread_id is `text` (0001_threads.sql:5,29).
+    function makeSupabaseWithUniqueIndex() {
+      const keys = new Set<string>();
+      const inserts: Array<Record<string, unknown>> = [];
+      const client = {
+        from() {
+          return {
+            upsert: () => Promise.resolve({ error: null }),
+            insert(payload: Record<string, unknown>) {
+              const key = `${payload.chain_id}:${payload.onchain_thread_id}`;
+              if (keys.has(key)) {
+                return Promise.resolve({
+                  error: { code: '23505', message: 'duplicate key' },
+                });
+              }
+              keys.add(key);
+              inserts.push(payload);
+              return Promise.resolve({ error: null });
+            },
+            update() {
+              const chain = {
+                eq: () => chain,
+                then: (r: (v: { error: unknown }) => unknown) =>
+                  Promise.resolve({ error: null }).then(r),
+              };
+              return chain;
+            },
+          };
+        },
+      };
+      return { client, inserts };
+    }
+
+    it('rejects a replay whose threadId is spelled differently but is the same number', async () => {
+      const { client, inserts } = makeSupabaseWithUniqueIndex();
+      getSupabaseServer.mockReturnValue(client);
+
+      const first = await POST(postReq(bodyA)); // threadId '42'
+      await readSSE(first);
+      expect(first.status).toBe(200);
+      expect(runModeA).toHaveBeenCalledTimes(1);
+
+      // verifyPayment compares BigInts, so every one of these IS on-chain
+      // thread 42 and passes the payment proof. Keyed on the raw string, each
+      // would land as a distinct row and buy another generation off a single
+      // $0.10 payment — and later another refund, since the refund worker looks
+      // the thread up by this same text.
+      //
+      // Two defences, so the assertion is on the outcome rather than the code:
+      // the exotic spellings are rejected by validate (400), and the all-digit
+      // ones survive validate but canonicalize to '42' and hit the unique
+      // index (409). What must never happen is a 200.
+      for (const spelling of ['042', '0042', ' 42', '0x2a', '+42', '\n42']) {
+        const res = await POST(postReq({ ...bodyA, threadId: spelling }));
+        await readSSE(res).catch(() => {});
+        const label = `threadId ${JSON.stringify(spelling)} must not re-generate`;
+        expect(res.status, label).toBeGreaterThanOrEqual(400);
+        expect(res.status, label).toBeLessThan(500);
+      }
+
+      expect(inserts).toHaveLength(1);
+      expect(runModeA).toHaveBeenCalledTimes(1); // still exactly one paid run
+    });
+
     it('returns 503 (fail closed) on any other insert error, with zero spend', async () => {
       const { client } = makeSupabase({
         insertError: { code: '42501', message: 'permission denied' },
