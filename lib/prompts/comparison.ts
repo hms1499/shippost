@@ -60,6 +60,35 @@ Constraints:
 
 const LENGTH_GUIDANCE = `Length: 5–9 tweets. Never fewer than 4, never more than 10. Stop once the verdict, the loser's strength, and the watch-signal are all covered.`;
 
+// Comparison was the only mode with no worked example, and it showed: across
+// three real runs its tweet length swung from a 52-char opener ("Base beats
+// Celo on every measurable metric today.") to a steady ~170, because nothing
+// anchored the shape. Same role as every other mode's example — voice and
+// structure, never content.
+const FEW_SHOT_EXAMPLE = `Reference for voice and shape (different matchup — match the structure, do NOT copy content):
+
+Sample matchup: Optimism vs Arbitrum
+Sample chain data:
+Arbitrum: TVL $18.2B, 30d change +9.1%
+Optimism: TVL $7.6B, 30d change -2.4%
+Sample search context:
+- Arbitrum has led all L2s in daily active addresses for three straight months.
+- Base, World and several others run on the OP Stack.
+
+<example_thread>
+1/ Optimism vs Arbitrum on today's data is not close: Arbitrum wins. It holds roughly 2.4x the TVL, and the gap widened over the last 30 days rather than closing, which is the part that decides it.
+
+2/ TVL is the blunt measure and Arbitrum leads it $18.2B to $7.6B. Size alone would be a weak argument if it were static, but the direction is what makes it hold up as the opening claim.
+
+3/ Momentum points the same way. Arbitrum TVL is up 9.1% over 30 days while Optimism is down 2.4%, so the leader is compounding its lead instead of coasting on a head start it built earlier.
+
+4/ Ecosystem activity backs the number. Arbitrum has led all L2s in daily active addresses for three straight months, which means the TVL is being used rather than parked by a handful of large depositors.
+
+5/ Optimism's genuine strength is the Superchain. Base, World and several others run on the OP Stack, so its code settles far more activity than its own TVL line shows, and that is a real distribution advantage.
+
+6/ One thing to watch for Optimism: whether Superchain revenue starts landing on OP itself. If sequencer fees from the chains built on its stack begin accruing to the token, the TVL comparison stops being the right measure.
+</example_thread>`;
+
 export function buildComparisonPrompt(input: {
   aLabel: string;
   bLabel: string;
@@ -67,6 +96,7 @@ export function buildComparisonPrompt(input: {
   searchSummary: string | null;
 }): string {
   const blocks = [
+    FEW_SHOT_EXAMPLE,
     `Write an X thread comparing two blockchains and pick a single winner: ${input.aLabel} vs ${input.bLabel}.`,
   ];
 

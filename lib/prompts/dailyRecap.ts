@@ -151,11 +151,11 @@ Sample search context:
 
 <example_thread>
 
-1/ The majors had a red day. Solana ran the other way, up 4.8% while the rest of the top 10 cooled off.
+1/ Solana ran against the board today. SOL is up 4.8% at $142 while the rest of the top 10 cooled off.
 
-2/ The majors: BTC trades at $61,200, down 2.1% on the day. ETH sits at $2,980, off 1.4%.
+2/ BTC is at $61,200, down 2.1%. ETH is at $2,980, off 1.4%. Neither has a same-day catalyst in the data.
 
-3/ SOL is the outlier at $142, up 4.8%, after a major exchange launched a SOL staking product this morning.
+3/ SOL is the outlier at $142, up 4.8%. A major exchange launched a SOL staking product this morning.
 
 4/ One thing to watch: the Ethereum upgrade vote scheduled for Thursday.
 
