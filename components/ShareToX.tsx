@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useCopy } from '@/lib/useCopy';
 import { buildShareText, tweetIntentUrl } from '@/lib/shareText';
+import { TWEET_MAX_CHARS } from '@/lib/threadParser';
 
 interface Props {
   tweets: string[];
@@ -27,6 +28,14 @@ export function ShareToX({ tweets }: Props) {
   const first = tweets[0] ?? '';
   const rest = tweets.slice(1);
 
+  // buildShareText protects the ATTRIBUTION from the limit — it drops the credit
+  // rather than truncate — but it cannot shrink the tweet itself, so an
+  // over-long tweet 1 was handed to the X composer as-is and simply refused
+  // there. Say so before the tap is spent. The button stays enabled: this count
+  // over-counts URLs (see TWEET_MAX_CHARS), and a wrong count must never be
+  // able to lock someone out of posting a thread they paid for.
+  const firstOver = first.length - TWEET_MAX_CHARS;
+
   return (
     <Card className="w-full max-w-md p-4 flex flex-col gap-3">
       <h3 className="text-sm font-semibold">Share to X</h3>
@@ -36,6 +45,14 @@ export function ShareToX({ tweets }: Props) {
         X, use the <b>+</b> button under your own tweet to add each follow-up. Come back and tap{' '}
         <b>copy</b> on a tweet card above to grab them one at a time.
       </p>
+
+      {firstOver > 0 && (
+        <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs font-sans text-destructive leading-snug">
+          Tweet 1 is {firstOver} character{firstOver === 1 ? '' : 's'} over X&apos;s limit, so X
+          will refuse to post it. Tap <b>edit</b> on the first tweet above to shorten it — or
+          split it into two.
+        </p>
+      )}
 
       <Button onClick={() => postFirstTweet(buildShareText(first, { attribution: credit }))}>
         Post first tweet in X →

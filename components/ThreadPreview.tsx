@@ -9,6 +9,7 @@ import { CopyNib } from '@/components/CopyNib';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { moveTweet, deleteTweet } from '@/lib/threadEdits';
 import { detectBannedPhrases } from '@/lib/bannedPhrases';
+import { TWEET_MAX_CHARS } from '@/lib/threadParser';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -254,6 +255,11 @@ function FolioLeaf({
           </p>
         )}
 
+        {/* Length. Shown while editing (live feedback for the thing being typed)
+            and whenever a tweet is over the limit — never on a settled tweet
+            that is fine, which would put a counter on every card for no reason. */}
+        <TweetLength text={isEditing ? draft : text} live={isEditing} />
+
         {isEditing && (
           <div className="flex items-center gap-2 mt-1 justify-end">
             <Button size="sm" variant="ghost" onClick={onCancel}>
@@ -266,6 +272,30 @@ function FolioLeaf({
         )}
       </Card>
     </li>
+  );
+}
+
+/**
+ * Character count against the X limit. Nothing here truncates: an over-long
+ * tweet is the user's to fix (every tweet is editable in place), so this states
+ * the problem and its consequence instead of silently solving it.
+ */
+function TweetLength({ text, live }: { text: string; live: boolean }) {
+  const n = text.length;
+  const over = n - TWEET_MAX_CHARS;
+
+  if (over > 0) {
+    return (
+      <p className="font-mono text-[10px] text-destructive tabular-nums">
+        {n}/{TWEET_MAX_CHARS} · {over} over — X will not accept this tweet
+      </p>
+    );
+  }
+  if (!live) return null;
+  return (
+    <p className="font-mono text-[10px] text-muted-foreground tabular-nums">
+      {n}/{TWEET_MAX_CHARS}
+    </p>
   );
 }
 
