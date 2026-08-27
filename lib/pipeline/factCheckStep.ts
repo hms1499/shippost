@@ -75,9 +75,14 @@ export async function runFactCheckStep(
     );
   }
 
-  emit({ type: 'step_output', step: 'factCheck', output: tweets });
-
+  // Settle BEFORE handing the content over, the same ordering groqStep and
+  // runModeB use. Emitting first meant the client rendered the fact-checked
+  // thread and then, if the settle threw, flickered back to the draft runModeB
+  // falls back to — showing content this run had not paid for and then taking
+  // it away. Now a failed settle simply never delivers the revision.
   await settleSoftStep({ ctx, step: 'factCheck', serviceAddress: FC_SINK, emit });
+
+  emit({ type: 'step_output', step: 'factCheck', output: tweets });
 
   return { tweets };
 }

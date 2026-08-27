@@ -78,6 +78,23 @@ describe('runFactCheckStep', () => {
     });
   });
 
+  it('settles before delivering the revision, never after', async () => {
+    // Settle gates delivery (.claude/docs/generate-flow.md). Emitting first let
+    // the client show a fact-checked thread that a failed settle then revoked.
+    const order: string[] = [];
+    await runFactCheckStep({ ...ctx, chainId: 42220 }, input, (e) => order.push(e.type));
+    expect(order.indexOf('step_settled')).toBeLessThan(order.indexOf('step_output'));
+  });
+
+  it('delivers nothing when the settle fails', async () => {
+    settleX402Call.mockRejectedValue(new Error('sink unreachable'));
+    const events: { type: string }[] = [];
+    await expect(
+      runFactCheckStep({ ...ctx, chainId: 42220 }, input, (e) => events.push(e)),
+    ).rejects.toThrow(/settle/i);
+    expect(events.some((e) => e.type === 'step_output')).toBe(false);
+  });
+
   it('still settles on Celo', async () => {
     await runFactCheckStep({ ...ctx, chainId: 42220, tokenSymbol: 'cUSD' }, input, () => {});
     expect(settleX402Call).toHaveBeenCalledOnce();
