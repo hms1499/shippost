@@ -35,6 +35,18 @@ export function parseThread(raw: string): string[] {
 // this; anything past it is the model rambling or returning junk.
 export const MAX_TWEETS = 25;
 
+// Postability boundary for a single tweet. X weighs a tweet rather than counting
+// JS characters — any URL counts as 23 (t.co), CJK and emoji as 2, most Latin as
+// 1 — so `.length` is an approximation. It is the SAFE approximation: where it
+// differs it over-counts, so we warn slightly early instead of letting an
+// unpostable tweet through. Generated threads are plain Latin prose with no
+// links or emoji (SYSTEM_PROMPT bans both), where the two agree exactly.
+//
+// Deliberately NOT enforced by boundThread: silently truncating a tweet the user
+// has paid for is worse than handing them a long one they can edit. This is the
+// number the prompts aim at and the UI reports against.
+export const TWEET_MAX_CHARS = 280;
+
 // Validate + bound parsed output before it's settled/persisted. Empty or
 // junk model output becomes a clean failure (refundable) instead of a
 // persisted empty thread; runaway output is capped.

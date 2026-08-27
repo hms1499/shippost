@@ -1,4 +1,5 @@
 import { type FunnelSource } from './funnelTypes';
+import { TWEET_MAX_CHARS } from './threadParser';
 
 // Builds the text posted to X for the FIRST tweet, optionally appending a
 // CoinOp attribution. Attribution is added ONLY here (at share time), never
@@ -9,7 +10,6 @@ import { type FunnelSource } from './funnelTypes';
 // The live app. NOT shippost.app — that domain is parked DNS and does not
 // resolve, so a share link pointing at it is a dead link in someone else's feed.
 const DEFAULT_APP_URL = 'https://shippost-kappa.vercel.app';
-const TWEET_MAX = 280;
 
 // The source tag we attach to share links so the funnel can attribute the
 // resulting visits/payments. 'x' = the X share button.
@@ -42,8 +42,8 @@ export function buildShareText(
   if (!opts.attribution) return firstTweet;
   const url = opts.appUrl ?? shareAppUrl(X_SHARE_REF);
   const full = `${firstTweet}\n\n✍️ made with CoinOp — ${url}`;
-  if (full.length <= TWEET_MAX) return full;
+  if (full.length <= TWEET_MAX_CHARS) return full;
   const short = `${firstTweet}\n\nvia CoinOp ${url}`;
-  if (short.length <= TWEET_MAX) return short;
+  if (short.length <= TWEET_MAX_CHARS) return short;
   return firstTweet;
 }

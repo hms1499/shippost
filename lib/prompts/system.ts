@@ -25,6 +25,7 @@ DO NOT WRITE
 FORMAT
 - Number every tweet from "1/" through "N/", one per line.
 - Separate tweets by exactly one blank line.
+- Every tweet must fit in 280 characters or it cannot be posted. If one runs long, SPLIT it into two numbered tweets. Never cut the fact out to fit, and never pad a short tweet to fill the space.
 - Output only the numbered tweets. Nothing before, nothing after.
 
 FACTS

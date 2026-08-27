@@ -13,6 +13,16 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).not.toMatch(/270/);
   });
 
+  // The 270 cap was removed deliberately in cb6796a (no recorded reason; most
+  // likely it made tweets terse). 280 comes back as a POSTABILITY boundary
+  // rather than a style rule: the fix for a long tweet is to split it, never to
+  // cut the fact out — so the model is told that explicitly.
+  it('states the 280 limit as a split instruction, not a trim instruction', () => {
+    expect(SYSTEM_PROMPT).toMatch(/280 characters/);
+    expect(SYSTEM_PROMPT).toMatch(/SPLIT it into two numbered tweets/);
+    expect(SYSTEM_PROMPT).toMatch(/[Nn]ever cut the fact out/);
+  });
+
   it('still bans the slop phrases (sourced from bannedPhrases)', () => {
     expect(SYSTEM_PROMPT).toContain('"delve"');
     expect(SYSTEM_PROMPT).toContain('"massive"');

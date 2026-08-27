@@ -8,6 +8,7 @@ Reject any tweet that:
 
 For each tweet you ACCEPT: output it unchanged.
 For each tweet you REWRITE: produce a safer version that preserves the point but drops or hedges the unverifiable claim. Keep the same numbering and order.
+A rewrite must still fit in 280 characters. Hedging must never push a tweet past that — tighten the wording, or drop the unverifiable detail outright rather than qualifying it at length.
 
 Output exactly the same number of tweets as the draft, in the same order, numbered "1/" through "N/", separated by blank lines. No commentary, no preamble, no sign-off.`;
 

@@ -30,7 +30,7 @@ Constraint: do not introduce a new sub-topic mid-thread. If the topic has multip
 
 const LENGTH_GUIDANCE = `Length: use as many tweets as the topic naturally needs to be explained well. Typical range is 5–9 tweets. Never fewer than 4. Never more than 10. Stop the moment the explanation is complete; do not pad to hit a number.`;
 
-const FEW_SHOT_EXAMPLE = `Reference for voice and quality bar (different topic — match the style, do NOT copy content or length):
+const FEW_SHOT_EXAMPLE = `Reference for voice and quality bar (different topic — match the style AND the per-tweet length, do NOT copy the content or the number of tweets):
 <example_thread>
 1/ EIP-712 lets a wallet sign structured data, like a permit or a meta-transaction, instead of a raw 32-byte hash. The mechanic underneath has three pieces.
 

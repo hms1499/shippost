@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseThread, boundThread, MAX_TWEETS } from './threadParser';
+import { parseThread, boundThread, MAX_TWEETS, TWEET_MAX_CHARS } from './threadParser';
 
 describe('parseThread', () => {
   it('splits numbered tweets separated by blank lines', () => {
@@ -98,5 +98,18 @@ describe('boundThread', () => {
   it('caps runaway output at MAX_TWEETS', () => {
     const many = Array.from({ length: MAX_TWEETS + 10 }, (_, i) => `t${i}`);
     expect(boundThread(many)).toHaveLength(MAX_TWEETS);
+  });
+});
+
+describe('TWEET_MAX_CHARS', () => {
+  // One source of truth: shareText used to carry its own private 280 while the
+  // generation side had no idea the limit existed at all.
+  it('is X’s single-tweet limit', () => {
+    expect(TWEET_MAX_CHARS).toBe(280);
+  });
+
+  it('is not enforced by boundThread — a long tweet is the user’s to edit', () => {
+    const long = 'x'.repeat(TWEET_MAX_CHARS + 50);
+    expect(boundThread([long])[0]).toHaveLength(TWEET_MAX_CHARS + 50);
   });
 });
