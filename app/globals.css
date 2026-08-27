@@ -88,6 +88,17 @@
     color: hsl(var(--foreground));
   }
 
+  /* Focus fallback. Most controls style their own focus with
+     `focus-visible:outline-none focus-visible:ring-2` — those Tailwind
+     utilities are a class+pseudo-class (0,2,0) in the utilities layer, so they
+     beat this bare-pseudo rule (0,1,0) in base and keep their ring. This only
+     catches the controls that style nothing, where the UA outline is all but
+     invisible against the near-black ground. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
