@@ -93,6 +93,20 @@ export function ModePicker({ onSelect, priceLabel }: Props) {
   const price = priceLabel ?? THREAD_PRICE_LABEL;
   return (
     <TerminalPanel title="SELECT MODE" className="w-full max-w-md">
+      {/* The one number the user is charged, stated once and up front. It is
+          flat across modes, so repeating it per row would be noise — the
+          failure this fixes is the opposite one: the agent's own x402 outlay
+          sat in every row's price slot, in money-amber, six times over, while
+          the price actually charged appeared once in a footer. The biggest
+          money number on the menu was the one nobody pays. */}
+      <div className="mb-3 flex items-baseline justify-between rounded-md border border-money/25 bg-money/5 px-3 py-2">
+        <span className="heading-sub text-[10px]">You pay · flat</span>
+        <span className="font-mono font-bold text-money">
+          {price}
+          <span className="font-normal text-[10px] text-muted-foreground"> /thread</span>
+        </span>
+      </div>
+
       <ul className="flex flex-col gap-2">
         {MODES.map((m, i) => (
           <li key={m.id}>
@@ -106,25 +120,25 @@ export function ModePicker({ onSelect, priceLabel }: Props) {
                 </span>
                 <m.Icon size={16} className="text-primary shrink-0" aria-hidden />
                 <span className="font-bold text-sm flex-1">{m.label}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  agent <span className="text-money">{m.cost}</span>
-                </span>
                 <ArrowRight size={14} className="text-muted-foreground" aria-hidden />
               </div>
               <p className="mt-1.5 pl-[3.35rem] text-xs font-sans text-muted-foreground leading-snug">
                 {m.blurb}
               </p>
-              {m.badge && (
-                <p className="mt-1 pl-[3.35rem] text-[10px] text-primary/70 tracking-wide">
-                  [{m.badge}]
-                </p>
-              )}
+              {/* The agent's outlay stays visible — watching it buy its own
+                  research is the point of the product — but as a spec on the
+                  meta line, in muted grey, not in money-amber in the slot
+                  where a price belongs. */}
+              <p className="mt-1 pl-[3.35rem] text-[10px] tracking-wide leading-snug">
+                <span className="text-muted-foreground">agent spends {m.cost}</span>
+                {m.badge && <span className="text-primary/70"> · {m.badge}</span>}
+              </p>
             </button>
           </li>
         ))}
       </ul>
       <p className="mt-3 text-[11px] font-sans text-muted-foreground text-center">
-        flat <span className="font-mono text-money">{price}</span>/thread — mode only changes the agent&apos;s recipe
+        mode only changes the agent&apos;s recipe — never the price
       </p>
     </TerminalPanel>
   );
