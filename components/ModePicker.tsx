@@ -18,7 +18,6 @@ interface Props {
 
 interface Mode {
   id: 'educational' | 'hot-take' | 'news-breakdown' | 'token-analysis' | 'daily-recap' | 'comparison';
-  numeral: string;
   label: string;
   Icon: React.ComponentType<{ size?: number; className?: string }>;
   blurb: string;
@@ -26,17 +25,20 @@ interface Mode {
   badge?: string;
 }
 
-// Presentation order only. The `numeral` (I/II/III/IV) is the curated reading
-// order on this screen — Hot Take leads as the flagship — and is DELIBERATELY
-// NOT the on-chain mode id. Those ids are append-only and emitted in the
-// `ThreadRequested` event: educational=0, hot-take=1, token-analysis=2,
-// daily-recap=3, comparison=4, news-breakdown=5 (see lib/pipeline/modes/*).
-// Renumbering for cosmetic alignment would break the contract event mapping —
-// change the display numeral here, never the id.
+// Presentation order only — Hot Take leads as the flagship. The row number is
+// this array's index (rendered below), and is DELIBERATELY NOT the on-chain
+// mode id. Those ids are append-only and emitted in the `ThreadRequested`
+// event: educational=0, hot-take=1, token-analysis=2, daily-recap=3,
+// comparison=4, news-breakdown=5 (see lib/pipeline/modes/*). Reordering this
+// array is free; renumbering an id would break the contract event mapping.
+//
+// There used to be a `numeral` field here (I/VI/II/…) that nothing rendered.
+// It could not simply be wired up: its values are a per-mode roman tag in the
+// order the modes were built, so printing them against this array would have
+// read 01→I, 02→VI, 03→II. Deleted rather than resurrected.
 const MODES: Mode[] = [
   {
     id: 'hot-take',
-    numeral: 'I',
     label: 'Hot Take',
     Icon: Flame,
     blurb: 'React to news or a tweet with data. Search + market + fact-check inline.',
@@ -45,7 +47,6 @@ const MODES: Mode[] = [
   },
   {
     id: 'news-breakdown',
-    numeral: 'VI',
     label: 'News Breakdown',
     Icon: Newspaper,
     blurb: 'A news just dropped — what happened, why it matters, what to watch. No take, just clarity.',
@@ -54,7 +55,6 @@ const MODES: Mode[] = [
   },
   {
     id: 'educational',
-    numeral: 'II',
     label: 'Educational Thread',
     Icon: GraduationCap,
     blurb: 'Explain one concept, end-to-end. e.g. "How EIP-712 typed signatures work".',
@@ -62,7 +62,6 @@ const MODES: Mode[] = [
   },
   {
     id: 'token-analysis',
-    numeral: 'III',
     label: 'Token Analysis',
     Icon: Coins,
     blurb: 'Break down any token: price, mcap, catalysts. Live market data + fact-check inline.',
@@ -71,7 +70,6 @@ const MODES: Mode[] = [
   },
   {
     id: 'daily-recap',
-    numeral: 'IV',
     label: 'Daily Recap',
     Icon: PenLine,
     blurb: "Today's market in one thread — nothing to type. Top movers, headlines, one thing to watch.",
@@ -80,7 +78,6 @@ const MODES: Mode[] = [
   },
   {
     id: 'comparison',
-    numeral: 'V',
     label: 'Chain Comparison',
     Icon: GitCompare,
     blurb: 'Two chains enter, one wins. TVL, momentum & ecosystem activity — the agent calls it.',
