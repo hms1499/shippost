@@ -114,6 +114,59 @@ function summarise(threads: string[][]) {
   };
 }
 
+/** Print the tally. Split out of main so an interrupted run can still report:
+ *  a four-minute measurement that throws its numbers away on Ctrl-C is a tool
+ *  people stop trusting, and the partial tally is usually already conclusive.
+ *
+ *  `planned` and `interrupted` are printed, not hidden — a number without the
+ *  conditions it was taken under is worse than no number. */
+function report(samples: Sample[], planned: number, interrupted: boolean): void {
+  if (samples.length === 0) {
+    console.log('\nNo samples generated.\n');
+    return;
+  }
+
+  const before = summarise(samples.map((s) => s.before));
+  const after = summarise(samples.map((s) => s.after));
+  const unfixable = samples.reduce((n, s) => n + s.unfixable.length, 0);
+
+  console.log(`\n${'—'.repeat(64)}`);
+  console.log(
+    interrupted
+      ? `PARTIAL RESULT — INTERRUPTED after ${samples.length} of ${planned} planned threads\n`
+      : `RESULT — ${samples.length} threads, paired before/after on the same completions\n`,
+  );
+  console.log(`                        BEFORE fit        AFTER fit`);
+  console.log(
+    `  threads over limit    ${String(before.threadsOver).padStart(3)} (${pct(before.threadsOver, before.threads).padStart(6)})` +
+      `      ${String(after.threadsOver).padStart(3)} (${pct(after.threadsOver, after.threads).padStart(6)})`,
+  );
+  console.log(
+    `  tweets over limit     ${String(before.tweetsOver).padStart(3)} of ${String(before.tweets).padEnd(4)}` +
+      `      ${String(after.tweetsOver).padStart(3)} of ${after.tweets}`,
+  );
+  console.log(
+    `  worst overage         ${String(before.worst).padStart(3)} chars` +
+      `        ${after.worst} chars`,
+  );
+  console.log(`\n  repaired              ${before.tweetsOver - after.tweetsOver} tweets`);
+  console.log(`  left over (no seam)   ${unfixable} tweets  — a human edit, by design`);
+  console.log(`  tweet count           ${before.tweets} -> ${after.tweets}  (+${after.tweets - before.tweets} from splitting)`);
+
+  const byMode = new Map<number, { b: number; a: number }>();
+  for (const s of samples) {
+    const m = byMode.get(s.mode) ?? { b: 0, a: 0 };
+    m.b += over(s.before).length;
+    m.a += over(s.after).length;
+    byMode.set(s.mode, m);
+  }
+  console.log('\nBY MODE (over-limit tweets, before -> after)');
+  for (const [id, m] of [...byMode.entries()].sort((x, y) => x[0] - y[0])) {
+    console.log(`  ${(MODE_LABEL[id] ?? `mode ${id}`).padEnd(15)} ${m.b} -> ${m.a}`);
+  }
+  console.log('');
+}
+
 async function main() {
   const runs = numArg('runs', 2);
   const modes = modesArg();
@@ -123,6 +176,15 @@ async function main() {
   console.log(`One Groq completion each, plus grounding calls. Nothing is settled or persisted.\n`);
 
   const samples: Sample[] = [];
+
+  // Ctrl-C stops collecting and reports, rather than discarding several minutes
+  // of real generations. `once`, so a second Ctrl-C still kills outright.
+  process.once('SIGINT', () => {
+    console.log('\n\n^C — stopping here and reporting what was collected.');
+    report(samples, planned, true);
+    process.exit(130);
+  });
+
   for (let run = 0; run < runs; run++) {
     for (const id of modes) {
       const mode = getMode(id);
@@ -157,46 +219,7 @@ async function main() {
     }
   }
 
-  if (samples.length === 0) {
-    console.log('\nNo samples generated.\n');
-    return;
-  }
-
-  const before = summarise(samples.map((s) => s.before));
-  const after = summarise(samples.map((s) => s.after));
-  const unfixable = samples.reduce((n, s) => n + s.unfixable.length, 0);
-
-  console.log(`\n${'—'.repeat(64)}`);
-  console.log(`RESULT — ${samples.length} threads, paired before/after on the same completions\n`);
-  console.log(`                        BEFORE fit        AFTER fit`);
-  console.log(
-    `  threads over limit    ${String(before.threadsOver).padStart(3)} (${pct(before.threadsOver, before.threads).padStart(6)})` +
-      `      ${String(after.threadsOver).padStart(3)} (${pct(after.threadsOver, after.threads).padStart(6)})`,
-  );
-  console.log(
-    `  tweets over limit     ${String(before.tweetsOver).padStart(3)} of ${String(before.tweets).padEnd(4)}` +
-      `      ${String(after.tweetsOver).padStart(3)} of ${after.tweets}`,
-  );
-  console.log(
-    `  worst overage         ${String(before.worst).padStart(3)} chars` +
-      `        ${after.worst} chars`,
-  );
-  console.log(`\n  repaired              ${before.tweetsOver - after.tweetsOver} tweets`);
-  console.log(`  left over (no seam)   ${unfixable} tweets  — a human edit, by design`);
-  console.log(`  tweet count           ${before.tweets} -> ${after.tweets}  (+${after.tweets - before.tweets} from splitting)`);
-
-  const byMode = new Map<number, { b: number; a: number }>();
-  for (const s of samples) {
-    const m = byMode.get(s.mode) ?? { b: 0, a: 0 };
-    m.b += over(s.before).length;
-    m.a += over(s.after).length;
-    byMode.set(s.mode, m);
-  }
-  console.log('\nBY MODE (over-limit tweets, before -> after)');
-  for (const [id, m] of [...byMode.entries()].sort((x, y) => x[0] - y[0])) {
-    console.log(`  ${(MODE_LABEL[id] ?? `mode ${id}`).padEnd(15)} ${m.b} -> ${m.a}`);
-  }
-  console.log('');
+  report(samples, planned, false);
 }
 
 main().catch((e) => {
