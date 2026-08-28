@@ -20,7 +20,10 @@
     --accent: 111 24% 16%;           /* #22331F */
     --accent-foreground: 120 21% 93%;
     --destructive: 0 100% 68%;       /* #FF5C5C */
-    --destructive-foreground: 0 0% 98%;
+    /* Dark ink on the light red, the same way --primary-foreground is dark ink
+       on the bright phosphor. Near-white here measured 2.90:1, below AA, on the
+       destructive Button and Badge variants. */
+    --destructive-foreground: 0 40% 8%;    /* 6.24:1 on --destructive */
     --border: 111 24% 16%;
     --input: 111 24% 20%;
     --ring: 134 92% 66%;
