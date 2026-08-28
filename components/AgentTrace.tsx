@@ -7,11 +7,11 @@ import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { explorerBase } from '@/lib/chains';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 import { appendTraceLines, type TraceLine } from '@/lib/traceLog';
+import { MODE_B_STEPS } from '@/lib/pipeline/stepPlan';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { StepId } from '@/lib/pipeline/types';
 import type { PayStatus } from '@/lib/usePayForThread';
 
-const ORDER: StepId[] = ['serper', 'coingecko', 'groq', 'factCheck'];
 const CELL_LABEL: Record<StepId, string> = {
   serper: 'SERPER',
   coingecko: 'GECKO',
@@ -42,14 +42,31 @@ interface Props {
    * frames before `started` lands and for the canned demo, nothing else.
    */
   paidAmountLabel?: string;
+  /**
+   * The steps this mode will attempt, from stepPlanFor(). Supplies the
+   * denominator: the stepper used to render only the steps that had already
+   * started, so someone who had just paid could see what was happening but
+   * never how much of it was left. Defaults to the longer plan — a denominator
+   * that grows mid-run reads as a broken progress bar.
+   */
+  plan?: readonly StepId[];
   /** Canned landing replay — no fake thread id, no explorer links. */
   demo?: boolean;
 }
 
+function mmss(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function totalSpent(gen: ThreadGenerationState): string {
   if (gen.totalCostUsd) return gen.totalCostUsd;
+  // Every settled step, not just the ones on this mode's plan: the total is a
+  // record of money that actually left the wallet, so it must not be filtered
+  // by what we expected to run.
   let sum = 0;
-  for (const id of ORDER) {
+  for (const id of Object.keys(gen.steps) as StepId[]) {
     const c = gen.steps[id].costAmount;
     if (c) sum += Number(c);
   }
@@ -64,10 +81,12 @@ export function AgentTrace({
   chainExplorerBase,
   agentWalletAddress,
   paidAmountLabel,
+  plan = MODE_B_STEPS,
   demo = false,
 }: Props) {
   const reduced = useReducedMotion();
   const [lines, setLines] = useState<TraceLine[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const prevRef = useRef<ThreadGenerationState | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +102,26 @@ export function AgentTrace({
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [lines]);
 
-  const activeSteps = ORDER.filter((id) => gen.steps[id].status !== 'pending');
+  const running = !gen.isDone && !gen.fatal;
+
+  // Wall clock, started when this panel mounts — which is the moment the user
+  // taps pay, not the later moment the stream says `started`. The wait they are
+  // asking about begins at the tap. A clock over the canned replay would be
+  // timing nothing, so the demo has none.
+  useEffect(() => {
+    if (demo || !running) return;
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [demo, running]);
+
+  // A soft-failed step is finished, not missing: it resolves its cell and must
+  // count, or the run would appear to stall on a step that already gave up.
+  const resolved = plan.filter((id) => {
+    const st = gen.steps[id].status;
+    return st === 'settled' || st === 'failed';
+  }).length;
+  const current = Math.min(resolved + 1, plan.length);
   const groq = gen.steps.groq;
   // Nothing was paid in the canned replay, so it must not print a price.
   const paidLabel = demo ? null : paidAmountLabel ?? THREAD_PRICE_LABEL;
@@ -111,16 +149,31 @@ export function AgentTrace({
         </span>
       </div>
 
+      {/* How much longer. Not an ETA — nothing here measures one, and a made-up
+          number on the screen that just took the user's money is worse than
+          none. A visible denominator plus a running clock is what can be said
+          honestly. */}
+      {running && (
+        <div className="flex items-center justify-between mb-2 font-mono text-[10px] text-muted-foreground">
+          <span aria-live="polite">
+            step {current} of {plan.length}
+          </span>
+          {!demo && <span aria-hidden>{mmss(elapsed)} elapsed</span>}
+        </div>
+      )}
+
       {/* Layer 1 — pipeline stepper */}
       <div className="flex gap-1.5 mb-3" role="list" aria-label="pipeline steps">
-        {activeSteps.map((id) => {
+        {plan.map((id) => {
           const s = gen.steps[id];
           const tone =
             s.status === 'settled'
               ? 'border-primary/60 text-primary bg-primary/10'
               : s.status === 'running'
                 ? 'border-money/60 text-money bg-money/10'
-                : 'border-destructive/60 text-destructive bg-destructive/10';
+                : s.status === 'failed'
+                  ? 'border-destructive/60 text-destructive bg-destructive/10'
+                  : 'border-border text-muted-foreground/50';
           return (
             <div
               key={id}
@@ -137,6 +190,7 @@ export function AgentTrace({
                   ))}
                 {s.status === 'running' && '⣷ run'}
                 {s.status === 'failed' && '✗ fail'}
+                {s.status === 'pending' && '·'}
               </div>
             </div>
           );

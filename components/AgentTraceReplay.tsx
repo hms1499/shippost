@@ -7,6 +7,7 @@ import { initialState, applyEvent } from '@/lib/threadGeneration';
 import type { ThreadGenerationState } from '@/lib/threadGeneration';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 import { X402_UNIT_COST_USD } from '@/lib/tokens';
+import { MODE_B_STEPS } from '@/lib/pipeline/stepPlan';
 
 // Every x402 micro-charge settles for the same amount (lib/tokens.ts), so the
 // demo reads it from there. Hardcoding once put 0.010 and 0.005 on the landing
@@ -94,6 +95,7 @@ export function AgentTraceReplay() {
         threadId={null}
         chainExplorerBase="https://basescan.org"
         agentWalletAddress="0x0000000000000000000000000000000000000000"
+        plan={MODE_B_STEPS}
         demo
       />
     </div>

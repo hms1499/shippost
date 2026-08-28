@@ -46,6 +46,7 @@ import { useBalances } from '@/lib/useBalances';
 import { useThreadPrice } from '@/lib/useThreadPrice';
 import { payability } from '@/lib/payability';
 import { reselectTokenForChain } from '@/lib/chainChoice';
+import { stepPlanFor } from '@/lib/pipeline/stepPlan';
 import { describeSwitchError } from '@/lib/payError';
 import {
   SUPPORTED_CHAIN_IDS,
@@ -202,6 +203,11 @@ export default function HomeClient() {
 
   const activeToken =
     submitted?.token ?? hotTake?.token ?? newsBreakdown?.token ?? tokenAnalysis?.token ?? dailyRecap?.token ?? comparison?.token ?? null;
+  // The on-chain mode id of whatever payload is in flight. This ternary was
+  // written out at five call sites; news-breakdown is the trailing 5, which is
+  // also the value when nothing is set at all.
+  const activeModeId =
+    submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
   // A resumed run has no payload, so the token comes back from storage. Config
   // supplies the DECIMALS only — the amount comes from the row, below.
   const resumedToken = resumingRun
@@ -495,22 +501,20 @@ export default function HomeClient() {
   useEffect(() => {
     if (gen.isDone && gen.tweets) {
       if (draftTweets === null) {
-        const mode: 0 | 1 | 2 | 3 | 4 | 5 =
-          submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
+        const mode: 0 | 1 | 2 | 3 | 4 | 5 = activeModeId;
         track('deliver', { mode, chainId, wallet: address ?? undefined });
         setDraftTweets(gen.tweets);
       }
       setScreen('preview');
     }
-  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
+  }, [gen.isDone, gen.tweets, gen.fatal, draftTweets, activeModeId, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
 
   useEffect(() => {
     if (status === 'success' && threadId != null) {
       const key = threadId.toString();
       if (paidTracked.current !== key) {
         paidTracked.current = key;
-        const mode: 0 | 1 | 2 | 3 | 4 | 5 =
-          submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
+        const mode: 0 | 1 | 2 | 3 | 4 | 5 = activeModeId;
         track('pay', { mode, chainId, wallet: address ?? undefined });
         const payToken =
           submitted?.token ?? hotTake?.token ?? tokenAnalysis?.token ??
@@ -541,7 +545,7 @@ export default function HomeClient() {
         }
       }
     }
-  }, [status, threadId, txHash, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
+  }, [status, threadId, txHash, activeModeId, submitted, hotTake, tokenAnalysis, dailyRecap, comparison, newsBreakdown, chainId, address]);
 
   // Reset refund UI state whenever a new generation starts (new threadId).
   useEffect(() => {
@@ -914,8 +918,7 @@ export default function HomeClient() {
       );
       return;
     }
-    const mode: 0 | 1 | 2 | 3 | 4 | 5 =
-      submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5;
+    const mode: 0 | 1 | 2 | 3 | 4 | 5 = activeModeId;
 
     // This is the only path to pay(), including from 'preview-unavailable'. Ask
     // whether the agent can settle at all BEFORE the wallet sheet opens — a run
@@ -936,7 +939,7 @@ export default function HomeClient() {
     // threadPrice and the two balance flags are real dependencies too: a stale
     // price or a stale "still loading" would gate the payment on last render's
     // answer.
-  }, [submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId, balances, threadPrice, balancesLoading, balancesError]);
+  }, [activeModeId, submitted, hotTake, newsBreakdown, tokenAnalysis, dailyRecap, comparison, pay, chainId, balances, threadPrice, balancesLoading, balancesError]);
 
   const formNode =
     screen === 'mode' ? (
@@ -1060,10 +1063,7 @@ export default function HomeClient() {
         onRegenerate={() => {
           const payload = submitted ?? hotTake ?? tokenAnalysis ?? dailyRecap ?? comparison ?? newsBreakdown;
           if (payload) {
-            void beginFlow(
-              payload,
-              submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5,
-            );
+            void beginFlow(payload, activeModeId);
           }
         }}
         regenerating={previewLoading}
@@ -1154,6 +1154,7 @@ export default function HomeClient() {
         chainExplorerBase={explorerBase(chainId)}
         agentWalletAddress={getContracts(chainId).AgentWallet}
         paidAmountLabel={paidAmountLabel}
+        plan={stepPlanFor(activeModeId)}
       />
     ) : screen === 'preview' && draftTweets ? (
       <Stagger className="w-full max-w-md flex flex-col gap-4">
@@ -1197,7 +1198,7 @@ export default function HomeClient() {
           <Button
             onClick={() => {
               track('share', {
-                mode: submitted ? 0 : hotTake ? 1 : tokenAnalysis ? 2 : dailyRecap ? 3 : comparison ? 4 : 5,
+                mode: activeModeId,
                 chainId,
                 wallet: address ?? undefined,
               });
