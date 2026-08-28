@@ -83,7 +83,10 @@ const PAIRS: [string, string][] = [
   ['accent-foreground', 'accent'],
 ];
 
-const PALETTES: [string, string][] = [['Terminal', ':root']];
+const PALETTES: [string, string][] = [
+  ['Terminal', ':root'],
+  ['Paper', 'html.theme-paper'],
+];
 
 describe.each(PALETTES)('%s palette', (_name, selector) => {
   const tokens = tokensOf(selector);
@@ -97,7 +100,10 @@ describe.each(PALETTES)('%s palette', (_name, selector) => {
 
 describe('theme-color', () => {
   // A mismatch here paints the phone status bar in the other theme.
-  it('matches the Terminal background', () => {
-    expect(backgroundHex(':root')).toBe(THEME_COLOR.terminal.toUpperCase());
+  it.each([
+    ['terminal', ':root'],
+    ['paper', 'html.theme-paper'],
+  ] as const)('matches the %s background', (theme, selector) => {
+    expect(backgroundHex(selector)).toBe(THEME_COLOR[theme].toUpperCase());
   });
 });

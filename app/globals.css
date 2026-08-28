@@ -31,6 +31,41 @@
 
     /* Terminal extras */
     --money: 40 100% 64%;            /* #FFC247 — every $ amount */
+
+    /* CRT line colour for .scanlines, incl. its alpha. */
+    --scanline: 120 40% 2% / 0.35;
+  }
+
+  /* Paper — the receipt this machine prints.
+     Opt-in only (lib/theme.ts); Terminal above is untouched, so the default
+     render path cannot regress. Same token names and the same colour
+     SEMANTICS — green = action/agent, amber = money, red = error — with only
+     lightness inverted. Every pair here is asserted at WCAG AA by
+     lib/themeContrast.test.ts; do not hand-tune a value without re-running it. */
+  html.theme-paper {
+    --background: 50 32% 93%;              /* #F2F0E6 */
+    --foreground: 105 8% 9%;               /* #171A16 */
+    --card: 51 47% 97%;                    /* #FBFAF4 */
+    --card-foreground: 105 8% 9%;
+    --primary: 140 78% 27%;                /* #0F7A33 — phosphor, as ink */
+    --primary-foreground: 51 47% 97%;
+    --secondary: 48 32% 91%;               /* #EFECE0 */
+    --secondary-foreground: 105 8% 9%;
+    --muted: 48 32% 91%;
+    --muted-foreground: 94 3% 41%;         /* #676B64 */
+    --accent: 102 22% 91%;                 /* #E6EDE3 */
+    --accent-foreground: 105 8% 9%;
+    --destructive: 3 71% 41%;              /* #B3261E */
+    --destructive-foreground: 51 47% 97%;
+    --border: 49 22% 81%;                  /* #D9D5C4 */
+    --input: 48 18% 73%;                   /* #C7C2AE */
+    --ring: 140 78% 27%;
+
+    /* Terminal extras */
+    --money: 39 100% 27%;                  /* #8A5A00 — amber, as ochre */
+
+    /* On paper the same texture is a press halftone, not a CRT: warm, faint. */
+    --scanline: 40 20% 45% / 0.10;
   }
 }
 
@@ -141,8 +176,8 @@
     0deg,
     transparent 0px,
     transparent 2px,
-    hsl(120 40% 2% / 0.35) 2px,
-    hsl(120 40% 2% / 0.35) 3px
+    hsl(var(--scanline)) 2px,
+    hsl(var(--scanline)) 3px
   );
 }
 
