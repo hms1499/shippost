@@ -34,7 +34,11 @@ interface MarketDetailRow {
   price_change_percentage_30d_in_currency?: number;
 }
 
-function extractSymbol(text: string): string | null {
+// Exported for the grounding audit: an empty market_snippet on a free-text mode
+// means "the event named no token", not "CoinGecko failed", and the audit can
+// only tell those apart by applying this exact rule. A copy of the regex there
+// would drift and start reporting normal runs as degraded.
+export function extractSymbol(text: string): string | null {
   const cashTag = text.match(/\$([A-Za-z]{2,6})\b/);
   if (cashTag) return cashTag[1].toLowerCase();
   return null;
