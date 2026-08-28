@@ -44,11 +44,17 @@ export function LandingHero() {
         <h2 className="font-mono font-bold text-[clamp(1.9rem,5.4vw,3.25rem)] leading-[0.98] tracking-[-0.03em]">
           One coin in. <span className="text-primary">One thread out.</span>
         </h2>
+        {/* This used to end "and only if you keep it", which the product does
+            not do: payment happens on PreviewLocked, BEFORE the full thread
+            exists, and a refund covers a failed run — not a thread you read and
+            disliked. The free opening tweet and the refund are both real, so
+            the pitch is made out of those instead of a promise the flow breaks
+            two taps later. */}
         <p className="text-sm md:text-base text-muted-foreground max-w-xl font-sans leading-relaxed [text-wrap:balance]">
-          Type a topic — say &quot;what are zk-rollups&quot;. The agent buys its own research call
-          by call, then hands back an X thread you can post for{' '}
-          <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>, and only if you
-          keep it.
+          Type a topic — say &quot;what are zk-rollups&quot;. Read the opening tweet free.
+          Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> and the agent
+          buys its own research, call by call, then writes the rest. If the run fails, you get
+          it all back.
         </p>
       </div>
 

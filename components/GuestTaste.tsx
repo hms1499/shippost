@@ -47,11 +47,15 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         <Card className="p-4">
           <p className="whitespace-pre-wrap font-sans text-sm">{result.firstTweet}</p>
         </Card>
+        {/* "only if you keep it" was the same overpromise the landing headline
+            carried: the charge lands before the full thread is written, and the
+            refund is for a failed run. Say what is actually guaranteed. */}
         <p className="text-xs font-sans text-muted-foreground leading-snug">
           {locked > 0
             ? `+${locked} more ${locked === 1 ? 'tweet' : 'tweets'} locked.`
             : 'Connect to keep this thread.'}{' '}
-          Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> only if you keep it.
+          Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> to unlock — full
+          refund if the run fails.
         </p>
         <Button size="lg" onClick={onUnlock} disabled={!onUnlock} className="w-full group">
           Connect to unlock
