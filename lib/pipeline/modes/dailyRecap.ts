@@ -62,7 +62,7 @@ export const dailyRecapMode: ModeDef = {
       marketSnippet: out.marketSnippet,
     };
   },
-  async preview() {
+  async buildMessages() {
     // Grounding is soft: a failed Serper/CoinGecko still yields a draft.
     // Mirror the paid path so the free preview reflects what paying produces.
     let searchSummary: string | null = null;
@@ -70,18 +70,22 @@ export const dailyRecapMode: ModeDef = {
       const s = await fetchSerper(SERPER_QUERY, { mode: 'news', recency: 'qdr:d' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
-      console.error('[dailyRecap.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[dailyRecap.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
     }
     let marketSnippet: string | null = null;
     try {
       marketSnippet = joinSnippet(await fetchMarketOverview(), await defiLine());
     } catch (e) {
-      console.error('[dailyRecap.preview] market overview failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[dailyRecap.buildMessages] market overview failed, continuing:', e instanceof Error ? e.message : e);
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
       { role: 'user' as const, content: buildDailyRecapPrompt({ searchSummary, marketSnippet }) },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.8, maxTokens: 1400 }) };
+    return { messages, temperature: 0.8, maxTokens: 1400 };
+  },
+  async preview(input) {
+    const draft = await dailyRecapMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };

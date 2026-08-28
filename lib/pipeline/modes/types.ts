@@ -3,6 +3,7 @@ import type { PipelineContext, PipelineEvent } from '@/lib/pipeline/types';
 import type { Audience } from '@/lib/prompts/modeA';
 import type { Angle } from '@/lib/prompts/modeB';
 import type { EventContext } from '@/lib/eventContext';
+import type { DraftInput } from '@/lib/pipeline/generateDraft';
 
 export type Emit = (e: PipelineEvent) => void;
 
@@ -51,6 +52,12 @@ export interface ModeDef {
   // Runs the paid pipeline. Settle MUST gate every content emit (we only move
   // the existing runModeA/runModeB calls here, never reorder their internals).
   run(ctx: PipelineContext, body: ModeInputBody, emit: Emit): Promise<UnifiedModeOutput>;
+  // The exact prompt this mode sends to the model, grounding included. Split
+  // out of preview() so a measurement harness can run the REAL prompts rather
+  // than a copy of them that drifts — a harness measuring a stale prompt gives
+  // confidently wrong numbers. Null when the input cannot form a prompt at all
+  // (comparison with an unparseable pair).
+  buildMessages(input: PreviewInput): Promise<DraftInput | null>;
   // Settle-free draft for the free preview. MUST never settle, spend from the
   // agent wallet, or persist a row (a source-guard test enforces this).
   preview(input: PreviewInput): Promise<{ tweets: string[] }>;

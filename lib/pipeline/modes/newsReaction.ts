@@ -42,7 +42,7 @@ export const newsReactionMode: ModeDef = {
       marketSnippet: out.marketSnippet,
     };
   },
-  async preview(input) {
+  async buildMessages(input) {
     // Grounding is soft: a failed Serper/CoinGecko still yields a draft. Mirror
     // the paid path so the free preview reflects what paying will produce.
     const { event, query } = composeEvent(input.eventDescription ?? '', input.eventContext);
@@ -51,18 +51,22 @@ export const newsReactionMode: ModeDef = {
       const s = await fetchSerper(query, { recency: 'qdr:w' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
-      console.error('[newsReaction.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[newsReaction.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
     }
     let marketSnippet: string | null = null;
     try {
       marketSnippet = summarizeMarket(await fetchCoinGecko(event));
     } catch (e) {
-      console.error('[newsReaction.preview] coingecko failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[newsReaction.buildMessages] coingecko failed, continuing:', e instanceof Error ? e.message : e);
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
       { role: 'user' as const, content: buildNewsBreakdownPrompt({ event, searchSummary, marketSnippet }) },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.85, maxTokens: 1400 }) };
+    return { messages, temperature: 0.85, maxTokens: 1400 };
+  },
+  async preview(input) {
+    const draft = await newsReactionMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };

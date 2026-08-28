@@ -72,7 +72,7 @@ export const tokenAnalysisMode: ModeDef = {
       marketSnippet: out.marketSnippet,
     };
   },
-  async preview(input) {
+  async buildMessages(input) {
     const ticker = normalizeTicker(input.topic ?? '');
     const angle = input.angle ?? 'skeptical';
     // Grounding is soft: a failed Serper/CoinGecko still yields a draft.
@@ -81,19 +81,23 @@ export const tokenAnalysisMode: ModeDef = {
       const s = await fetchSerper(serperQueryFor(ticker), { recency: 'qdr:m' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
-      console.error('[tokenAnalysis.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[tokenAnalysis.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
     }
     let marketSnippet: string | null = null;
     try {
       const cg = await fetchCoinGecko(ticker);
       marketSnippet = joinSnippet(summarizeMarket(cg), await tvlLineFor(ticker, cg.marketCapUsd));
     } catch (e) {
-      console.error('[tokenAnalysis.preview] coingecko failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[tokenAnalysis.buildMessages] coingecko failed, continuing:', e instanceof Error ? e.message : e);
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
       { role: 'user' as const, content: buildTokenAnalysisPrompt({ ticker, angle, searchSummary, marketSnippet }) },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.8, maxTokens: 1400 }) };
+    return { messages, temperature: 0.8, maxTokens: 1400 };
+  },
+  async preview(input) {
+    const draft = await tokenAnalysisMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };

@@ -23,7 +23,7 @@ export const educationalMode: ModeDef = {
     const { tweets, totalCostUsd, searchSummary } = await runModeA(ctx, emit);
     return { tweets, totalCostUsd, searchSummary, marketSnippet: null };
   },
-  async preview(input) {
+  async buildMessages(input) {
     // Grounding is soft: a failed Serper still yields a draft. Mirror the paid
     // path so the free preview reflects what paying produces. Guests skip
     // Serper entirely — the landing taste must not drain the shared quota.
@@ -34,7 +34,7 @@ export const educationalMode: ModeDef = {
         const s = await fetchSerper(educationalQuery(topic));
         searchSummary = summarizeSerper(s.organic, s.newsSnippet);
       } catch (e) {
-        console.error('[educational.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+        console.error('[educational.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
       }
     }
     const messages = [
@@ -44,6 +44,10 @@ export const educationalMode: ModeDef = {
         content: buildModeAPrompt({ topic, audience: input.audience ?? 'beginner', searchSummary }),
       },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.7, maxTokens: 1200 }) };
+    return { messages, temperature: 0.7, maxTokens: 1200 };
+  },
+  async preview(input) {
+    const draft = await educationalMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };

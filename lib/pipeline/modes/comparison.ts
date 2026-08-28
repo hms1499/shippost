@@ -71,16 +71,16 @@ export const comparisonMode: ModeDef = {
       marketSnippet: out.marketSnippet,
     };
   },
-  async preview(input) {
+  async buildMessages(input) {
     const pair = parseChains(input.topic);
-    if (!pair) return { tweets: [] };
+    if (!pair) return null;
     const [a, b] = pair;
     let searchSummary: string | null = null;
     try {
       const s = await fetchSerper(serperQueryFor(a.label, b.label), { recency: 'qdr:m' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
-      console.error('[comparison.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[comparison.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
     }
     let chainData: string | null = null;
     try {
@@ -90,12 +90,16 @@ export const comparisonMode: ModeDef = {
       ]);
       chainData = summarizeChainTvl(a.label, ta, b.label, tb);
     } catch (e) {
-      console.error('[comparison.preview] chain TVL failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[comparison.buildMessages] chain TVL failed, continuing:', e instanceof Error ? e.message : e);
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
       { role: 'user' as const, content: buildComparisonPrompt({ aLabel: a.label, bLabel: b.label, chainData, searchSummary }) },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.85, maxTokens: 1400 }) };
+    return { messages, temperature: 0.85, maxTokens: 1400 };
+  },
+  async preview(input) {
+    const draft = await comparisonMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };

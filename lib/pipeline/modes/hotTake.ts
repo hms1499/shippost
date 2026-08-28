@@ -41,7 +41,7 @@ export const hotTakeMode: ModeDef = {
       marketSnippet: out.marketSnippet,
     };
   },
-  async preview(input) {
+  async buildMessages(input) {
     // Grounding is soft: a failed Serper/CoinGecko still yields a draft. Mirror
     // the paid path so the free preview reflects what paying will produce.
     const { event, query } = composeEvent(input.eventDescription ?? '', input.eventContext);
@@ -50,13 +50,13 @@ export const hotTakeMode: ModeDef = {
       const s = await fetchSerper(query, { recency: 'qdr:m' });
       searchSummary = summarizeSerper(s.organic, s.newsSnippet);
     } catch (e) {
-      console.error('[hotTake.preview] serper failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[hotTake.buildMessages] serper failed, continuing:', e instanceof Error ? e.message : e);
     }
     let marketSnippet: string | null = null;
     try {
       marketSnippet = summarizeMarket(await fetchCoinGecko(event));
     } catch (e) {
-      console.error('[hotTake.preview] coingecko failed, continuing:', e instanceof Error ? e.message : e);
+      console.error('[hotTake.buildMessages] coingecko failed, continuing:', e instanceof Error ? e.message : e);
     }
     const messages = [
       { role: 'system' as const, content: SYSTEM_PROMPT },
@@ -70,6 +70,10 @@ export const hotTakeMode: ModeDef = {
         }),
       },
     ];
-    return { tweets: await generateTweets({ messages, temperature: 0.85, maxTokens: 1400 }) };
+    return { messages, temperature: 0.85, maxTokens: 1400 };
+  },
+  async preview(input) {
+    const draft = await hotTakeMode.buildMessages(input);
+    return { tweets: draft ? await generateTweets(draft) : [] };
   },
 };
