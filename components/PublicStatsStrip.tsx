@@ -110,7 +110,9 @@ function AuditLink({ href, children }: { href: string; children: React.ReactNode
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+      // 41x18 before. The audit links are the whole trust argument of this
+      // strip, so they must be reachable by thumb, not just by cursor.
+      className="inline-flex items-center gap-1 min-h-9 px-1 -mx-1 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
     >
       {children}
       <ArrowUpRight size={11} aria-hidden />

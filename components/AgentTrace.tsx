@@ -174,12 +174,9 @@ export function AgentTrace({
                 : s.status === 'failed'
                   ? 'border-destructive/60 text-destructive bg-destructive/10'
                   : 'border-border text-muted-foreground/50';
-          return (
-            <div
-              key={id}
-              role="listitem"
-              className={`flex-1 rounded-md border px-1 py-1.5 text-center text-[10px] font-mono ${tone}`}
-            >
+          const cell = `flex-1 rounded-md border px-1 py-1.5 text-center text-[10px] font-mono ${tone}`;
+          const body = (
+            <>
               <div className="font-bold tracking-wider">{CELL_LABEL[id]}</div>
               <div className="mt-0.5">
                 {s.status === 'settled' &&
@@ -192,6 +189,28 @@ export function AgentTrace({
                 {s.status === 'failed' && '✗ fail'}
                 {s.status === 'pending' && '·'}
               </div>
+            </>
+          );
+          // A settled cell already measures 67x48 — comfortably the largest
+          // thing on this panel that maps 1:1 to a transaction. The only way to
+          // reach that tx used to be the 66x18 `tx:` link buried in the
+          // scrolling log, so the cell now carries the same link at a size a
+          // thumb can actually land on.
+          return s.txHash && !demo ? (
+            <a
+              key={id}
+              role="listitem"
+              href={`${chainExplorerBase}/tx/${s.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${CELL_LABEL[id]} settlement on explorer`}
+              className={`${cell} no-underline active:bg-primary/20`}
+            >
+              {body}
+            </a>
+          ) : (
+            <div key={id} role="listitem" className={cell}>
+              {body}
             </div>
           );
         })}
@@ -254,7 +273,7 @@ export function AgentTrace({
       {!demo && (
         <div className="mt-3 flex flex-col gap-1 text-[11px] font-mono">
           <a
-            className="text-muted-foreground"
+            className="self-start inline-flex items-center min-h-9 px-1 -mx-1 rounded text-muted-foreground active:bg-primary/10 transition-colors"
             href={`${chainExplorerBase}/address/${agentWalletAddress}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -296,8 +315,12 @@ function LogRow({
       <span className="flex-1 text-foreground/90">{text}</span>
       {amount && <span className="text-money shrink-0">{amount}</span>}
       {txHash && (
+        // 66x18 before: the smallest control in the app, in a scrolling log, on
+        // the screen someone stares at right after paying. `-my-2` grows the hit
+        // box to the repo's 36px nib floor without growing the row, and log rows
+        // sit at least 36px apart, so neighbouring boxes meet but never overlap.
         <a
-          className="text-muted-foreground/70 shrink-0 no-underline hover:text-primary"
+          className="inline-flex items-center min-h-9 px-1 -my-2 rounded text-muted-foreground/70 shrink-0 no-underline hover:text-primary active:bg-primary/10 transition-colors"
           href={`${explorer}/tx/${txHash}`}
           target="_blank"
           rel="noopener noreferrer"

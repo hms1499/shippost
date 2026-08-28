@@ -26,7 +26,7 @@ export default function HistoryPage() {
         <header className="flex flex-col gap-3">
           <Link
             href="/"
-            className="self-start flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+            className="self-start inline-flex items-center gap-1.5 min-h-9 px-1 -mx-1 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
           >
             <ArrowLeft size={12} aria-hidden />
             Back to composer

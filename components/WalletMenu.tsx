@@ -206,7 +206,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
               onClick={openConnectModal}
               // Quiet on purpose: the landing's one solid-green control is the
               // free-taste CTA. Two filled greens on a screen is no hierarchy.
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/40 text-primary heading-sub text-[10px] hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border border-primary/40 text-primary heading-sub text-[10px] hover:bg-primary/10 active:bg-primary/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <Wallet size={11} aria-hidden />
               Sign in
@@ -429,7 +429,7 @@ function ChipShell({
   loading?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border heading-sub text-[10px] text-muted-foreground">
+    <span className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border border-border heading-sub text-[10px] text-muted-foreground">
       {loading && (
         <Loader2
           size={11}

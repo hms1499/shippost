@@ -145,7 +145,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         disabled={!onUnlock}
         // Pinned to the bottom of the column so it lands on the demo caption's
         // line opposite; one alignment down the whole column.
-        className="self-start mt-auto pt-4 font-mono text-[11px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+        className="self-start inline-flex items-center mt-auto pt-4 min-h-9 px-1 -mx-1 font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
       >
         or connect to pick a mode
       </button>
