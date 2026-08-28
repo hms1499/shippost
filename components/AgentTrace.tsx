@@ -174,7 +174,12 @@ export function AgentTrace({
                 : s.status === 'failed'
                   ? 'border-destructive/60 text-destructive bg-destructive/10'
                   : 'border-border text-muted-foreground/50';
-          const cell = `flex-1 rounded-md border px-1 py-1.5 text-center text-[10px] font-mono ${tone}`;
+          // A cell going pending → running → settled is the agent spending the
+          // user's money, and it used to snap between states with no transition
+          // at all, while the decorative digit roll on the landing page got a
+          // 420ms cubic-bezier. Colour only: size and position must not move,
+          // or the four cells would jitter as each one resolves.
+          const cell = `flex-1 rounded-md border px-1 py-1.5 text-center text-[10px] font-mono transition-colors duration-300 ${tone}`;
           const body = (
             <>
               <div className="font-bold tracking-wider">{CELL_LABEL[id]}</div>
