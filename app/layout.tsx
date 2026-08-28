@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono, Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { shareAppUrl } from '@/lib/shareText';
+import { THEME_STORAGE_KEY, PAPER_CLASS, THEME_COLOR } from '@/lib/theme';
 import './globals.css';
 
 const mono = JetBrains_Mono({
@@ -61,9 +62,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // Single dark theme — set statically; ThemeApplicator (runtime MiniPay
-  // detection) is deleted.
-  themeColor: '#0A0D0A',
+  // No themeColor here on purpose: it is per-user now, so the tag is written
+  // by the pre-paint script below and updated by the toggle. A static value
+  // would paint the status bar in whichever theme the user is not using.
 };
 
 export default function RootLayout({
@@ -73,6 +74,33 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${mono.variable} ${inter.variable}`}>
+      <head>
+        {/*
+          Resolve the theme BEFORE the first paint. The previous attempt at this
+          (components/ThemeApplicator.tsx, deleted in 32aedf2) ran in useEffect
+          and its own docstring conceded "there is a brief flash" — every user
+          saw the wrong theme and then a swap. A blocking script in <head> is
+          the only place that cannot happen.
+
+          It duplicates the storage key and class name from lib/theme.ts because
+          it runs before any module loads; lib/theme.test.ts pins both values so
+          the copies cannot drift. Wrapped in try/catch: Safari private mode
+          throws on localStorage access, and a throw here would blank the page.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=localStorage.getItem(${JSON.stringify(
+              THEME_STORAGE_KEY,
+            )})==='paper';if(p)document.documentElement.classList.add(${JSON.stringify(
+              PAPER_CLASS,
+            )});var m=document.createElement('meta');m.name='theme-color';m.content=p?${JSON.stringify(
+              THEME_COLOR.paper,
+            )}:${JSON.stringify(
+              THEME_COLOR.terminal,
+            )};document.head.appendChild(m);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>
         <script
           type="application/ld+json"
