@@ -50,16 +50,24 @@ export function ThemeToggle() {
   // Server and first client render must agree, and the server cannot know the
   // stored choice. Render the frame at its final size so the header does not
   // reflow when the icon arrives.
-  const label =
+  const actionLabel =
     theme === 'paper' ? 'Switch to the dark Terminal theme' : 'Switch to the light Paper theme';
 
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={label}
+      // The accessible name names the STATE ("Paper theme"), not the action —
+      // matching aria-pressed's existing convention elsewhere in the repo
+      // (EducationalInput.tsx, HotTakeInput.tsx, TokenAnalysisInput.tsx all
+      // pair aria-pressed with a state/option name, never an action sentence).
+      // A flipping action string here would make a screen reader announce
+      // "Switch to the dark Terminal theme, pressed" — self-contradictory.
+      // `title` stays the flipping action phrasing since it does not enter
+      // the accessible name once aria-label is present.
+      aria-label="Paper theme"
       aria-pressed={theme === 'paper'}
-      title={label}
+      title={actionLabel}
       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-primary active:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {mounted ? (
