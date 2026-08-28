@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { AgentTraceReplay } from '@/components/AgentTraceReplay';
 import { GuestTaste } from '@/components/GuestTaste';
 import { PublicStatsStrip } from '@/components/PublicStatsStrip';
 import { SpecPlate } from '@/components/SpecPlate';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
-
-const MD_UP = '(min-width: 768px)';
 
 /**
  * Pre-connect landing — the machine in attract mode.
@@ -19,24 +16,16 @@ const MD_UP = '(min-width: 768px)';
  * auto-connects and never reaches here (HomeClient), so this is the web
  * surface, where a stranger decides in seconds whether any of it is real.
  *
- * Desktop: free play left, the running machine right. Mobile: the machine is a
- * disclosure under the fold so it cannot out-shout the one thing to do. The
+ * Desktop: free play left, the running machine right. Mobile: the same two,
+ * stacked — free play first, so the machine still cannot out-shout the one
+ * thing to do, but it is no longer hidden behind a tap. It used to be: on the
+ * only device MiniPay runs on, the single artefact that proves any of this is
+ * real sat behind a disclosure button, and AgentTraceReplay now starts on
+ * scroll-into-view so it is caught running rather than already finished. The
  * spec plate closes it, the way a machine carries its plate on the back.
  */
 export function LandingHero() {
   const { openConnectModal } = useConnectModal();
-  const [desktop, setDesktop] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
-
-  useEffect(() => {
-    const mql = window.matchMedia(MD_UP);
-    const update = () => setDesktop(mql.matches);
-    update();
-    mql.addEventListener('change', update);
-    return () => mql.removeEventListener('change', update);
-  }, []);
-
-  const showDemo = desktop || demoOpen;
 
   return (
     <section className="relative w-full max-w-4xl flex flex-col items-center gap-8 md:gap-10 scanlines rounded-lg">
@@ -67,27 +56,11 @@ export function LandingHero() {
         </div>
 
         <aside className="w-full flex flex-col gap-2">
-          {desktop ? (
-            <p className="heading-sub text-[10px]">The machine, mid-run</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setDemoOpen((o) => !o)}
-              aria-expanded={demoOpen}
-              aria-pressed={demoOpen}
-              className="self-start heading-sub text-[10px] hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
-            >
-              {demoOpen ? 'Hide the machine' : 'Watch the machine run'}
-            </button>
-          )}
-          {showDemo && (
-            <>
-              <AgentTraceReplay />
-              <p className="text-[11px] font-mono text-muted-foreground leading-snug">
-                One canned pass. No payment, no on-chain spend.
-              </p>
-            </>
-          )}
+          <p className="heading-sub text-[10px]">The machine, mid-run</p>
+          <AgentTraceReplay />
+          <p className="text-[11px] font-mono text-muted-foreground leading-snug">
+            One canned pass. No payment, no on-chain spend.
+          </p>
         </aside>
       </div>
 
