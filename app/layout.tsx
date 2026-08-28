@@ -84,20 +84,24 @@ export default function RootLayout({
 
           It duplicates the storage key and class name from lib/theme.ts because
           it runs before any module loads; lib/theme.test.ts pins both values so
-          the copies cannot drift. Wrapped in try/catch: Safari private mode
-          throws on localStorage access, and a throw here would blank the page.
+          the copies cannot drift. Only the localStorage read is wrapped in
+          try/catch — Safari private mode throws on access, and that throw must
+          fall back to Terminal, not skip creating the theme-color meta tag.
+          Task 5's toggle finds that tag via
+          document.querySelector('meta[name="theme-color"]'), so it must exist
+          unconditionally, even on the throwing path.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=localStorage.getItem(${JSON.stringify(
+            __html: `(function(){var p=false;try{p=localStorage.getItem(${JSON.stringify(
               THEME_STORAGE_KEY,
-            )})==='paper';if(p)document.documentElement.classList.add(${JSON.stringify(
+            )})==='paper';}catch(e){}if(p)document.documentElement.classList.add(${JSON.stringify(
               PAPER_CLASS,
             )});var m=document.createElement('meta');m.name='theme-color';m.content=p?${JSON.stringify(
               THEME_COLOR.paper,
             )}:${JSON.stringify(
               THEME_COLOR.terminal,
-            )};document.head.appendChild(m);}catch(e){}})();`,
+            )};document.head.appendChild(m);})();`,
           }}
         />
       </head>
