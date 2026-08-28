@@ -1,29 +1,27 @@
 /**
- * Atomically process a queued refund request:
- *   1. Read refund_requests row + its parent threads row
- *   2. Compute amount (full=100%, slow-cancel=50%, partial=admin --amount)
- *   3. On-chain ERC20 transfer from reserve EOA → user
- *   4. Update both refund_requests and threads with tx hash
+ * Process ONE queued refund request by id.
+ *
+ * The safety sequence itself lives in lib/refundWorker.ts so it is covered by
+ * `pnpm test:lib` and shared with the queue drainer — two copies of money-moving
+ * code is how two refund paths drift until one double-sends.
  *
  * Usage:
  *   pnpm refund:process <requestId> [--amount=0.02]
  *
- * Requires REFUND_ADMIN_KEY to be set (just a presence check — protects
- * against accidental runs in the wrong shell, not an authorization layer).
+ * `--amount` is REQUIRED for a partial refund and rejected for the others,
+ * because how much a degraded thread was worth is a human judgement.
+ *
+ * Requires REFUND_ADMIN_KEY to be set (a presence check that protects against
+ * accidental runs in the wrong shell, not an authorization layer).
  */
 import 'dotenv/config';
-import { formatUnits, parseUnits } from 'viem';
-import { refundThread, getOnChainPaidAmount } from '../lib/agent/orchestrator';
-import { getTokens } from '../lib/tokens';
 import { getSupabaseServer } from '../lib/supabase';
-import { alertOps } from '../lib/alert';
-
-type TokenSymbol = 'cUSD' | 'USDT' | 'USDC';
+import { processRefundRequest } from '../lib/refundWorker';
 
 function parseArgs() {
   const args = process.argv.slice(2);
   const requestIdStr = args.find((a) => !a.startsWith('--'));
-  const amountFlag = args.find((a) => a.startsWith('--amount='))?.split('=')[1];
+  const amountOverride = args.find((a) => a.startsWith('--amount='))?.split('=')[1];
   if (!requestIdStr) {
     console.log('usage: pnpm refund:process <requestId> [--amount=0.02]');
     process.exit(1);
@@ -33,35 +31,7 @@ function parseArgs() {
     console.error('requestId must be a number');
     process.exit(1);
   }
-  return { requestId, amountOverride: amountFlag };
-}
-
-function computeAmount(opts: {
-  kind: 'full' | 'partial' | 'slow-cancel';
-  paidRaw: bigint;
-  decimals: number;
-  override?: string;
-}): string {
-  if (opts.kind === 'partial') {
-    if (!opts.override) {
-      throw new Error('partial refunds require --amount=<human>');
-    }
-    if (!/^\d+(\.\d+)?$/.test(opts.override)) {
-      throw new Error('--amount must be a positive decimal string');
-    }
-    const raw = parseUnits(opts.override, opts.decimals);
-    if (raw <= 0n) {
-      throw new Error('--amount must be greater than 0');
-    }
-    if (raw > opts.paidRaw) {
-      throw new Error(
-        `--amount ${opts.override} exceeds amount paid (${formatUnits(opts.paidRaw, opts.decimals)}) — refusing over-refund`,
-      );
-    }
-    return opts.override;
-  }
-  const raw = opts.kind === 'full' ? opts.paidRaw : opts.paidRaw / 2n;
-  return formatUnits(raw, opts.decimals);
+  return { requestId, amountOverride };
 }
 
 async function main() {
@@ -70,152 +40,38 @@ async function main() {
     process.exit(1);
   }
   const { requestId, amountOverride } = parseArgs();
-  const supabase = getSupabaseServer();
 
-  const { data: request, error: reqErr } = await supabase
-    .from('refund_requests')
-    .select('*')
-    .eq('id', requestId)
-    .single();
-
-  if (reqErr || !request) {
-    console.error(`refund_requests #${requestId} not found:`, reqErr?.message);
-    process.exit(1);
-  }
-  if (request.status !== 'pending') {
-    console.error(`request #${requestId} is "${request.status}", not pending — skip`);
-    process.exit(1);
-  }
-
-  const { data: thread, error: thrErr } = await supabase
-    .from('threads')
-    .select('token_symbol, refund_tx_hash, pay_tx_hash')
-    .eq('chain_id', request.chain_id)
-    .eq('onchain_thread_id', request.onchain_thread_id)
-    .single();
-
-  if (thrErr || !thread) {
-    console.error('parent thread not found:', thrErr?.message);
-    process.exit(1);
-  }
-
-  // Idempotency across both refund paths: /api/refund and this script both
-  // stamp threads.refund_tx_hash. If it's already set, this thread was paid
-  // out once — never send again, regardless of refund_requests.status.
-  if (thread.refund_tx_hash) {
-    console.error(
-      `thread ${request.onchain_thread_id} already refunded (tx ${thread.refund_tx_hash}) — refuse to double-send`,
-    );
-    // Reconcile the queue row so it stops showing as pending.
-    await supabase
-      .from('refund_requests')
-      .update({ status: 'completed', refund_tx_hash: thread.refund_tx_hash })
-      .eq('id', requestId);
-    process.exit(1);
-  }
-
-  const tokenSymbol = thread.token_symbol as TokenSymbol;
-  const tokens = getTokens(request.chain_id);
-  const token = tokens[tokenSymbol];
-  if (!token) {
-    console.error(`token ${tokenSymbol} not configured for chain ${request.chain_id}`);
-    process.exit(1);
-  }
-
-  // Trustless paid amount: the amount this thread's own ThreadRequested event
-  // recorded. NOT requiredAmount(token) — the price is settable, so that would
-  // refund today's price for a thread bought at yesterday's.
-  const paidRaw = await getOnChainPaidAmount({
-    chainId: request.chain_id,
-    payTxHash: thread.pay_tx_hash as `0x${string}`,
-    threadId: BigInt(request.onchain_thread_id),
+  const out = await processRefundRequest({
+    supabase: getSupabaseServer(),
+    requestId,
+    amountOverride,
+    log: (l) => console.log(l),
   });
-  const amountHuman = computeAmount({
-    kind: request.kind,
-    paidRaw,
-    decimals: token.decimals,
-    override: amountOverride,
-  });
-  const reason = `request #${requestId} — ${request.kind}`;
 
-  console.log(`Processing refund_requests #${requestId}`);
-  console.log(`  to:     ${request.wallet_address}`);
-  console.log(`  token:  ${tokenSymbol}`);
-  console.log(`  amount: ${amountHuman}`);
-  console.log(`  reason: ${reason}`);
-
-  // Mark processing first so a concurrent run won't double-send. The
-  // .eq('status','pending') makes this a compare-and-swap, but Supabase does
-  // NOT error when zero rows match — so we must inspect what came back. Only
-  // the worker whose UPDATE actually flipped the row (returns it) may proceed.
-  const { data: locked, error: lockErr } = await supabase
-    .from('refund_requests')
-    .update({ status: 'processing' })
-    .eq('id', requestId)
-    .eq('status', 'pending')
-    .select('id');
-  if (lockErr) {
-    console.error('failed to lock request:', lockErr.message);
-    process.exit(1);
+  switch (out.status) {
+    case 'sent':
+      console.log(`✓ refunded ${out.amountHuman} — tx: ${out.txHash}`);
+      return;
+    case 'already-refunded':
+      console.error(`thread already refunded (tx ${out.txHash}) — queue row reconciled, nothing sent`);
+      process.exit(1);
+      return;
+    case 'not-pending':
+      console.error(`request #${requestId} is "${out.actual}", not pending — skip`);
+      process.exit(1);
+      return;
+    case 'lost-lock':
+      console.error(`request #${requestId} was not pending at lock time — another worker holds it.`);
+      process.exit(1);
   }
-  if (!locked || locked.length !== 1) {
-    console.error(
-      `request #${requestId} was not pending at lock time — another worker holds it. Refusing to send.`,
-    );
-    process.exit(1);
-  }
-
-  let txHash: `0x${string}`;
-  try {
-    txHash = await refundThread({
-      chainId: request.chain_id,
-      onchainThreadId: request.onchain_thread_id,
-      to: request.wallet_address as `0x${string}`,
-      tokenSymbol,
-      amountHuman,
-      reason,
-    });
-  } catch (e) {
-    // Do NOT revert to pending. refundThread may have broadcast the transfer
-    // and only thrown while waiting for the receipt (RPC timeout) — the tx can
-    // still mine. Auto-reverting would let a retry double-send. Leave the row
-    // 'processing' (the CAS lock then blocks any retry) and record why, so an
-    // operator verifies on-chain state before manually deciding.
-    const msg = e instanceof Error ? e.message : String(e);
-    await supabase
-      .from('refund_requests')
-      .update({ rejection_reason: `send failed, on-chain state UNKNOWN: ${msg}` })
-      .eq('id', requestId);
-    console.error(
-      `\n⚠  request #${requestId} left in 'processing'. The transfer MAY have been broadcast.\n` +
-        `   Check ${request.wallet_address} on the explorer before any retry.\n` +
-        `   To retry: confirm no transfer landed, then reset status to 'pending' manually.`,
-    );
-    await alertOps('refund send FAILED — verify on-chain before retry (queue worker)', {
-      requestId,
-      chainId: request.chain_id,
-      onchainThreadId: request.onchain_thread_id,
-      to: request.wallet_address,
-      error: msg,
-    });
-    throw e;
-  }
-
-  await supabase
-    .from('refund_requests')
-    .update({ status: 'completed', refund_tx_hash: txHash, processed_at: new Date().toISOString() })
-    .eq('id', requestId);
-
-  await supabase
-    .from('threads')
-    .update({ refund_tx_hash: txHash, refund_reason: reason })
-    .eq('chain_id', request.chain_id)
-    .eq('onchain_thread_id', request.onchain_thread_id);
-
-  console.log(`✓ refunded — tx: ${txHash}`);
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e instanceof Error ? e.message : e);
+  console.error(
+    '\n⚠  If the failure happened during send, the row is left in \'processing\' and the\n' +
+      '   transfer MAY have been broadcast. Check the recipient on the explorer before\n' +
+      '   any retry; to retry, confirm nothing landed, then reset status to \'pending\'.',
+  );
   process.exit(1);
 });
