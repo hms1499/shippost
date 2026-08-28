@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk';
 import type { Hex } from 'viem';
 import { parseThread, boundThread } from '@/lib/threadParser';
+import { fitThread } from '@/lib/threadShape';
 import { settleX402Call } from '@/lib/agent/orchestrator';
 import { getSettleMode, getSettleChainId, X402_PRICE_USD, GROQ_MODEL, groqCompletionExtras } from '@/lib/x402/config';
 import { payGroqViaX402 } from '@/lib/x402/client';
@@ -42,7 +43,12 @@ export async function generateTweets(input: DraftInput): Promise<string[]> {
   });
   const raw = resp.choices[0]?.message?.content ?? '';
   if (!raw.trim()) throw new Error('Groq returned empty content');
-  return boundThread(parseThread(raw));
+  // The prompt asks the model to keep every tweet under 280 (system.ts:28) and
+  // it does not always manage it. Split what can be split at a sentence seam
+  // before anyone sees the thread; a tweet with no seam still comes through and
+  // the editor keeps warning about it. Applies to the free preview too — an
+  // over-long hook is where an unpostable tweet costs the most.
+  return fitThread(boundThread(parseThread(raw))).tweets;
 }
 
 // Produce a validated draft thread and settle for it. Settle gates delivery in
@@ -64,7 +70,10 @@ export async function generateDraft(ctx: PipelineContext, input: DraftInput): Pr
         signal: ctx.signal,
       });
       return {
-        tweets,
+        // Fitted here, not inside the proxy route: /api/x402/groq is a service
+        // other agents pay for, and changing the tweet count in a response
+        // somebody bought is a change to that contract. We fit what we consume.
+        tweets: fitThread(tweets).tweets,
         txHash: (settlementTxHash || '0x0') as Hex,
         costHuman: X402_PRICE_USD,
         tokenSymbol: 'USDC',

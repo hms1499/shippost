@@ -27,6 +27,42 @@ const msgs = { messages: [{ role: 'user' as const, content: 'x' }], temperature:
 beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('GROQ_API_KEY', 'k'); getSettleChainId.mockReturnValue(8453); });
 afterEach(() => { vi.unstubAllEnvs(); });
 
+// 296 chars with a clean seam at 182 — one cut leaves two postable tweets.
+const LONG =
+  '1/ Base sequencer revenue hit $2.1M in July, up 40% from June. Almost all of it comes from L1 data costs falling after Dencun, not from more users. Daily transactions are flat at 8M. The margin story is a blob pricing story, and blob prices are set by whoever else is bidding for that same space.';
+
+describe('length fitting', () => {
+  it('legacy mode: splits an over-long tweet the model returned', async () => {
+    getSettleMode.mockReturnValue('legacy');
+    create.mockResolvedValue({ choices: [{ message: { content: `${LONG}\n\n2/ tail` } }] });
+    settleX402Call.mockResolvedValue('0xtx');
+    const out = await generateDraft(ctx, msgs);
+    expect(out.tweets).toHaveLength(3);
+    expect(out.tweets.every((t) => t.length <= 280)).toBe(true);
+    expect(out.tweets.map((t) => t.slice(0, 3))).toEqual(['1/ ', '2/ ', '3/ ']);
+  });
+
+  it('x402 mode: fits what the proxy returns, without the proxy having to', async () => {
+    // /api/x402/groq stays raw for the agents that buy it; we fit on consumption.
+    getSettleMode.mockReturnValue('x402');
+    payGroqViaX402.mockResolvedValue({ tweets: [LONG], settlementTxHash: '0xtx' });
+    const out = await generateDraft(ctx, msgs);
+    expect(out.tweets).toHaveLength(2);
+    expect(out.tweets.every((t) => t.length <= 280)).toBe(true);
+  });
+
+  it('hands over a tweet with no sentence seam rather than cutting it', async () => {
+    const seamless = `1/ ${'blob base fee moves with how many rollups post in the same block and that is an incentive question not a demand question '.repeat(3)}`;
+    getSettleMode.mockReturnValue('legacy');
+    create.mockResolvedValue({ choices: [{ message: { content: seamless } }] });
+    settleX402Call.mockResolvedValue('0xtx');
+    const out = await generateDraft(ctx, msgs);
+    expect(out.tweets).toHaveLength(1);
+    expect(out.tweets[0].length).toBeGreaterThan(280);
+    expect(out.tweets[0]).toContain('blob base fee moves');
+  });
+});
+
 describe('generateDraft', () => {
   it('x402 mode: pays via proxy, returns USDC cost + settlement hash, never calls Groq directly', async () => {
     getSettleMode.mockReturnValue('x402');
