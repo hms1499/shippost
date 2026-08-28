@@ -776,6 +776,24 @@ export default function HomeClient() {
       ? formatPriceLabel(threadPrice, payableToken.decimals)
       : undefined;
 
+  // The same price, for the screens shown BEFORE a payment token exists. The
+  // mode picker is one: activeToken reads off the submitted payload, and at
+  // that point there is no payload, so payableToken is null, the read above
+  // never fires, and the screen fell back to THREAD_PRICE_USD — quoting one
+  // price on the menu and charging another two screens later.
+  //
+  // Deliberately a SECOND read, not a widened `threadPrice`. That one gates the
+  // pay button and must read the token the user will actually pay with:
+  // requiredAmount returns base units, so folding a fallback token in would let
+  // an 18-decimal cUSD price gate a 6-decimal USDC balance. Once a mode is
+  // chosen both reads name the same token and wagmi serves them from one query.
+  const displayPriceToken = payableToken ?? balances[0] ?? null;
+  const displayPrice = useThreadPrice(displayPriceToken);
+  const displayPriceLabel =
+    displayPrice !== null && displayPriceToken
+      ? formatPriceLabel(displayPrice, displayPriceToken.decimals)
+      : undefined;
+
   const payGate = payability({
     token: payableToken,
     price: threadPrice,
@@ -923,6 +941,7 @@ export default function HomeClient() {
   const formNode =
     screen === 'mode' ? (
       <ModePicker
+        priceLabel={displayPriceLabel}
         onSelect={(m) => {
           const mode =
             m === 'educational' ? 0

@@ -6,6 +6,14 @@ import { THREAD_PRICE_LABEL } from '@/lib/tokens';
 
 interface Props {
   onSelect: (mode: 'educational' | 'hot-take' | 'news-breakdown' | 'token-analysis' | 'daily-recap' | 'comparison') => void;
+  /**
+   * The price read off the chain, already formatted. THREAD_PRICE_LABEL is the
+   * fallback for the frames before that read lands — it is a local constant and
+   * the on-chain price is settable, so the two can disagree. This screen is the
+   * first place a price is quoted, and quoting one here and charging another on
+   * PreviewLocked is the version of this bug the user actually sees.
+   */
+  priceLabel?: string;
 }
 
 interface Mode {
@@ -81,7 +89,8 @@ const MODES: Mode[] = [
   },
 ];
 
-export function ModePicker({ onSelect }: Props) {
+export function ModePicker({ onSelect, priceLabel }: Props) {
+  const price = priceLabel ?? THREAD_PRICE_LABEL;
   return (
     <TerminalPanel title="SELECT MODE" className="w-full max-w-md">
       <ul className="flex flex-col gap-2">
@@ -115,7 +124,7 @@ export function ModePicker({ onSelect }: Props) {
         ))}
       </ul>
       <p className="mt-3 text-[11px] font-sans text-muted-foreground text-center">
-        flat <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span>/thread — mode only changes the agent&apos;s recipe
+        flat <span className="font-mono text-money">{price}</span>/thread — mode only changes the agent&apos;s recipe
       </p>
     </TerminalPanel>
   );
