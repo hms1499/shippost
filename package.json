@@ -21,6 +21,7 @@
     "audit:x402": "tsx scripts/x402-audit.ts",
     "funnel:report": "tsx scripts/funnel-report.ts",
     "audit:length": "tsx scripts/thread-length-audit.ts",
+    "sample:length": "tsx scripts/thread-length-sample.ts",
     "withdraw:agent": "hardhat run scripts/withdraw-agent.ts --network celo",
     "tools:distribute": "tsx tools/distribute-celo.ts --",
     "tools:distribute-token": "tsx tools/distribute-token.ts --",

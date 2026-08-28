@@ -28,9 +28,12 @@ export interface DraftResult {
   chainId?: number;
 }
 
-// Direct Groq generation: call, validate, parse — NO settle, NO abort plumbing.
-// Reused by the paid `generateDraft` (legacy branch) and by the free preview.
-export async function generateTweets(input: DraftInput): Promise<string[]> {
+// The thread AS THE MODEL PRODUCED IT: called, validated, parsed — not yet
+// fitted to the character limit. Exported so a measurement harness can compare
+// before and after from ONE completion; sampling twice would measure the
+// model's variance instead of the fit. Nothing in the paid flow should call
+// this directly — generateTweets is the delivering form.
+export async function completeThread(input: DraftInput): Promise<string[]> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY missing');
   const groq = new Groq({ apiKey });
@@ -43,12 +46,19 @@ export async function generateTweets(input: DraftInput): Promise<string[]> {
   });
   const raw = resp.choices[0]?.message?.content ?? '';
   if (!raw.trim()) throw new Error('Groq returned empty content');
-  // The prompt asks the model to keep every tweet under 280 (system.ts:28) and
-  // it does not always manage it. Split what can be split at a sentence seam
-  // before anyone sees the thread; a tweet with no seam still comes through and
-  // the editor keeps warning about it. Applies to the free preview too — an
-  // over-long hook is where an unpostable tweet costs the most.
-  return fitThread(boundThread(parseThread(raw))).tweets;
+  return boundThread(parseThread(raw));
+}
+
+// Direct Groq generation: call, validate, parse, fit — NO settle, NO abort
+// plumbing. Reused by the paid `generateDraft` (legacy branch) and the preview.
+//
+// The prompt asks the model to keep every tweet under 280 (system.ts:28) and it
+// does not always manage it. Split what can be split at a sentence seam before
+// anyone sees the thread; a tweet with no seam still comes through and the
+// editor keeps warning about it. Applies to the free preview too — an over-long
+// hook is where an unpostable tweet costs the most.
+export async function generateTweets(input: DraftInput): Promise<string[]> {
+  return fitThread(await completeThread(input)).tweets;
 }
 
 // Produce a validated draft thread and settle for it. Settle gates delivery in
