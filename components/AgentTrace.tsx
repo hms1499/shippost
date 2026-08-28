@@ -99,8 +99,14 @@ export function AgentTrace({
   }, [gen]);
 
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [lines]);
+    const el = logRef.current;
+    if (!el) return;
+    // Every new line used to yank the window down, which is exactly when the
+    // user is trying to read the line above it. `behavior` is a scrollTo
+    // option, not the scroll-behavior CSS property, so the global
+    // prefers-reduced-motion rule cannot reach it — honour the setting here.
+    el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
+  }, [lines, reduced]);
 
   const running = !gen.isDone && !gen.fatal;
 
