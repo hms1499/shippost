@@ -1,9 +1,48 @@
 import type { Hex } from 'viem';
 import { retryOnce } from './retry';
+import { alertOps } from '@/lib/alert';
 import type { PipelineContext, PipelineEvent } from './types';
 
-const CG_BASE = 'https://api.coingecko.com/api/v3';
+// CoinGecko is the one grounding source we call with no credentials at all.
+// Unset stays a supported state — it is what prod runs on today — but the
+// keyless public tier throttles at a handful of requests a minute, so market
+// data is the first grounding to disappear the moment two people generate at
+// once. A demo key is free and raises that ceiling; the plan decides both the
+// host and the header name, and getting that pair wrong 401s.
+const CG_DEMO_BASE = 'https://api.coingecko.com/api/v3';
+const CG_PRO_BASE = 'https://pro-api.coingecko.com/api/v3';
 const NULL_TX: Hex = '0x0';
+
+// Alert once per process. A bad key fails every single call, and one broken
+// deploy must not turn into a thousand identical pages.
+let authAlerted = false;
+
+/** Every CoinGecko request goes through here so the key can never be applied to
+ *  three call sites and forgotten on the fourth. */
+async function cgFetch(path: string): Promise<Response> {
+  const key = process.env.COINGECKO_API_KEY?.trim();
+  const pro = process.env.COINGECKO_API_PLAN?.trim().toLowerCase() === 'pro';
+  const base = key && pro ? CG_PRO_BASE : CG_DEMO_BASE;
+  const headers: Record<string, string> = key
+    ? { [pro ? 'x-cg-pro-api-key' : 'x-cg-demo-api-key']: key }
+    : {};
+
+  const res = await fetch(`${base}${path}`, key ? { headers } : undefined);
+
+  // A rejected key must not look like "this token has no market data". Callers
+  // soft-fail on anything non-ok, so without this line a wrong key degrades
+  // every thread silently and indefinitely — the failure mode this codebase
+  // keeps getting bitten by.
+  if (key && (res.status === 401 || res.status === 403) && !authAlerted) {
+    authAlerted = true;
+    console.error(`[coingecko] key rejected (${res.status}) — market data is off until fixed`);
+    void alertOps('CoinGecko key rejected — every thread is shipping without market data', {
+      status: res.status,
+      plan: pro ? 'pro' : 'demo',
+    });
+  }
+  return res;
+}
 
 export interface CoinGeckoResult {
   symbol: string | null;
@@ -45,7 +84,7 @@ export function extractSymbol(text: string): string | null {
 }
 
 async function resolveCoinId(symbol: string): Promise<string | null> {
-  const res = await fetch(`${CG_BASE}/search?query=${encodeURIComponent(symbol)}`);
+  const res = await cgFetch(`/search?query=${encodeURIComponent(symbol)}`);
   if (!res.ok) return null;
   const j = (await res.json()) as { coins?: Array<{ id: string; symbol: string }> };
   const hit = j.coins?.find((c) => c.symbol.toLowerCase() === symbol.toLowerCase());
@@ -77,9 +116,7 @@ export async function fetchCoinGecko(topicText: string): Promise<CoinGeckoResult
   if (!id) return { ...EMPTY, symbol: sym.toUpperCase() };
   // No x402 settle in this step, so retrying the fetch is fully safe.
   const entry = await retryOnce(async () => {
-    const res = await fetch(
-      `${CG_BASE}/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h%2C7d%2C30d`,
-    );
+    const res = await cgFetch(`/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h%2C7d%2C30d`);
     if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
     const j = (await res.json()) as MarketDetailRow[];
     return Array.isArray(j) ? j[0] : undefined;
@@ -118,8 +155,8 @@ function fmtUsd(p: number): string {
 // Free CoinGecko endpoints, no x402 settle, so retrying is fully safe.
 export async function fetchMarketOverview(): Promise<string | null> {
   const rows = await retryOnce(async () => {
-    const res = await fetch(
-      `${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&price_change_percentage=24h`,
+    const res = await cgFetch(
+      '/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&price_change_percentage=24h',
     );
     if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
     return (await res.json()) as MarketRow[];
@@ -139,7 +176,7 @@ export async function fetchMarketOverview(): Promise<string | null> {
   // Trending is garnish — a failure here must not sink the snapshot.
   let trending: string[] = [];
   try {
-    const res = await fetch(`${CG_BASE}/search/trending`);
+    const res = await cgFetch('/search/trending');
     if (res.ok) {
       const j = (await res.json()) as { coins?: Array<{ item?: { symbol?: string } }> };
       trending = (j.coins ?? [])

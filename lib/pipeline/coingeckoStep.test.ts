@@ -2,6 +2,48 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe('cgFetch key handling', () => {
+  const okSearch = { ok: true, status: 200, json: async () => ({ coins: [{ id: 'celo', symbol: 'celo' }] }) };
+
+  it('sends no key header and uses the public host when unset', async () => {
+    vi.stubEnv('COINGECKO_API_KEY', '');
+    const fetchMock = vi.fn().mockResolvedValue(okSearch);
+    vi.stubGlobal('fetch', fetchMock);
+    const { fetchCoinGecko } = await import('./coingeckoStep');
+    await fetchCoinGecko('$CELO');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('https://api.coingecko.com/api/v3');
+    expect(init).toBeUndefined();
+  });
+
+  it('sends the demo header against the public host by default', async () => {
+    vi.stubEnv('COINGECKO_API_KEY', 'k123');
+    vi.stubEnv('COINGECKO_API_PLAN', 'demo');
+    const fetchMock = vi.fn().mockResolvedValue(okSearch);
+    vi.stubGlobal('fetch', fetchMock);
+    const { fetchCoinGecko } = await import('./coingeckoStep');
+    await fetchCoinGecko('$CELO');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('https://api.coingecko.com/api/v3');
+    expect(init.headers).toEqual({ 'x-cg-demo-api-key': 'k123' });
+  });
+
+  it('switches host AND header together for the pro plan', async () => {
+    // The pair is the trap: a pro key on the public host, or a demo key on the
+    // pro host, both 401. They must never be settable independently.
+    vi.stubEnv('COINGECKO_API_KEY', 'k123');
+    vi.stubEnv('COINGECKO_API_PLAN', 'pro');
+    const fetchMock = vi.fn().mockResolvedValue(okSearch);
+    vi.stubGlobal('fetch', fetchMock);
+    const { fetchCoinGecko } = await import('./coingeckoStep');
+    await fetchCoinGecko('$CELO');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('https://pro-api.coingecko.com/api/v3');
+    expect(init.headers).toEqual({ 'x-cg-pro-api-key': 'k123' });
+  });
 });
 
 describe('fetchCoinGecko', () => {
