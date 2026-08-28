@@ -12,6 +12,7 @@ import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { ColophonIndex } from '@/components/ColophonIndex';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const WalletMenu = dynamic(
   () => import('@/components/WalletMenu').then((m) => m.WalletMenu),
@@ -1384,7 +1385,10 @@ export default function HomeClient() {
             </span>
           </div>
           <div className="flex flex-col items-end gap-2 pt-2 shrink-0">
-            {mounted && <WalletMenu open={walletOpen} onOpenChange={setWalletOpen} />}
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              {mounted && <WalletMenu open={walletOpen} onOpenChange={setWalletOpen} />}
+            </div>
           </div>
         </div>
         <RuleDivider />
