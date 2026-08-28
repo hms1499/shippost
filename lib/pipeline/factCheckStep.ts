@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk';
 import { getAddress } from 'viem';
 import { parseThread, boundThread } from '@/lib/threadParser';
+import { fitThread } from '@/lib/threadShape';
 import { retryOnce } from './retry';
 import { settleSoftStep } from './settleSoftStep';
 import { FACT_CHECK_SYSTEM, buildFactCheckUserPrompt } from '@/lib/prompts/factCheck';
@@ -75,6 +76,18 @@ export async function runFactCheckStep(
     );
   }
 
+  // Fit AFTER the count check above, never before it. The check is what makes a
+  // mismatched fact-check a soft failure, and a legitimate revision that fitting
+  // splits into an extra tweet would fail it — turning a length fix into a
+  // silent fall back to the unchecked draft.
+  //
+  // The fact-check is the last word on 5 of the 6 modes and its output is what
+  // gets persisted as `completed`, yet its only structural validation was the
+  // count. A hedge it adds — exactly what factCheck.ts:11 asks it not to do —
+  // could push a compliant 275-char tweet to 295 with nothing downstream
+  // noticing. This is the step that closes that.
+  const fitted = fitThread(tweets).tweets;
+
   // Settle BEFORE handing the content over, the same ordering groqStep and
   // runModeB use. Emitting first meant the client rendered the fact-checked
   // thread and then, if the settle threw, flickered back to the draft runModeB
@@ -82,7 +95,7 @@ export async function runFactCheckStep(
   // it away. Now a failed settle simply never delivers the revision.
   await settleSoftStep({ ctx, step: 'factCheck', serviceAddress: FC_SINK, emit });
 
-  emit({ type: 'step_output', step: 'factCheck', output: tweets });
+  emit({ type: 'step_output', step: 'factCheck', output: fitted });
 
-  return { tweets };
+  return { tweets: fitted };
 }

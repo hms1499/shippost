@@ -27,6 +27,46 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+// 296 chars, one clean seam: a hedge the fact-check added pushed it over.
+const LONG =
+  '2/ Base sequencer revenue hit $2.1M in July, up 40% from June. Almost all of it comes from L1 data costs falling after Dencun, not from more users. Daily transactions are flat at 8M. The margin story is a blob pricing story, and blob prices are set by whoever else is bidding for that same space.';
+
+describe('runFactCheckStep length fitting', () => {
+  it('splits an over-long revision and delivers the fitted thread', async () => {
+    create.mockResolvedValue({ choices: [{ message: { content: `1/ checked\n\n${LONG}` } }] });
+    const events: { type: string; output?: string[] }[] = [];
+    const out = await runFactCheckStep(ctx, input, (e) => events.push(e as never));
+    expect(out.tweets).toHaveLength(3);
+    expect(out.tweets.every((t) => t.length <= 280)).toBe(true);
+    const delivered = events.find((e) => e.type === 'step_output');
+    expect(delivered?.output).toEqual(out.tweets);
+  });
+
+  it('counts BEFORE fitting, so a split revision still passes the count check', async () => {
+    // Two tweets in, two tweets back — the check passes. Fitting then makes it
+    // three. Fitting first would have failed the check and dropped the whole
+    // fact-check, delivering the unchecked draft instead.
+    create.mockResolvedValue({ choices: [{ message: { content: `1/ checked\n\n${LONG}` } }] });
+    const events: { type: string }[] = [];
+    const out = await runFactCheckStep(ctx, input, (e) => events.push(e as never));
+    expect(out.tweets).toHaveLength(3);
+    expect(events.some((e) => e.type === 'step_failed')).toBe(false);
+  });
+
+  it('still settles before it emits the fitted content', async () => {
+    // Base settles soft steps as a bookkeeping emit (settleSoftStep.ts:21), so
+    // the ordering that matters is the event order, not the on-chain call.
+    const order: string[] = [];
+    create.mockResolvedValue({ choices: [{ message: { content: `1/ checked\n\n${LONG}` } }] });
+    await runFactCheckStep(ctx, input, (e) => {
+      if (e.type === 'step_settled' || e.type === 'step_output') {
+        order.push(e.type === 'step_settled' ? 'settle' : 'emit');
+      }
+    });
+    expect(order).toEqual(['settle', 'emit']);
+  });
+});
+
 describe('runFactCheckStep', () => {
   it('does not settle when the run is already aborted (no spend after deadline)', async () => {
     const ac = new AbortController();
