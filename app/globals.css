@@ -48,6 +48,27 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* MiniPay is an Android webview, and Android paints its own translucent grey
+     box over whatever you tap. Every control here already declares an `active:`
+     state, so the UA flash is a second, cruder feedback layer stacked on the
+     designed one — and against the near-black ground it reads as a rendering
+     glitch rather than a press. Suppress it and let the `active:` states show.
+
+     `touch-action: manipulation` rides along on the tappables: it drops the
+     300ms wait the browser holds for a possible double-tap-zoom, which is felt
+     as lag on every button in the flow. It disables double-tap zoom only —
+     pinch zoom still works, so this costs nothing in accessibility. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  [role='button'],
+  summary {
+    touch-action: manipulation;
+  }
+
   h1, h2, h3 {
     font-family: var(--font-mono), ui-monospace, monospace;
     font-weight: 700;
