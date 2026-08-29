@@ -46,7 +46,7 @@
 - Consumes: nothing.
 - Produces: `type Theme = 'terminal' | 'paper'`; `THEME_STORAGE_KEY: string`; `PAPER_CLASS: string`; `THEME_COLOR: Record<Theme, string>`; `resolveTheme(stored: string | null | undefined): Theme`; `nextTheme(current: Theme): Theme`. Tasks 2–6 all import from here.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/theme.test.ts`:
 
@@ -104,12 +104,12 @@ describe('constants', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `npx vitest run lib/theme.test.ts`
 Expected: FAIL — `Failed to resolve import "./theme"`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `lib/theme.ts`:
 
@@ -155,17 +155,17 @@ export function nextTheme(current: Theme): Theme {
 }
 ```
 
-- [ ] **Step 4: Run the test and confirm it passes**
+- [x] **Step 4: Run the test and confirm it passes**
 
 Run: `npx vitest run lib/theme.test.ts`
 Expected: PASS, 6 tests.
 
-- [ ] **Step 5: Full gate**
+- [x] **Step 5: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib`
 Expected: tsc exit 0, "No ESLint warnings or errors", all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/theme.ts lib/theme.test.ts
@@ -188,7 +188,7 @@ The contrast test is the load-bearing test of this whole feature. Build it again
 - Consumes: `THEME_COLOR` from `lib/theme.ts` (Task 1).
 - Produces: `PAIRS` and the parsing helpers stay private to the test file. Task 3 extends the `describe.each` list in this file with `['Paper', 'html.theme-paper']`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `lib/themeContrast.test.ts`:
 
@@ -298,12 +298,12 @@ describe('theme-color', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it catch the real defect**
+- [x] **Step 2: Run it and watch it catch the real defect**
 
 Run: `npx vitest run lib/themeContrast.test.ts`
 Expected: FAIL, exactly one pair — `--destructive-foreground on --destructive` — with a received value of about `2.90`. Every other pair passes. If anything else fails, stop and report rather than adjusting the threshold.
 
-- [ ] **Step 3: Fix the palette, not the test**
+- [x] **Step 3: Fix the palette, not the test**
 
 In `app/globals.css`, replace line 23:
 
@@ -320,17 +320,17 @@ with:
     --destructive-foreground: 0 40% 8%;    /* 6.24:1 on --destructive */
 ```
 
-- [ ] **Step 4: Run the test and confirm it passes**
+- [x] **Step 4: Run the test and confirm it passes**
 
 Run: `npx vitest run lib/themeContrast.test.ts`
 Expected: PASS, 20 tests.
 
-- [ ] **Step 5: Full gate**
+- [x] **Step 5: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib`
 Expected: all green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add lib/themeContrast.test.ts app/globals.css
@@ -349,7 +349,7 @@ git commit -m "test(theme): assert WCAG AA over globals.css, and fix the pair it
 - Consumes: the parsing helpers and `PAIRS` in `lib/themeContrast.test.ts` (Task 2), `THEME_COLOR` from `lib/theme.ts` (Task 1).
 - Produces: the CSS class `theme-paper`, applied to `<html>` by Tasks 4 and 5.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `lib/themeContrast.test.ts`, replace the `PALETTES` constant:
 
@@ -374,12 +374,12 @@ describe('theme-color', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `npx vitest run lib/themeContrast.test.ts`
 Expected: FAIL — `no "html.theme-paper" rule in app/globals.css`.
 
-- [ ] **Step 3: Add the Paper palette**
+- [x] **Step 3: Add the Paper palette**
 
 In `app/globals.css`, immediately after the closing `}` of the `:root` block (currently line 31) and still inside the same `@layer base { … }`, add:
 
@@ -414,7 +414,7 @@ In `app/globals.css`, immediately after the closing `}` of the `:root` block (cu
   }
 ```
 
-- [ ] **Step 4: Make the scanlines follow the theme**
+- [x] **Step 4: Make the scanlines follow the theme**
 
 `.scanlines` currently hardcodes a near-black line, which reads as a smudge on paper. Add a token to **both** palettes and reference it.
 
@@ -448,17 +448,17 @@ Then replace the `.scanlines` rule (currently `app/globals.css:136-144`) with:
 
 Note `--scanline` carries its own alpha, so it does not match the `H S% L%` pattern the contrast test parses and is correctly ignored by it.
 
-- [ ] **Step 5: Run the test and confirm it passes**
+- [x] **Step 5: Run the test and confirm it passes**
 
 Run: `npx vitest run lib/themeContrast.test.ts`
 Expected: PASS, 40 tests (19 pairs × 2 palettes, plus 2 theme-color assertions). If any Paper pair fails, adjust that Paper token — never the 4.5 threshold.
 
-- [ ] **Step 6: Full gate**
+- [x] **Step 6: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib`
 Expected: all green.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/globals.css lib/themeContrast.test.ts
@@ -478,7 +478,7 @@ This is the task that avoids the defect that killed the previous attempt: `Theme
 - Consumes: `THEME_STORAGE_KEY`, `PAPER_CLASS`, `THEME_COLOR` from `lib/theme.ts` (Task 1).
 - Produces: `<html>` carries `class="theme-paper"` on first paint when storage says so, and a `<meta name="theme-color">` tag that Task 5 updates by `document.querySelector('meta[name="theme-color"]')`.
 
-- [ ] **Step 1: Remove the static themeColor from the viewport export**
+- [x] **Step 1: Remove the static themeColor from the viewport export**
 
 The `viewport` export is rendered server-side and cannot know the user's choice. Replace `app/layout.tsx:60-67` with:
 
@@ -493,7 +493,7 @@ export const viewport: Viewport = {
 };
 ```
 
-- [ ] **Step 2: Add the blocking pre-paint script**
+- [x] **Step 2: Add the blocking pre-paint script**
 
 In `app/layout.tsx`, add the import:
 
@@ -535,7 +535,7 @@ and replace the `<html …>` opening and the start of `<body>` (currently `:75-7
       <body>
 ```
 
-- [ ] **Step 3: Verify no flash, with Playwright**
+- [x] **Step 3: Verify no flash, with Playwright**
 
 Playwright is not a repo dependency. In the scratchpad:
 
@@ -588,12 +588,12 @@ Expected:
 - `theme-color` is `#F2F0E6`, body background `rgb(242, 240, 230)`;
 - the default context has **no** `theme-paper` class, `theme-color` `#0A0D0A`, body background `rgb(10, 13, 10)`.
 
-- [ ] **Step 4: Full gate**
+- [x] **Step 4: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib && pnpm build`
 Expected: all green. `pnpm build` matters here — `<head>` in a Server Component layout is easy to get wrong.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/layout.tsx
@@ -612,7 +612,7 @@ git commit -m "feat(theme): resolve the theme in a blocking head script, not aft
 - Consumes: `Theme`, `THEME_STORAGE_KEY`, `PAPER_CLASS`, `THEME_COLOR`, `resolveTheme`, `nextTheme` from `lib/theme.ts` (Task 1); the `theme-paper` rule from Task 3; the `<meta name="theme-color">` tag created in Task 4.
 - Produces: `<ThemeToggle />`, a self-contained client component taking no props.
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 Create `components/ThemeToggle.tsx`:
 
@@ -696,7 +696,7 @@ export function ThemeToggle() {
 
 `resolveTheme` is not called here — the pre-paint script has already applied it — but it stays exported and tested because that script's logic is the same rule, and Task 1's test is what pins it.
 
-- [ ] **Step 2: Mount it in the header**
+- [x] **Step 2: Mount it in the header**
 
 In `app/HomeClient.tsx`, add to the imports:
 
@@ -723,7 +723,7 @@ with:
           </div>
 ```
 
-- [ ] **Step 3: Verify the toggle, persistence, and that the header still fits**
+- [x] **Step 3: Verify the toggle, persistence, and that the header still fits**
 
 With the dev server running, from the scratchpad:
 
@@ -759,12 +759,12 @@ Expected at both widths: the toggle measures 36×36; `aria-pressed` starts `fals
 
 Then open both screenshots and actually look at them.
 
-- [ ] **Step 4: Full gate**
+- [x] **Step 4: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/ThemeToggle.tsx app/HomeClient.tsx
@@ -784,7 +784,7 @@ This also fixes a defect that ships today: `app/providers.tsx:12-18` still confi
 - Consumes: `PAPER_CLASS` from `lib/theme.ts` (Task 1).
 - Produces: nothing other tasks import.
 
-- [ ] **Step 1: Confirm the defect before changing it**
+- [x] **Step 1: Confirm the defect before changing it**
 
 With the dev server running, from the scratchpad:
 
@@ -801,7 +801,7 @@ await b.close();
 
 Look at `/tmp/rk-before.png`. Expected: a white modal over the dark app. That is the bug.
 
-- [ ] **Step 2: Make the RainbowKit theme track the app theme**
+- [x] **Step 2: Make the RainbowKit theme track the app theme**
 
 Replace the theme block in `app/providers.tsx` (the import on line 6 and the `rkTheme` constant on lines 10-18) with:
 
@@ -868,7 +868,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 Add `useEffect` to the existing `react` import on line 3.
 
-- [ ] **Step 3: Verify both themes**
+- [x] **Step 3: Verify both themes**
 
 From the scratchpad:
 
@@ -895,12 +895,12 @@ await b.close();
 
 Expected: the Terminal modal is dark (not `rgb(255, 255, 255)`), the Paper modal is light. Open both screenshots and confirm each one sits comfortably on its page.
 
-- [ ] **Step 4: Full gate**
+- [x] **Step 4: Full gate**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib && pnpm build`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/providers.tsx
@@ -920,7 +920,7 @@ The contrast test covers solid token-on-token pairs. It does not cover **alpha-t
 - Consumes: everything from Tasks 1–6.
 - Produces: the finished feature.
 
-- [ ] **Step 1: Enumerate the tinted grounds**
+- [x] **Step 1: Enumerate the tinted grounds**
 
 Run:
 
@@ -930,15 +930,15 @@ grep -rnoE '(bg|border|text)-(primary|money|destructive|secondary|accent)/[0-9]+
 
 Record the list. Each is a place the token test cannot speak for.
 
-- [ ] **Step 2: Screenshot every screen in Paper**
+- [x] **Step 2: Screenshot every screen in Paper**
 
 With the dev server running, capture at 360×740 in Paper: the landing (pre-connect), the mode picker, one input screen, `PreviewLocked`, `AgentTrace` mid-run, the payoff screen, and `/history` with a row open. Use the mocked MiniPay provider and the stubbed routes from `.claude/skills/verify` for the connected screens; drive `AgentTrace` with a temporary probe page under `app/` (a routable name — Next excludes `_`-prefixed folders) and delete it afterwards.
 
-- [ ] **Step 3: Fix what the screenshots show**
+- [x] **Step 3: Fix what the screenshots show**
 
 Typical repairs, applied only where a screenshot justifies them: raise a `/5` tint to `/10` on paper, or swap a tint for a border. Prefer changing the token alpha at the call site over adding a `theme-paper:` variant — the repo has no such variants and this plan does not introduce them.
 
-- [ ] **Step 4: Final verification, both themes, both widths**
+- [x] **Step 4: Final verification, both themes, both widths**
 
 Run the Task 5 script again plus a sweep for regressions:
 
@@ -954,12 +954,12 @@ const small = await p.evaluate(() =>
 
 Expected: `overflowX` 0 everywhere, and the only sub-36px control is the 1×1 `Skip to content` link, which is `sr-only` until focused.
 
-- [ ] **Step 4b: Confirm the whole suite**
+- [x] **Step 4b: Confirm the whole suite**
 
 Run: `npx tsc --noEmit && pnpm lint && pnpm test:lib && pnpm build`
 Expected: all green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -u
@@ -968,7 +968,7 @@ git commit -m "fix(theme): tune the alpha-tinted grounds the token test cannot c
 
 Do **not** use `git add -A`: this Desktop is iCloud-synced and produces `name 2.ext` conflict copies.
 
-- [ ] **Step 6: Record what is still unverified**
+- [x] **Step 6: Record what is still unverified**
 
 Append to the spec, under Risks: which screens were reviewed in Paper, and that nothing was tested on a real MiniPay device.
 
