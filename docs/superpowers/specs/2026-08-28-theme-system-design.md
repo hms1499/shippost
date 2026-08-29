@@ -199,9 +199,43 @@ Three layers, in increasing cost.
   accepted knowingly.
 - **`text-money` on tinted grounds.** Several surfaces layer alpha tints
   (`bg-money/5`, `bg-primary/10`). Contrast on a *tinted* ground is not covered
-  by the token-pair test; these need a visual pass in Paper.
+  by the token-pair test; these needed a visual pass in Paper. **Done** — see
+  below.
 - **Nothing here is device-tested.** As with every change in this session,
   MiniPay behaviour is unverified on hardware.
+
+### The tinted-ground pass (Task 7), and what it leaves open
+
+Reviewed in Paper at 360x740 and 1440x900, against the same screen in
+Terminal: the landing (pre-connect, both widths), the mode picker, the
+connected composer, `AgentTrace` mid-run and with a failed step,
+`PreviewLocked`, `ThreadPreview` with a banned phrase highlighted, `ShareToX`,
+`ErrorSurface` (`full-fail` and `run-not-started`), `GuestTaste`, the wallet
+sheet, and `/history` with a row open. The screens that need state a browser
+cannot reach on its own were driven from a throwaway probe page under `app/`,
+deleted before the commit, plus a mocked MiniPay provider and a stubbed
+`/api/public/threads`.
+
+Alongside the look, every tint in use was measured as a stripe-vs-ground
+contrast ratio in both themes, so "does this survive on paper" had a number
+and not only an opinion. One pair failed: `.scanlines`, fixed in `82fd21b`.
+
+Left as they are, deliberately:
+
+- `hover:bg-accent/25` (`ColophonIndex`) measures 1.01:1 on paper against
+  1.07:1 on Terminal — below perception. It is paired with
+  `hover:border-border`, which is plainly visible on cream, so the hover is
+  still signalled. Raising it would be the fix if the border ever goes.
+- `bg-primary/50` .. `/85` and `bg-destructive/80` .. `/90` (button and badge
+  fills) all measure lower against the ground on paper. They read as fills
+  regardless; the ratio that matters there is the foreground *on* them, which
+  `lib/themeContrast.test.ts` already asserts at full opacity.
+- `border-money/25` (the ModePicker price plate) drops 1.77:1 -> 1.42:1. The
+  plate still reads as a plate, carried by the ochre price inside it.
+
+Still unverified: nothing in Paper has been seen on a real MiniPay device, and
+the pass covered no screen that requires a real payment — the paid wait screen
+and the post-share screen were reviewed through fixtures, not a live run.
 
 ## Out of scope
 
