@@ -64,8 +64,15 @@
     /* Terminal extras */
     --money: 39 100% 27%;                  /* #8A5A00 — amber, as ochre */
 
-    /* On paper the same texture is a press halftone, not a CRT: warm, faint. */
-    --scanline: 40 20% 45% / 0.10;
+    /* On paper the same texture is a press halftone, not a CRT: warm, faint.
+       The alpha is not a taste call. A tint composited toward a light ground
+       loses far less relative luminance than the same tint over near-black, so
+       the CRT's 0.35 translated to paper as a stripe/ground contrast of
+       1.11:1 against Terminal's 1.02:1 — seven times the delta. On paper that
+       stopped being texture and became banding, striped across the whole hero
+       column and over the controls inside it. 0.03 puts paper back at 1.03:1,
+       felt rather than seen. */
+    --scanline: 40 20% 45% / 0.03;
   }
 }
 
