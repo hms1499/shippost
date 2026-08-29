@@ -4,7 +4,6 @@ import {
   safeWallet,
   rainbowWallet,
   base as baseWallet,
-  metaMaskWallet,
   walletConnectWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { celoSepolia, getChain } from './chains';
@@ -38,6 +37,11 @@ export const wagmiConfig = getDefaultConfig({
   // connector must be configured explicitly — RainbowKit's default wallet
   // list omits it, leaving auto-connect nothing to attach to. Keep it first;
   // HomeClient auto-connect looks it up by id 'injected'.
+  // metaMaskWallet is deliberately absent: the MetaMask extension (and the
+  // MetaMask Mobile in-app browser) inject window.ethereum, so the generic
+  // injectedWallet covers it, and its optional SDK was being pulled into the
+  // bundle for a connector nobody opens by name. walletConnectWallet stays —
+  // it is how a desktop visitor pairs a phone wallet over QR.
   wallets: [
     {
       groupName: 'Popular',
@@ -46,7 +50,6 @@ export const wagmiConfig = getDefaultConfig({
         safeWallet,
         rainbowWallet,
         baseWallet,
-        metaMaskWallet,
         walletConnectWallet,
       ],
     },
