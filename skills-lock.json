@@ -17,6 +17,12 @@
       "sourceType": "github",
       "skillPath": ".claude/skills/docs-watch/SKILL.md",
       "computedHash": "a01a52f77057c9fbc395976c5c20ca46e7a87ae038952155ebd73b97899af940"
+    },
+    "system-design": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "skillPath": "engineering/skills/system-design/SKILL.md",
+      "computedHash": "5915b5f79ae74f20473c4922075b091f290374d26b26c927af9c767102424ac4"
     }
   }
 }
