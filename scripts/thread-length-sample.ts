@@ -26,75 +26,17 @@
  *   pnpm sample:length --runs=4 --modes=0,2
  */
 import 'dotenv/config';
-import { getMode, type PreviewInput } from '../lib/pipeline/modes';
+import { getMode } from '../lib/pipeline/modes';
 import { completeThread } from '../lib/pipeline/generateDraft';
 import { fitThread } from '../lib/threadShape';
 import { TWEET_MAX_CHARS } from '../lib/threadParser';
-
-const MODE_LABEL: Record<number, string> = {
-  0: 'Educational',
-  1: 'Hot Take',
-  2: 'Token Analysis',
-  3: 'Daily Recap',
-  4: 'Comparison',
-  5: 'News Breakdown',
-};
-
-/** Inputs per mode, cycled by run index so repeated runs vary the topic rather
- *  than re-rolling the same prompt. Educational leans on dense/advanced topics
- *  because that is where over-long tweets were seen to concentrate. */
-const FIXTURES: Record<number, PreviewInput[]> = {
-  0: [
-    { mode: 0, topic: 'EIP-4844 blob fee market', audience: 'advanced' },
-    { mode: 0, topic: 'ERC-4337 bundler economics', audience: 'advanced' },
-    { mode: 0, topic: 'how an optimistic rollup fraud proof works', audience: 'intermediate' },
-    { mode: 0, topic: 'what a stablecoin depeg actually is', audience: 'beginner' },
-  ],
-  1: [
-    { mode: 1, eventDescription: 'Base sequencer revenue fell sharply after Dencun', angle: 'skeptical' },
-    { mode: 1, eventDescription: 'A major L2 announced it is decentralising its sequencer', angle: 'bullish' },
-    { mode: 1, eventDescription: 'Another bridge exploit drained nine figures', angle: 'bearish' },
-  ],
-  2: [
-    { mode: 2, topic: 'CELO', angle: 'skeptical' },
-    { mode: 2, topic: 'ARB', angle: 'bearish' },
-    { mode: 2, topic: 'OP', angle: 'bullish' },
-  ],
-  3: [{ mode: 3 }],
-  4: [
-    { mode: 4, topic: 'base|arbitrum' },
-    { mode: 4, topic: 'solana|ethereum' },
-    { mode: 4, topic: 'celo|polygon' },
-  ],
-  5: [
-    { mode: 5, eventDescription: 'Circle expanded native USDC to another L2' },
-    { mode: 5, eventDescription: 'The SEC closed an enforcement action against a DeFi protocol' },
-  ],
-};
+import { MODE_LABEL, FIXTURES, numArg, modesArg } from './sampleFixtures';
 
 interface Sample {
   mode: number;
   before: string[];
   after: string[];
   unfixable: number[];
-}
-
-function numArg(name: string, fallback: number): number {
-  const arg = process.argv.find((a) => a.startsWith(`--${name}=`));
-  if (!arg) return fallback;
-  const n = Number(arg.slice(name.length + 3));
-  if (!Number.isFinite(n) || n < 1) throw new Error(`bad --${name}: ${arg}`);
-  return n;
-}
-
-function modesArg(): number[] {
-  const arg = process.argv.find((a) => a.startsWith('--modes='));
-  if (!arg) return [0, 1, 2, 3, 4, 5];
-  return arg
-    .slice('--modes='.length)
-    .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isInteger(n));
 }
 
 const over = (tweets: string[]) => tweets.filter((t) => t.length > TWEET_MAX_CHARS);

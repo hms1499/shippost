@@ -23,6 +23,7 @@
     "funnel:report": "tsx scripts/funnel-report.ts",
     "audit:length": "tsx scripts/thread-length-audit.ts",
     "sample:length": "tsx scripts/thread-length-sample.ts",
+    "sample:read": "tsx scripts/thread-read-sample.ts",
     "audit:grounding": "tsx scripts/thread-grounding-audit.ts",
     "withdraw:agent": "hardhat run scripts/withdraw-agent.ts --network celo",
     "tools:distribute": "tsx tools/distribute-celo.ts --",
