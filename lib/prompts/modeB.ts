@@ -30,6 +30,7 @@ const STRUCTURE = `Structure (signal-extraction body, angle only at the close):
 Constraints:
 - Only use facts that appear in the provided description, search context, or market context, or that are universally known. Never invent prices, dates, names, contracts, or numbers.
 - That constraint covers the interpretations too. Reason FROM the facts you were given; never reach for a new number, date or name to prop up a point. If what you have cannot support the implication, drop the implication — never the accuracy.
+- Do NOT do arithmetic. Ratios, turnover periods and dilution percentages are already worked out for you in the data below — quote those, in those words. Never divide two figures yourself and never invert a ratio: a derived number you computed is the one thing here most likely to be wrong, and it reads exactly as confidently as a correct one.
 - Stay on the single event the user named. Do not drift into adjacent stories.
 - Body tweets do not declare a side. Save the verdict / evidence-test for T(n).`;
 
@@ -111,9 +112,49 @@ function usdCompact(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
+/**
+ * How long the float takes to change hands once, in plain words.
+ *
+ * The model must never derive this itself. Sampling on 2026-08-31 caught it
+ * reading vol/mcap 0.31 as "the entire market cap turns over roughly three
+ * times per day" — the reciprocal, wrong by ~9x — while getting 0.12 and 0.18
+ * right in the same batch. A ratio it has to invert is a coin flip; a sentence
+ * it only has to copy is not.
+ */
+export function turnoverPhrase(marketCapUsd: number, volume24hUsd: number): string | null {
+  if (!(marketCapUsd > 0) || !(volume24hUsd > 0)) return null;
+  const days = marketCapUsd / volume24hUsd;
+  if (!Number.isFinite(days)) return null;
+  if (days < 1) {
+    const perDay = volume24hUsd / marketCapUsd;
+    return `the whole cap changes hands about ${perDay.toFixed(1)}x per day`;
+  }
+  if (days < 2) return 'the whole cap changes hands about once a day';
+  return `the whole cap changes hands about once every ${days.toFixed(1)} days`;
+}
+
+/**
+ * What a full unlock does to the float, as a percentage OF THE FLOAT.
+ *
+ * Same reason as turnoverPhrase. "39% still to unlock" is a share of MAX
+ * supply, and converting it to the dilution a holder actually feels means
+ * dividing by the circulating share. Sampled output called 33%-locked "an
+ * increase of a third" (really 49%) and 47%-locked "more than double" (1.89x).
+ */
+export function dilutionPhrase(circulatingSupply: number, maxSupply: number): string | null {
+  if (!(circulatingSupply > 0) || !(maxSupply > circulatingSupply)) return null;
+  const pct = ((maxSupply - circulatingSupply) / circulatingSupply) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return `a full unlock would grow the float by ${pct.toFixed(0)}%`;
+}
+
 // Turn the CoinGecko snapshot into researcher-grade ground truth: not just a
 // price line, but momentum across windows, liquidity, dilution headroom, and
 // distance from the all-time high. Each line is a signal the thread can cite.
+//
+// Every DERIVED figure is computed here rather than left for the model. The
+// arithmetic is the same either way; the difference is that this version has
+// tests and the model's version was wrong 4 times in 7 when sampled.
 export function summarizeMarket(cg: CoinGeckoResult): string | null {
   if (!cg.symbol || cg.priceUsd === null) return null;
   const lines: string[] = [];
@@ -136,10 +177,16 @@ export function summarizeMarket(cg: CoinGeckoResult): string | null {
   }
   if (size.length) lines.push(`Size & liquidity: ${size.join(', ')}`);
 
+  const turnover =
+    cg.marketCapUsd && cg.volume24hUsd ? turnoverPhrase(cg.marketCapUsd, cg.volume24hUsd) : null;
+  if (turnover) lines.push(`Turnover: ${turnover}`);
+
   if (cg.circulatingSupply && cg.maxSupply) {
     const inCirc = (cg.circulatingSupply / cg.maxSupply) * 100;
+    const dilution = dilutionPhrase(cg.circulatingSupply, cg.maxSupply);
     lines.push(
-      `Supply: ${inCirc.toFixed(0)}% of max in circulation, ${(100 - inCirc).toFixed(0)}% still to unlock`,
+      `Supply: ${inCirc.toFixed(0)}% of max in circulation, ${(100 - inCirc).toFixed(0)}% still to unlock` +
+        (dilution ? ` — ${dilution}` : ''),
     );
   } else if (cg.circulatingSupply && cg.maxSupply === null) {
     lines.push(`Supply: uncapped (no fixed max)`);

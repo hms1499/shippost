@@ -41,6 +41,7 @@ const STRUCTURE = `Structure (data-anchored body, angle only at the close):
 Constraints:
 - NEVER invent a price, market cap, percentage, date, partner, or number. Use ONLY figures that appear in the market data or search context below. If a number is not provided, do not state one — describe the dynamic qualitatively instead.
 - That constraint covers the interpretations too. Reason FROM the figures you were given; never reach for a new one to prop up a point. If the data cannot support the implication, drop the implication — never the accuracy.
+- Do NOT do arithmetic. Ratios, turnover periods and dilution percentages are already worked out for you in the data below — quote those, in those words. Never divide two figures yourself and never invert a ratio: a derived number you computed is the one thing here most likely to be wrong, and it reads exactly as confidently as a correct one.
 - Stay on the single token named. Do not drift into adjacent tokens or the broader market unless the search context ties them directly to this token.
 - Body tweets do not declare a side. Save the verdict / evidence-test for T(n).`;
 
