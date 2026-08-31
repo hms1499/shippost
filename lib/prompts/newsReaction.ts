@@ -10,7 +10,7 @@ interface NewsBreakdownInput {
 }
 
 const STRUCTURE = `Structure (neutral breakdown, four beats in order):
-- T1 — what just happened: the single hardest fact of the news (who did what, number, date). Cite the source host in parentheses when one appears in the news line. No question hooks, no "in this thread".
+- T1 — what just happened: the single hardest fact of the news (who did what, number, date). Cite the source in parentheses ONLY when the context actually gives a domain (circle.com, sec.gov). A search-result title is not a source: never turn one into a citation, and when no domain is present, cite nothing. No question hooks, no "in this thread".
 - T2 onward — why it matters: the mechanism or context that makes this consequential. Hard facts only.
 - next — who is affected + numbers: named projects, chains, holder groups; cite market data when provided.
 - T(n) — what to watch next: 1–2 concrete, observable follow-ups (a date, a vote, a threshold, an unlock). Not advice, not a verdict.

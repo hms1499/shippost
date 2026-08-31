@@ -61,3 +61,35 @@ describe('buildTokenAnalysisPrompt — hook', () => {
     expect(out).not.toMatch(/No question opener/i);
   });
 });
+
+describe('buildTokenAnalysisPrompt — the body has to interpret, not recite', () => {
+  // The clearest instance of the mode 1-5 "generic" defect: a sampled CELO
+  // thread spent four tweets restating mcap, 24h volume, vol/mcap and the
+  // supply split — i.e. summarizeMarket()'s own output — without once saying
+  // what any of it implied. See the sibling block in modeB.test.ts.
+  const prompt = () =>
+    buildTokenAnalysisPrompt({
+      ticker: '$CELO',
+      angle: 'skeptical',
+      searchSummary: null,
+      marketSnippet: 'CELO @ $0.0757, rank #478\nSize & liquidity: mcap $45.9M, 24h vol $13.9M, vol/mcap 0.30',
+    });
+
+  it('requires each body tweet to say what its number means', () => {
+    expect(prompt()).toMatch(/AND says what it means for liquidity, float, dilution or demand/);
+  });
+
+  it('names reading the market data back as the failure mode', () => {
+    expect(prompt()).toMatch(/only restates a number is not finished/);
+  });
+
+  it('no longer settles for a "light" implication or a neutral exposition', () => {
+    const out = prompt();
+    expect(out).not.toMatch(/single light implication/);
+    expect(out).not.toMatch(/neutral exposition of what is known/);
+  });
+
+  it('extends the no-invented-figures rule to the interpretations', () => {
+    expect(prompt()).toMatch(/covers the interpretations too/);
+  });
+});

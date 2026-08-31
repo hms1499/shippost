@@ -33,14 +33,14 @@ const ANGLE_CLOSE: Record<Angle, string> = {
 const STRUCTURE = `Structure (data-anchored body, angle only at the close):
 - T1: hook (see HOOK) — name the token (what it is / what it does) through its most striking real number or contradiction, anchored to the market data. A specific question is allowed. No "in this thread". No angle adjectives.
 - T2: anchor signal — the single most verifiable fact: market cap, price, or the token's core function. Draw it directly from the market data or search context.
-- T3 ... T(n-1): additional signals. Each tweet does ONE of:
-    (a) present a hard fact (24h move, a recent catalyst/listing/unlock, a named partner, a TVL or volume figure) drawn from the market data or search context
-    (b) draw a single light implication from a signal already on the table ("supply unlock next month → sell pressure into a thin book")
-  No directional adjectives in the body. It must read as a neutral exposition of what is known, not a take.
+- T3 ... T(n-1): additional signals. Each tweet takes a hard fact from the market data or search context (24h move, a catalyst, a listing, an unlock, a named partner, a TVL or volume figure) AND says what it means for liquidity, float, dilution or demand. "39% of supply still to unlock" is the fact; what that does to a book turning over its whole cap every few days is the tweet.
+  A tweet that only restates a number is not finished. Reading the market data back in sentences is the failure mode this body falls into, and it is the most common one.
+  No directional adjectives in the body. Interpretation is NOT a side: say what a number implies mechanically, never whether it is good or bad, and never where the price goes.
 - T(n): the only angle-specific tweet. Follow the closing rule for the chosen angle (see ANGLE).
 
 Constraints:
 - NEVER invent a price, market cap, percentage, date, partner, or number. Use ONLY figures that appear in the market data or search context below. If a number is not provided, do not state one — describe the dynamic qualitatively instead.
+- That constraint covers the interpretations too. Reason FROM the figures you were given; never reach for a new one to prop up a point. If the data cannot support the implication, drop the implication — never the accuracy.
 - Stay on the single token named. Do not drift into adjacent tokens or the broader market unless the search context ties them directly to this token.
 - Body tweets do not declare a side. Save the verdict / evidence-test for T(n).`;
 

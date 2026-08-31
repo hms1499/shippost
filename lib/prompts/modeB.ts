@@ -22,14 +22,14 @@ const ANGLE_BRIEF: Record<Angle, string> = {
 const STRUCTURE = `Structure (signal-extraction body, angle only at the close):
 - T1: hook (see HOOK) — frame the event through its single sharpest verifiable fact or tension. A specific question is allowed. No "in this thread". No angle adjectives.
 - T2: anchor signal — the single most verifiable fact about this event, drawn directly from the user description, search context, or market data.
-- T3 ... T(n-1): additional signals. Each tweet does ONE of:
-    (a) present a hard fact (named entity, number, date, contract, EIP, protocol)
-    (b) draw a single light implication from a signal already on the table ("3 client teams committed → adoption pressure on the rest")
-  No directional adjectives. Body must read as a neutral exposition of what is known, not a take.
+- T3 ... T(n-1): additional signals. Each tweet takes a hard fact (named entity, number, date, contract, EIP, protocol) AND says what it means: the consequence, the trade-off, or the tension with a signal already on the table. "3 client teams committed, which puts the remaining two on a schedule they did not pick."
+  A tweet that only restates a fact is not finished. Reciting the inputs back in sentences is the failure mode this body falls into, and it is the most common one.
+  No directional adjectives. Interpretation is NOT a side: say what a signal implies mechanically, never whether it is good or bad, and never where the price goes.
 - T(n): the only angle-specific tweet. Follow the closing rule for the chosen angle (see ANGLE).
 
 Constraints:
 - Only use facts that appear in the provided description, search context, or market context, or that are universally known. Never invent prices, dates, names, contracts, or numbers.
+- That constraint covers the interpretations too. Reason FROM the facts you were given; never reach for a new number, date or name to prop up a point. If what you have cannot support the implication, drop the implication — never the accuracy.
 - Stay on the single event the user named. Do not drift into adjacent stories.
 - Body tweets do not declare a side. Save the verdict / evidence-test for T(n).`;
 
