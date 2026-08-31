@@ -45,3 +45,30 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toMatch(/Output only the numbered tweets/);
   });
 });
+
+describe('SYSTEM_PROMPT — the hook must not manufacture facts', () => {
+  // Why this block exists: sampling mode 0 on 2026-08-31 found all four
+  // threads fabricating in tweet 1 specifically — an invented blob retention
+  // period, an invented proveFraud(), a USDC depeg dated to the wrong month.
+  // The cause was not a missing prohibition. HOOK demanded "a hard number"
+  // unconditionally, and VOICE demanded numbers, addresses and signatures, so
+  // when the grounding held none the only way to obey was to invent one.
+  // The prohibition in modeA.ts could not win against a standing requirement,
+  // so the requirement is what changed.
+  it('does not demand a number when the grounding has none', () => {
+    expect(SYSTEM_PROMPT).toMatch(/NEVER invent a number, date, address or name/);
+    expect(SYSTEM_PROMPT).toMatch(/open on the mechanism or the tension instead/);
+  });
+
+  it('says outright that a fact need not be a number', () => {
+    expect(SYSTEM_PROMPT).toMatch(/A fact is not the same as a number/);
+  });
+
+  // VOICE used to read "Show with numbers, addresses, function names, gas
+  // figures" full stop — a standing instruction to produce exactly the class
+  // that was being fabricated.
+  it('conditions the VOICE demand for specifics on actually having them', () => {
+    expect(SYSTEM_PROMPT).toMatch(/where you actually have them/);
+    expect(SYSTEM_PROMPT).not.toMatch(/Show with numbers, addresses, function names, gas figures\./);
+  });
+});

@@ -42,9 +42,9 @@ const AUDIENCE_GUIDANCE: Record<Audience, string> = {
   beginner:
     'Reader is new to Solidity. Define every jargon word the first time it appears. Prefer familiar web2 analogies. Choose the simplest valid version of the explanation; defer edge cases.',
   intermediate:
-    'Reader has shipped one dapp. Skip basic definitions. Compare against alternatives. Name specific EIPs/ERCs/contracts. One concept, examined closely.',
+    'Reader has shipped one dapp. Skip basic definitions. Compare against alternatives. Name specific EIPs and ERCs; name a contract or a function only when you are certain it exists under that name. One concept, examined closely.',
   advanced:
-    'Reader reads yellow papers. Include gas figures, storage layout, ABI specifics, and known footguns where they reinforce the concept, not as the focus. Stay on one idea.',
+    'Reader reads yellow papers. Go to the depth of storage layout, ABI shape and known footguns where they reinforce the concept, not as the focus. Reach for a gas figure, an address or a signature only where the references supply one — at this depth a wrong specific is more damaging than an absent one, because the reader will act on it. Stay on one idea.',
 };
 
 const STRUCTURE = `Structure (ONE concept, ONE thread — narrative, not bullet list):
