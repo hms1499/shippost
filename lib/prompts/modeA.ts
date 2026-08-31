@@ -7,8 +7,36 @@ interface ModeAInput {
   searchSummary?: string | null;
 }
 
+/**
+ * Anti-fabrication, and it goes in UNCONDITIONALLY.
+ *
+ * This used to live inside REFERENCE_GUIDANCE, which buildModeAPrompt only
+ * pushed when search had returned something — so the thinner the grounding, the
+ * fewer rules stood against inventing it. That inversion is how a sampled mode-0
+ * thread came back citing "the precompile at 0x4200...0010: function
+ * commitBlob(bytes calldata data)". EIP-4844 has no such function and 0x42.. is
+ * an OP-Stack predeploy range, but the references were SILENT rather than
+ * contradictory, so the old "trust the reference on a conflict" rule never fired.
+ *
+ * The split below is what lets this mode stay dense without lying: protocol
+ * semantics are exactly what an Educational thread is for and the model may
+ * write them from its own understanding (the EIP-712 few-shot is entirely made
+ * of them), while identifiers and volatile numbers — the classes that were
+ * actually wrong in sampling — have to be handed to it or dropped.
+ */
+function specificsRule(hasReferences: boolean): string {
+  const source = hasReferences
+    ? 'appear in the reference facts below'
+    : 'are canonical enough that you could not be wrong about them (no references were retrieved for this topic, so the bar is higher, not lower)';
+  return `Specifics — two classes, two different rules:
+- PROTOCOL SEMANTICS: what a mechanism does, why it is built that way, what it guarantees, how its pieces compose. Write these from your own understanding, with confidence. This is the substance of the thread.
+- IDENTIFIERS AND VOLATILE NUMBERS: contract and precompile addresses, function signatures and selectors, gas costs, prices, dollar amounts, dates, version numbers, throughput and revenue figures. Use one ONLY if it ${source}.
+- Not being contradicted is NOT permission. If a specific of that second class is absent, omit it and describe the mechanism without it. "Blob data is priced in its own fee market, separate from execution gas" is better than an invented gas figure, and costs the reader nothing.
+- Never write an address or a function signature you are not certain exists. That is the most damaging thing this thread can contain, because a developer will try to call it.`;
+}
+
 const REFERENCE_GUIDANCE = `Reference facts (fact-check only — NOT a content source):
-The lines below were retrieved by search for this topic. Use them for ONE thing: keeping concrete specifics accurate — EIP/ERC numbers, function signatures, gas figures, dates, proper names. Your explanation, structure, and narrative come entirely from your own understanding. Do NOT summarize these results, do NOT let them add or reorder sub-topics, do NOT copy their phrasing. If a specific in your draft conflicts with a reference, trust the reference or drop the specific. If the references are thin, off-topic, or marketing fluff, ignore them and write from your own knowledge.`;
+The lines below were retrieved by search for this topic. Use them for ONE thing: keeping concrete specifics accurate — EIP/ERC numbers, function signatures, gas figures, dates, proper names. Your explanation, structure, and narrative come entirely from your own understanding. Do NOT summarize these results, do NOT let them add or reorder sub-topics, do NOT copy their phrasing. If a specific in your draft conflicts with a reference, trust the reference or drop the specific. If the references are thin, off-topic, or marketing fluff, ignore them as a source of CONTENT — but they still cannot license a specific they do not contain.`;
 
 const AUDIENCE_GUIDANCE: Record<Audience, string> = {
   beginner:
@@ -52,6 +80,9 @@ export function buildModeAPrompt(input: ModeAInput): string {
     `Topic: ${input.topic.trim()}`,
     `Target audience: ${input.audience}. ${AUDIENCE_GUIDANCE[input.audience]}`,
   ];
+  // Unconditional, and before the references: the rule has to hold in the
+  // no-search case too, which is the case it used to be missing from entirely.
+  blocks.push(specificsRule(Boolean(input.searchSummary)));
   if (input.searchSummary) {
     blocks.push(REFERENCE_GUIDANCE);
     blocks.push(`Reference facts:\n${input.searchSummary}`);
