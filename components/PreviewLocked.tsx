@@ -86,11 +86,13 @@ export function PreviewLocked({
 
       {tokenSymbol && <PayContext symbol={tokenSymbol} onChange={onChangeChain} />}
 
-      {/* Placed at the moment of hesitation: the refund promise the backend
-          already keeps (ErrorSurface copy, refund queue) — the UI just says
-          it out loud where the user decides to pay. */}
+      {/* Placed at the moment of hesitation — which is exactly why it must not
+          overstate. This said "within 24h" until 2026-09-01: refunds are drained
+          by hand, and the on-chain refund() reverts while the contract reserve is
+          empty, so no turnaround was ever backed by anything. State the promise
+          that IS kept (a failed run is refundable) and how it arrives. */}
       <p className="text-center font-mono text-[11px] text-muted-foreground -mt-0.5">
-        if the run fails · full refund · within 24h
+        if the run fails · full refund · sent by hand
       </p>
 
       <p className="text-xs font-sans text-muted-foreground text-center leading-snug">

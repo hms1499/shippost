@@ -118,3 +118,27 @@ describe('refund-request — slow-cancel guard', () => {
     expect(upserts).toHaveLength(1);
   });
 });
+
+describe('refund-request — the queued message', () => {
+  it('makes no turnaround promise the payout path cannot keep', async () => {
+    // Refunds are sent by a human running `pnpm refund:process`, and the
+    // on-chain refund() reverts outright while the contract's reserve is empty
+    // (Celo reserve is 0; Base holds ~2 refunds' worth). A "within 24h" SLA is
+    // therefore a promise nothing in the system can honour.
+    const { client } = makeSupabase({
+      wallet_address: WALLET,
+      status: 'failed',
+      refund_tx_hash: null,
+    });
+    getSupabaseServer.mockReturnValue(client);
+
+    const res = await POST(
+      postReq({ chainId: 42220, onchainThreadId: '7', walletAddress: WALLET, kind: 'full' }),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.message).not.toMatch(/24\s*h|hour|within/i);
+    expect(body.message).toMatch(/by hand|manually/i);
+  });
+});

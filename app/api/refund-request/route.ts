@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { REFUND_QUEUED_MESSAGE } from '@/lib/refundCopy';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
@@ -108,6 +109,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     requestId: data.id,
     status: data.status,
-    message: 'Refund request received. Operator will process within 24h.',
+    message: REFUND_QUEUED_MESSAGE,
   });
 }

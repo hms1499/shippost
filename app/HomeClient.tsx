@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ScreenTransition } from '@/components/motion/ScreenTransition';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useIsMiniPay } from '@/lib/minipay';
+import { REFUND_MANUAL_NOTE } from '@/lib/refundCopy';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
 import { ColophonIndex } from '@/components/ColophonIndex';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -1165,7 +1166,7 @@ export default function HomeClient() {
               <p className="text-sm font-sans text-muted-foreground">{partialNotice}</p>
               {refundStatus === 'sent' ? (
                 <p className="text-xs font-sans text-muted-foreground">
-                  Refund requested. Operator will process within 24h.
+                  Refund requested. {REFUND_MANUAL_NOTE}
                 </p>
               ) : (
                 <Button

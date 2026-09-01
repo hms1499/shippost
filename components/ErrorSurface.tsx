@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useCopy } from '@/lib/useCopy';
+import { REFUND_MANUAL_NOTE } from '@/lib/refundCopy';
 
 export type ErrorKind =
   | 'approve-failed'
@@ -211,7 +212,7 @@ export function ErrorSurface({
         </Button>
       )}
       {isRefundKind && refundStatus === 'sent' && (
-        <p className="text-xs font-sans text-muted-foreground">Operator will process within 24h.</p>
+        <p className="text-xs font-sans text-muted-foreground">{REFUND_MANUAL_NOTE}</p>
       )}
       {isRefundKind && refundStatus === 'error' && refundError && (
         <p className="text-xs font-sans text-destructive">{refundError}</p>
