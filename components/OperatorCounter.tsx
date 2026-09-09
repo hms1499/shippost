@@ -67,7 +67,7 @@ export function OperatorCounter({
           ),
         )}
       </div>
-      <p className="heading-sub text-[10px] leading-tight text-center">{label}</p>
+      <p className="heading-sub text-xs leading-tight text-center">{label}</p>
     </div>
   );
 }

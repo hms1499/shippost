@@ -70,7 +70,7 @@ export function PublicStatsStrip() {
       <div className="grid grid-cols-3 gap-3 md:gap-6">
         <OperatorCounter label="threads" value={data ? count.format(data.threads) : '—'} />
         <OperatorCounter
-          label="settled on chain"
+          label="settled"
           value={data ? `$${data.volumeUsd}` : '—'}
           money
         />
@@ -78,7 +78,7 @@ export function PublicStatsStrip() {
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-mono text-[11px] text-muted-foreground">
+        <p className="font-mono text-xs text-muted-foreground">
           live · {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' + ')}
         </p>
         {/* The audit links are the point: anyone can check the numbers against
@@ -88,7 +88,7 @@ export function PublicStatsStrip() {
             address (Base reads its own from env) drop out. */}
         {auditable.length > 0 && (
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[11px] text-muted-foreground">audit</span>
+            <span className="font-mono text-xs text-muted-foreground">audit</span>
             {auditable.map((id) => (
               <AuditLink
                 key={id}
@@ -112,7 +112,7 @@ function AuditLink({ href, children }: { href: string; children: React.ReactNode
       rel="noopener noreferrer"
       // 41x18 before. The audit links are the whole trust argument of this
       // strip, so they must be reachable by thumb, not just by cursor.
-      className="inline-flex items-center gap-1 min-h-9 px-1 -mx-1 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
+      className="inline-flex min-h-11 items-center gap-1 px-1 -mx-1 rounded font-mono text-xs text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
     >
       {children}
       <ArrowUpRight size={11} aria-hidden />

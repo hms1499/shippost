@@ -30,7 +30,7 @@ function shorten(addr: string): string {
 /**
  * Custom RainbowKit chip + bottom-sheet menu. Account-only — site navigation
  * lives in the footer ColophonIndex, not here. Three visible states:
- *   1. Pre-connect (web)        — "Sign in" pill, opens RainbowKit modal.
+ *   1. Pre-connect (web)        — "Connect" pill, opens RainbowKit modal.
  *   2. Pre-connect (MiniPay)    — "Connecting…" spinner pill (auto-connect runs in HomeClient).
  *   3. Connected                — address chip; click opens a terminal-styled
  *                                 sheet where copy / history / disconnect are
@@ -135,7 +135,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
   const chainId = useChainId();
 
   // useIsMiniPay returns false on first render (before its effect runs). If we
-  // render "Sign in" immediately, MiniPay users see a flash of the web CTA
+  // render "Connect" immediately, MiniPay users see a flash of the web CTA
   // before the auto-connect kicks in. Hold the connect button until after one
   // commit so isMiniPay has had a chance to flip to true.
   const [confirmedNotMiniPay, setConfirmedNotMiniPay] = useState(false);
@@ -197,7 +197,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
           }
           if (!confirmedNotMiniPay) {
             // Detection still settling — show neutral spinner instead of
-            // flashing the web "Sign in" CTA on MiniPay devices.
+            // flashing the web "Connect" CTA on MiniPay devices.
             return <ChipShell loading>Loading…</ChipShell>;
           }
           return (
@@ -206,10 +206,10 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
               onClick={openConnectModal}
               // Quiet on purpose: the landing's one solid-green control is the
               // free-taste CTA. Two filled greens on a screen is no hierarchy.
-              className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border border-primary/40 text-primary heading-sub text-[10px] hover:bg-primary/10 active:bg-primary/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/40 text-primary heading-sub text-xs hover:bg-primary/10 active:bg-primary/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              <Wallet size={11} aria-hidden />
-              Sign in
+              <Wallet size={14} aria-hidden />
+              Connect
             </button>
           );
         }
@@ -220,7 +220,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
           // here it's a non-interactive indicator, not a (failing) switch button.
           if (isMiniPay) {
             return (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px]">
+              <span className="flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-xs">
                 Wrong network
               </span>
             );
@@ -229,7 +229,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
             <button
               type="button"
               onClick={() => selectChain(DEFAULT_CHAIN_ID)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-[10px] hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
+              className="flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-full border border-destructive bg-[hsl(var(--destructive)/0.1)] text-destructive heading-sub text-xs hover:bg-[hsl(var(--destructive)/0.2)] transition-colors"
             >
               Wrong network
             </button>
@@ -246,7 +246,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 className={
-                  'flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border bg-card transition-colors active:bg-primary/10 ' +
+                  'flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-full border bg-card transition-colors active:bg-primary/10 ' +
                   (isMiniPay
                     ? 'border-primary/50 hover:border-primary'
                     : 'border-border hover:border-primary/50')
@@ -256,17 +256,17 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                   className="block w-1.5 h-1.5 rounded-full bg-primary"
                   aria-hidden
                 />
-                <span className="heading-sub text-[10px] text-muted-foreground">
+                <span className="heading-sub text-xs text-muted-foreground">
                   {chainLabel(chainId).toUpperCase()}
                 </span>
-                <span className="font-mono text-[11px] text-foreground">
+                <span className="font-mono text-xs text-foreground">
                   {shorten(account.address)}
                 </span>
               </button>
               {connectorLabel && (
                 <span
                   className={
-                    'font-mono text-[11px] leading-none ' +
+                    'font-mono text-xs leading-none ' +
                     (isMiniPay
                       ? 'text-primary'
                       : 'text-muted-foreground')
@@ -429,10 +429,10 @@ function ChipShell({
   loading?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-full border border-border heading-sub text-[10px] text-muted-foreground">
+    <span className="flex min-h-11 items-center gap-1.5 px-3 py-1.5 rounded-full border border-border heading-sub text-xs text-muted-foreground">
       {loading && (
         <Loader2
-          size={11}
+          size={14}
           className="animate-spin text-muted-foreground"
           aria-hidden
         />

@@ -28,8 +28,8 @@ export function LandingHero() {
   const { openConnectModal } = useConnectModal();
 
   return (
-    <section className="relative w-full max-w-4xl flex flex-col items-center gap-8 md:gap-10 scanlines rounded-lg">
-      <div className="text-center flex flex-col items-center gap-3">
+    <section className="relative w-full max-w-4xl grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10 scanlines rounded-lg">
+      <div className="order-1 text-center flex flex-col items-center gap-3 md:col-span-2">
         <h2 className="font-mono font-bold text-[clamp(1.9rem,5.4vw,3.25rem)] leading-[0.98] tracking-[-0.03em]">
           One coin in. <span className="text-primary">One thread out.</span>
         </h2>
@@ -39,7 +39,7 @@ export function LandingHero() {
             disliked. The free opening tweet and the refund are both real, so
             the pitch is made out of those instead of a promise the flow breaks
             two taps later. */}
-        <p className="text-sm md:text-base text-muted-foreground max-w-xl font-sans leading-relaxed [text-wrap:balance]">
+        <p className="text-base text-muted-foreground max-w-xl font-sans leading-relaxed [text-wrap:balance]">
           Type a topic — say &quot;what are zk-rollups&quot;. Read the opening tweet free.
           Pay <span className="font-mono text-money">{THREAD_PRICE_LABEL}</span> and the agent
           buys its own research, call by call, then writes the rest. If the run fails, you get
@@ -47,24 +47,30 @@ export function LandingHero() {
         </p>
       </div>
 
-      <PublicStatsStrip />
-
-      <div className="w-full grid gap-8 md:grid-cols-2 md:items-stretch">
-        <div className="w-full flex flex-col gap-2">
-          <p className="heading-sub text-[10px]">Free play</p>
-          <GuestTaste onUnlock={openConnectModal} />
-        </div>
-
-        <aside className="w-full flex flex-col gap-2">
-          <p className="heading-sub text-[10px]">The machine, mid-run</p>
-          <AgentTraceReplay />
-          <p className="text-[11px] font-mono text-muted-foreground leading-snug">
-            One canned pass. No payment, no on-chain spend.
-          </p>
-        </aside>
+      {/* Mobile is action-first: the free taste comes before proof and demo so
+          the primary CTA stays inside a short phone's first viewport. Desktop
+          keeps proof directly under the pitch, then places play and demo side
+          by side. */}
+      <div className="order-3 w-full md:order-2 md:col-span-2">
+        <PublicStatsStrip />
       </div>
 
-      <SpecPlate />
+      <div className="order-2 w-full flex flex-col gap-2 md:order-3">
+        <p className="heading-sub text-xs">Free play</p>
+        <GuestTaste onUnlock={openConnectModal} />
+      </div>
+
+      <aside className="order-4 w-full flex flex-col gap-2 md:order-3">
+        <p className="heading-sub text-xs">The machine, mid-run</p>
+        <AgentTraceReplay />
+        <p className="text-xs font-mono text-muted-foreground leading-snug">
+          One canned pass. No payment, no on-chain spend.
+        </p>
+      </aside>
+
+      <div className="order-5 md:order-4 md:col-span-2">
+        <SpecPlate />
+      </div>
     </section>
   );
 }

@@ -18,7 +18,8 @@ import {
  * initial state — one source of truth, and no chance of rendering a control
  * that disagrees with the page behind it.
  *
- * 36x36, the repo's nib size (see CopyNib.tsx and a dozen siblings).
+ * The icon stays visually compact, but its 44x44 frame is comfortable to tap
+ * in the MiniPay webview and meets the app's minimum touch-target size.
  */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('terminal');
@@ -68,13 +69,13 @@ export function ThemeToggle() {
       aria-label="Paper theme"
       aria-pressed={theme === 'paper'}
       title={actionLabel}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-primary active:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-primary active:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {mounted ? (
         theme === 'paper' ? (
-          <Moon size={15} aria-hidden />
+          <Moon size={16} aria-hidden />
         ) : (
-          <Sun size={15} aria-hidden />
+          <Sun size={16} aria-hidden />
         )
       ) : null}
     </button>

@@ -1366,7 +1366,7 @@ export default function HomeClient() {
   return (
     <main
       id="main-content"
-      className="relative min-h-screen flex flex-col items-center gap-8 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+      className="relative min-h-dvh flex flex-col items-center gap-8 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
       style={
         keyboardInset > 0
           ? { paddingBottom: `calc(1.5rem + env(safe-area-inset-bottom) + ${keyboardInset}px)` }
@@ -1381,7 +1381,7 @@ export default function HomeClient() {
             </h1>
             {/* Tighter tracking below md: at 0.16em this line broke mid-word
                 ("AGENT-" / "RUN") in the 360px MiniPay frame. */}
-            <span className="heading-sub text-[9px] tracking-[0.1em] md:text-[10px] md:tracking-[0.16em] mt-2">
+            <span className="heading-sub text-[10px] tracking-[0.1em] md:text-[11px] md:tracking-[0.16em] mt-2">
               AI thread writer, agent-run
             </span>
           </div>

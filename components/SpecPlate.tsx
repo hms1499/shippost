@@ -16,7 +16,7 @@ export function SpecPlate() {
   return (
     <section aria-label="Specification" className="w-full flex flex-col gap-4">
       <RuleDivider />
-      <p className="heading-sub text-[10px]">Specification</p>
+      <p className="heading-sub text-xs">Specification</p>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-5 sm:gap-x-8 gap-y-3">
         <Row label="Takes">
@@ -59,7 +59,7 @@ export function SpecPlate() {
  * whole meaning, so `label` is required rather than optional.
  *
  * The padding is not decoration: the mark is 14px, and a 14px tap target fails
- * every pointer guideline going. Padding takes the hit area past 24px square
+ * every pointer guideline going. The 44px frame keeps it comfortable to tap
  * without making the mark itself louder.
  */
 function IconLink({
@@ -77,7 +77,7 @@ function IconLink({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="inline-flex items-center justify-center h-9 w-9 rounded text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="inline-flex h-11 w-11 items-center justify-center rounded text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       {children}
     </a>
@@ -105,7 +105,7 @@ function XMark() {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <>
-      <dt className="heading-sub text-[10px] pt-[3px]">{label}</dt>
+      <dt className="heading-sub text-xs pt-[3px]">{label}</dt>
       <dd className="min-w-0">{children}</dd>
     </>
   );

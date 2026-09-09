@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { fetchGuestPreview } from '@/lib/previewClient';
 import { saveGuestTopic, takeGuestTopic } from '@/lib/guestSession';
@@ -43,7 +44,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
     const locked = Math.max(result.totalTweets - 1, 0);
     return (
       <div className="w-full flex flex-col gap-3" role="status" aria-live="polite">
-        <p className="heading-sub text-[10px]">First tweet, free</p>
+        <p className="heading-sub text-xs">First tweet, free</p>
         <Card className="p-4">
           <p className="whitespace-pre-wrap font-sans text-sm">{result.firstTweet}</p>
         </Card>
@@ -73,7 +74,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
             setResult(null);
             setTopic('');
           }}
-          className="self-center inline-flex items-center justify-center min-h-9 px-2 font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+          className="self-center inline-flex min-h-11 items-center justify-center px-2 font-mono text-xs text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
         >
           try another topic
         </button>
@@ -83,13 +84,16 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full h-full flex flex-col gap-2">
+      <Label htmlFor="guest-topic" className="heading-sub text-xs">
+        Topic
+      </Label>
       <Input
+        id="guest-topic"
         value={topic}
         onChange={(e) => setTopic(e.target.value)}
-        placeholder="Type a topic — e.g. what are zk-rollups"
+        placeholder="e.g. what are zk-rollups"
         maxLength={100}
         disabled={loading}
-        aria-label="Topic for a free sample thread"
       />
       <Button type="submit" disabled={loading || !topic.trim()} aria-busy={loading} className="w-full group">
         {loading ? (
@@ -108,7 +112,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
           </>
         )}
       </Button>
-      <p className="font-mono text-[11px] text-muted-foreground leading-snug">
+      <p className="font-mono text-xs text-muted-foreground leading-snug">
         Educational mode · a few a day · no wallet
       </p>
       {failKind === 'limited' && (
@@ -145,7 +149,7 @@ export function GuestTaste({ onUnlock }: { onUnlock?: () => void }) {
         disabled={!onUnlock}
         // Pinned to the bottom of the column so it lands on the demo caption's
         // line opposite; one alignment down the whole column.
-        className="self-start inline-flex items-center mt-auto pt-4 min-h-9 px-1 -mx-1 font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+        className="self-start inline-flex min-h-11 items-center mt-auto px-1 -mx-1 font-mono text-xs text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
       >
         or connect to pick a mode
       </button>
