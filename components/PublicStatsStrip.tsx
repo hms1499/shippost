@@ -7,7 +7,6 @@ import { explorerBase } from '@/lib/chains';
 import { CONTRACTS } from '@/lib/contracts';
 import { sumChainStats, type ChainStats } from '@/lib/publicStats';
 import { OperatorCounter } from '@/components/OperatorCounter';
-import { CONTENT_RAIL_CLASS } from '@/lib/layout';
 
 // One request per chain, folded into a single total. A chain that fails
 // resolves to null and simply drops out of the sum.
@@ -66,42 +65,40 @@ export function PublicStatsStrip() {
   return (
     <section
       aria-label="Live public stats"
-      className="w-full border-y border-border py-4 md:py-5"
+      className="w-full flex flex-col gap-3 border-y border-border py-4 md:py-5"
     >
-      <div className={`${CONTENT_RAIL_CLASS} flex flex-col gap-3`}>
-        <div className="grid grid-cols-3 gap-3 md:gap-6">
-          <OperatorCounter label="threads" value={data ? count.format(data.threads) : '—'} />
-          <OperatorCounter
-            label="settled"
-            value={data ? `$${data.volumeUsd}` : '—'}
-            money
-          />
-          <OperatorCounter label="x402 calls" value={data ? count.format(data.x402Count) : '—'} />
-        </div>
+      <div className="grid grid-cols-3 gap-3 md:gap-6">
+        <OperatorCounter label="threads" value={data ? count.format(data.threads) : '—'} />
+        <OperatorCounter
+          label="settled"
+          value={data ? `$${data.volumeUsd}` : '—'}
+          money
+        />
+        <OperatorCounter label="x402 calls" value={data ? count.format(data.x402Count) : '—'} />
+      </div>
 
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="font-mono text-xs text-muted-foreground">
-            live · {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' + ')}
-          </p>
-          {/* The audit links are the point: anyone can check the numbers against
-              the chain rather than take them from us. One per chain, pointing at
-              the payment contract — every thread's payment and every split out to
-              the agent wallet passes through it. Chains with no configured
-              address (Base reads its own from env) drop out. */}
-          {auditable.length > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs text-muted-foreground">audit</span>
-              {auditable.map((id) => (
-                <AuditLink
-                  key={id}
-                  href={`${explorerBase(id)}/address/${CONTRACTS[id].ShipPostPayment}`}
-                >
-                  {chainLabel(id)}
-                </AuditLink>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="font-mono text-xs text-muted-foreground">
+          live · {SUPPORTED_CHAIN_IDS.map(chainLabel).join(' + ')}
+        </p>
+        {/* The audit links are the point: anyone can check the numbers against
+            the chain rather than take them from us. One per chain, pointing at
+            the payment contract — every thread's payment and every split out to
+            the agent wallet passes through it. Chains with no configured
+            address (Base reads its own from env) drop out. */}
+        {auditable.length > 0 && (
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-muted-foreground">audit</span>
+            {auditable.map((id) => (
+              <AuditLink
+                key={id}
+                href={`${explorerBase(id)}/address/${CONTRACTS[id].ShipPostPayment}`}
+              >
+                {chainLabel(id)}
+              </AuditLink>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
