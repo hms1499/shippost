@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">CoinOp app icon</title>
+  <desc id="description">An amber coin with a terminal prompt feeding three green thread lines.</desc>
+
+  <!-- Transparent corners preserve the rounded silhouette outside OS icon masks. -->
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="#0A0D0A"/>
+  <!-- The generous inset keeps the mark intact under Android and iOS masks. -->
+  <rect x="44" y="44" width="936" height="936" rx="212" fill="none" stroke="#22331F" stroke-width="24"/>
+
+  <!-- Thread output. Unequal line lengths make it read as authored copy, not a menu. -->
+  <g fill="none" stroke="#59F87D" stroke-width="64" stroke-linecap="round">
+    <path d="M474 346h250"/>
+    <path d="M474 512h344"/>
+    <path d="M474 678h286"/>
+  </g>
+
+  <!-- Coin input. The two rings retain a crisp silhouette down to favicon size. -->
+  <circle cx="366" cy="512" r="232" fill="#FFC247" stroke="#0A0D0A" stroke-width="28"/>
+  <circle cx="366" cy="512" r="176" fill="none" stroke="#B96D00" stroke-width="20" opacity="0.55"/>
+
+  <!-- Terminal prompt: a compact symbol for the agent turning payment into output. -->
+  <path d="m320 418 104 94-104 94" fill="none" stroke="#0A0D0A" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
