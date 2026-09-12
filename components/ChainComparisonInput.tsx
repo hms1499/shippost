@@ -72,7 +72,7 @@ export function ChainComparisonInput({ onSubmit, onBack, disabled, submitting }:
     : '';
 
   const selectClass =
-    'flex-1 rounded-md border border-input bg-card px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
+    'min-h-11 flex-1 rounded-md border border-input bg-card px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
 
   return (
     <section className="w-full max-w-md flex flex-col gap-4">
@@ -81,7 +81,7 @@ export function ChainComparisonInput({ onSubmit, onBack, disabled, submitting }:
           type="button"
           onClick={onBack}
           disabled={disabled || submitting}
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="self-start flex min-h-11 items-center gap-1.5 px-1 -mx-1 rounded heading-sub text-[10px] no-underline hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
           Modes

@@ -101,7 +101,7 @@ export function NewsBreakdownInput({ onSubmit, onBack, disabled, submitting }: P
           type="button"
           onClick={onBack}
           disabled={disabled || submitting}
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="self-start flex min-h-11 items-center gap-1.5 px-1 -mx-1 rounded heading-sub text-[10px] no-underline hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
           Modes

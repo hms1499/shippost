@@ -39,7 +39,7 @@ export default function Error({
           <Button onClick={reset}>Reload the screen</Button>
           <a
             href="/"
-            className="font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+            className="inline-flex min-h-11 items-center px-1 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
           >
             back to the composer
           </a>

@@ -58,7 +58,7 @@ export function ShareToX({ tweets }: Props) {
         Post first tweet in X →
       </Button>
 
-      <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
+      <label className="flex min-h-11 items-center gap-2 rounded text-xs text-muted-foreground select-none">
         <input
           type="checkbox"
           checked={credit}
@@ -87,7 +87,7 @@ export function ShareToX({ tweets }: Props) {
 
       {rest.length > 0 && (
         <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Preview follow-ups ({rest.length})
           </summary>
           <ol className="mt-2 flex flex-col gap-2 pl-4 list-decimal">

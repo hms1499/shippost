@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Check,
   History,
@@ -56,7 +56,9 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
   );
   const [copied, setCopied] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const reduced = useReducedMotion();
 
   useBodyScrollLock(open);
 
@@ -72,7 +74,31 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      const focusable = Array.from(
+        sheet.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((node) => node.getAttribute('aria-hidden') !== 'true');
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !sheet.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !sheet.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -282,10 +308,10 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                 <>
                   <motion.div
                     key="bd"
-                    initial={{ opacity: 0 }}
+                    initial={reduced ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ duration: reduced ? 0 : 0.2 }}
                     onClick={() => setOpen(false)}
                     className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
                     aria-hidden
@@ -293,13 +319,18 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
 
                   <motion.div
                     key="sh"
+                    ref={sheetRef}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="wallet-menu-title"
-                    initial={{ y: '100%' }}
+                    initial={reduced ? false : { y: '100%' }}
                     animate={{ y: 0 }}
-                    exit={{ y: '100%' }}
-                    transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+                    exit={reduced ? { opacity: 0 } : { y: '100%' }}
+                    transition={
+                      reduced
+                        ? { duration: 0 }
+                        : { type: 'spring', damping: 28, stiffness: 240 }
+                    }
                     className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-[0_-12px_40px_-8px_hsl(var(--background)/0.7)]"
                   >
                     <div className="w-full max-w-md mx-auto px-6 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] flex flex-col gap-4">
@@ -320,7 +351,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                           type="button"
                           onClick={() => setOpen(false)}
                           aria-label="Close menu"
-                          className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors"
+                          className="flex min-h-11 items-center gap-1 px-2 -mx-2 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive active:bg-destructive/10 transition-colors"
                         >
                           <XIcon size={11} aria-hidden />
                           close
@@ -342,7 +373,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                             type="button"
                             onClick={() => copyAddress(account.address)}
                             className={
-                              'flex items-center gap-1 font-mono text-[11px] no-underline transition-colors shrink-0 ' +
+                              'flex min-h-11 items-center gap-1 px-2 -mx-2 rounded font-mono text-[11px] no-underline transition-colors shrink-0 active:bg-primary/10 ' +
                               (copied
                                 ? 'text-primary'
                                 : 'text-muted-foreground hover:text-primary')
@@ -365,7 +396,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                       <Link
                         href="/history"
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors self-start"
+                        className="flex min-h-11 items-center gap-1.5 px-2 -mx-2 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors self-start"
                       >
                         <History size={11} aria-hidden />
                         My History
@@ -403,7 +434,7 @@ export function WalletMenu({ open: openProp, onOpenChange }: WalletMenuProps = {
                             setOpen(false);
                             disconnect();
                           }}
-                          className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive transition-colors self-start"
+                          className="flex min-h-11 items-center gap-1.5 px-2 -mx-2 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-destructive active:bg-destructive/10 transition-colors self-start"
                         >
                           <LogOut size={11} aria-hidden />
                           Disconnect

@@ -84,7 +84,7 @@ export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Pro
           type="button"
           onClick={onBack}
           disabled={disabled || submitting}
-          className="self-start flex items-center gap-1.5 heading-sub text-[10px] no-underline hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="self-start flex min-h-11 items-center gap-1.5 px-1 -mx-1 rounded heading-sub text-[10px] no-underline hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft size={12} aria-hidden />
           Modes
@@ -126,8 +126,8 @@ export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Pro
 
           {/* Audience */}
           <div className="flex flex-col gap-2">
-            <p className="heading-sub text-[10px]">Audience</p>
-            <div className="flex gap-2 flex-wrap">
+            <p id="audience-label" className="heading-sub text-[10px]">Audience</p>
+            <div role="group" aria-labelledby="audience-label" className="flex gap-2 flex-wrap">
               {AUDIENCE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -135,7 +135,7 @@ export function EducationalInput({ onSubmit, onBack, disabled, submitting }: Pro
                   disabled={disabled}
                   aria-pressed={audience === opt.value}
                   onClick={() => setAudience(opt.value)}
-                  className={`inline-flex items-center min-h-9 px-3 py-1 rounded-full text-xs border transition-colors active:bg-primary/15 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`inline-flex items-center min-h-11 px-3 py-1 rounded-full text-xs border transition-colors active:bg-primary/15 disabled:opacity-50 disabled:cursor-not-allowed md:min-h-9 ${
                     audience === opt.value
                       ? 'border-primary text-primary bg-primary/10'
                       : 'border-border text-muted-foreground hover:border-primary/50'

@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { formatUnits } from 'viem';
 import {
   Select,
@@ -18,11 +19,16 @@ interface Props {
 }
 
 export function TokenSelector({ balances, selected, onSelect }: Props) {
+  const triggerId = useId();
+  const labelId = `${triggerId}-label`;
+
   if (balances.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-1">
-      <Label className="text-xs text-muted-foreground">Pay with</Label>
+      <Label id={labelId} htmlFor={triggerId} className="text-xs text-muted-foreground">
+        Pay with
+      </Label>
       <Select
         value={selected?.symbol ?? ''}
         onValueChange={(sym) => {
@@ -30,7 +36,7 @@ export function TokenSelector({ balances, selected, onSelect }: Props) {
           if (t) onSelect(t);
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger id={triggerId} aria-labelledby={labelId}>
           <SelectValue placeholder="Select token" />
         </SelectTrigger>
         <SelectContent>

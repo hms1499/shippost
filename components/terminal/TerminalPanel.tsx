@@ -22,7 +22,7 @@ export function TerminalPanel({
       {title && (
         <div className="flex items-center gap-2 mb-3">
           <span className="h-px w-4 bg-border" aria-hidden />
-          <span className="heading-sub text-[10px]">{title}</span>
+          <h2 className="heading-sub text-[10px]">{title}</h2>
           <span className="h-px flex-1 bg-border" aria-hidden />
         </div>
       )}

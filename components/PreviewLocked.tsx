@@ -103,7 +103,7 @@ export function PreviewLocked({
         type="button"
         onClick={onRegenerate}
         disabled={regenerating}
-        className="self-center inline-flex items-center justify-center gap-1.5 min-h-9 px-2 rounded font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50"
+        className="self-center inline-flex items-center justify-center gap-1.5 min-h-11 px-2 rounded font-mono text-[11px] text-muted-foreground hover:text-primary active:bg-primary/10 transition-colors disabled:opacity-50 md:min-h-9"
       >
         <RefreshCw size={11} className={regenerating ? 'animate-spin' : ''} aria-hidden />
         {regenerating ? 'Regenerating…' : 'Regenerate sample'}

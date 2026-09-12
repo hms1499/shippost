@@ -13,7 +13,7 @@ export default function NotFound() {
         </p>
         <Link
           href="/"
-          className="self-start font-mono text-[11px] text-muted-foreground no-underline hover:text-primary transition-colors"
+          className="self-start inline-flex min-h-11 items-center px-1 -mx-1 rounded font-mono text-[11px] text-muted-foreground no-underline hover:text-primary active:bg-primary/10 transition-colors"
         >
           back to the composer
         </Link>
