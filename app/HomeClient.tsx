@@ -70,6 +70,7 @@ import { type Screen, isInputScreen, isOutputScreen } from '@/lib/screens';
 import { CHAINS } from '@/lib/prompts/comparison';
 import { useIsDesktop } from '@/lib/useIsDesktop';
 import { useKeyboardInset } from '@/lib/useKeyboardInset';
+import { CONTENT_RAIL_CLASS, PAGE_SHELL_CLASS } from '@/lib/layout';
 import { ComposeSummary } from '@/components/ComposeSummary';
 
 const EducationalInput = dynamic(
@@ -1373,8 +1374,8 @@ export default function HomeClient() {
           : undefined
       }
     >
-      <header className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col gap-3`}>
-        <div className="flex items-start justify-between gap-3">
+      <header className={`${PAGE_SHELL_CLASS} flex flex-col gap-3`}>
+        <div className={`${CONTENT_RAIL_CLASS} flex items-start justify-between gap-3`}>
           <div className="flex flex-col leading-none">
             <h1 className="font-mono font-bold tracking-tight text-[clamp(2.25rem,10.5vw,3.4rem)] text-foreground leading-[0.9]">
               CoinOp
@@ -1493,11 +1494,11 @@ export default function HomeClient() {
             </p>
           )}
           {spread ? (
-            <div className="w-full max-w-4xl grid grid-cols-2 gap-8">
-              <div className="w-full flex flex-col items-center gap-6">
+            <div className={`${PAGE_SHELL_CLASS} grid grid-cols-12 gap-8`}>
+              <div className="col-span-7 w-full flex flex-col items-center gap-6">
                 {isInputScreen(screen) ? formNode : composeSummary}
               </div>
-              <div className="w-full flex flex-col items-center gap-6">
+              <div className="col-span-5 w-full flex flex-col items-center gap-6">
                 {isOutputScreen(screen) && (
                   <div className="w-full flex flex-col items-center gap-4">
                     {resultNode}
@@ -1522,7 +1523,7 @@ export default function HomeClient() {
       {/* The divider belongs to the index, not the footer: with no wallet
           connected the index is empty, and a rule on its own under the
           landing's own closing plate was just a stray line. */}
-      <footer className={`w-full ${spread ? 'max-w-4xl' : 'max-w-md'} flex flex-col items-center gap-4 mt-4`}>
+      <footer className={`${PAGE_SHELL_CLASS} flex flex-col items-center gap-4 mt-4`}>
         <ColophonIndex />
       </footer>
     </main>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { History } from 'lucide-react';
 import { RuleDivider } from '@/components/terminal/RuleDivider';
+import { CONTENT_RAIL_CLASS } from '@/lib/layout';
 
 interface IndexEntry {
   numeral: string;
@@ -40,38 +41,40 @@ export function ColophonIndex() {
   return (
     <nav aria-label="Index" className="w-full flex flex-col gap-4">
       <RuleDivider />
-      <p className="heading-sub text-[10px] self-center">Index</p>
-      <ul className="flex flex-col gap-1.5">
-        {entries.map((item) => {
-          const { Icon } = item;
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className="group no-underline flex items-stretch gap-4 p-2.5 rounded-md border border-transparent hover:border-border hover:bg-accent/25 transition-colors"
-              >
-                <div className="w-9 shrink-0 flex items-center justify-center font-mono font-bold text-[2rem] leading-none text-muted-foreground group-hover:text-primary transition-colors">
-                  {item.numeral}
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      size={13}
-                      className="text-muted-foreground group-hover:text-primary transition-colors"
-                    />
-                    <p className="font-mono font-bold text-base leading-tight">
-                      {item.label}
+      <div className={`${CONTENT_RAIL_CLASS} flex flex-col gap-4`}>
+        <p className="heading-sub text-[10px] self-center">Index</p>
+        <ul className="flex flex-col gap-1.5">
+          {entries.map((item) => {
+            const { Icon } = item;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className="group no-underline flex items-stretch gap-4 p-2.5 rounded-md border border-transparent hover:border-border hover:bg-accent/25 transition-colors"
+                >
+                  <div className="w-9 shrink-0 flex items-center justify-center font-mono font-bold text-[2rem] leading-none text-muted-foreground group-hover:text-primary transition-colors">
+                    {item.numeral}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <Icon
+                        size={13}
+                        className="text-muted-foreground group-hover:text-primary transition-colors"
+                      />
+                      <p className="font-mono font-bold text-base leading-tight">
+                        {item.label}
+                      </p>
+                    </div>
+                    <p className="text-xs font-sans text-muted-foreground leading-snug">
+                      {item.description}
                     </p>
                   </div>
-                  <p className="text-xs font-sans text-muted-foreground leading-snug">
-                    {item.description}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </nav>
   );
 }

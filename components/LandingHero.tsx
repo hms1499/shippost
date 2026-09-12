@@ -6,6 +6,7 @@ import { GuestTaste } from '@/components/GuestTaste';
 import { PublicStatsStrip } from '@/components/PublicStatsStrip';
 import { SpecPlate } from '@/components/SpecPlate';
 import { THREAD_PRICE_LABEL } from '@/lib/tokens';
+import { PAGE_SHELL_CLASS } from '@/lib/layout';
 
 /**
  * Pre-connect landing — the machine in attract mode.
@@ -28,8 +29,10 @@ export function LandingHero() {
   const { openConnectModal } = useConnectModal();
 
   return (
-    <section className="relative w-full max-w-4xl grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10 scanlines rounded-lg">
-      <div className="order-1 text-center flex flex-col items-center gap-3 md:col-span-2">
+    <section
+      className={`${PAGE_SHELL_CLASS} relative grid grid-cols-12 gap-x-6 gap-y-8 lg:gap-x-8 lg:gap-y-10 scanlines rounded-lg`}
+    >
+      <div className="order-1 col-span-12 text-center flex flex-col items-center gap-3 lg:col-start-2 lg:col-span-10">
         <h2 className="font-mono font-bold text-[clamp(1.9rem,5.4vw,3.25rem)] leading-[0.98] tracking-[-0.03em]">
           One coin in. <span className="text-primary">One thread out.</span>
         </h2>
@@ -51,16 +54,16 @@ export function LandingHero() {
           the primary CTA stays inside a short phone's first viewport. Desktop
           keeps proof directly under the pitch, then places play and demo side
           by side. */}
-      <div className="order-3 w-full md:order-2 md:col-span-2">
+      <div className="order-3 col-span-12 w-full lg:order-2">
         <PublicStatsStrip />
       </div>
 
-      <div className="order-2 w-full flex flex-col gap-2 md:order-3">
+      <div className="order-2 col-span-12 w-full flex flex-col gap-2 lg:order-3 lg:col-span-7">
         <p className="heading-sub text-xs">Free play</p>
         <GuestTaste onUnlock={openConnectModal} />
       </div>
 
-      <aside className="order-4 w-full flex flex-col gap-2 md:order-3">
+      <aside className="order-4 col-span-12 w-full flex flex-col gap-2 lg:order-3 lg:col-span-5">
         <p className="heading-sub text-xs">The machine, mid-run</p>
         <AgentTraceReplay />
         <p className="text-xs font-mono text-muted-foreground leading-snug">
@@ -68,7 +71,7 @@ export function LandingHero() {
         </p>
       </aside>
 
-      <div className="order-5 md:order-4 md:col-span-2">
+      <div className="order-5 col-span-12 lg:order-4">
         <SpecPlate />
       </div>
     </section>
